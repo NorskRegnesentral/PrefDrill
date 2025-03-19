@@ -4,4 +4,5 @@ savedOutput/*
 .Rhistory
 .RData
 .Ruserdata
-
+.RProj
+.Rbuildingore
