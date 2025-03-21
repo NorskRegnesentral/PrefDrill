@@ -160,25 +160,27 @@ fitSPDEsimDat = function(wellDat, seismicDat,
   # set defaults
   # family = match.arg(family)
   
-  # construct prediction covariates
-  xPred = cbind(1, seismicDat$seismicEst)
+  # construct prediction points and covariates
+  predPts = matrix(unlist(seismicDat[,1:2]), ncol=2)
+  xPred = cbind(1, transform(seismicDat$seismicEst))
   
   # interpolate seismic data to the well points
-  wellSeismicEsts = bilinearInterp(bilinearInterp[,1:2], seismicDat)
+  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat)
   
   # construct well data covariates
-  xObs = cbind(1, wellSeismicEsts)
+  xObs = cbind(1, transform(wellSeismicEsts))
   
   # set observations
   obsValues = wellDat$volFrac
   obsCoords = cbind(wellDat$east, wellDat$north)
   
-  fitSPDE(obsCoords, obsValues, xObs, 
-          predPts, xPred, 
-          mesh, prior, 
-          significanceCI, int.strategy, strategy, 
-          nPostSamples, verbose, link, seed, 
-          family, doModAssess, previousFit, 
+  fitSPDE(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, 
+          predCoords=predPts, xPred=xPred, 
+          transform=transform, invTransform=invTransform, 
+          mesh=mesh, prior=prior, 
+          significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
+          nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
+          family=family, doModAssess=doModAssess, previousFit=previousFit, 
           improperCovariatePrior=improperCovariatePrior, 
           fixedParameters=fixedParameters, experimentalMode=experimentalMode)
 }
@@ -192,7 +194,8 @@ fitSPDEsimDat = function(wellDat, seismicDat,
 # predCoords: data.frame with easting and northing columns for prediction grid
 # xPred: matrix with intercept and covariate information for prediction grid
 # transform: how to transform obsValues prior to modeling
-# invTransform: inverse of transform. Used to backtransform predictions prior to aggregation
+# invTransform: inverse of transform. Used to backtransform predictions prior to 
+#               aggregation over domain
 # mesh: SPDE mesh
 # prior: SPDE prior
 # significanceCI: the credible level of the CIs (e.g., .8 means 80% CI)
@@ -377,8 +380,8 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   
   
   if(family == "normal") {
-    browser() # get rid of hard coded [1]:
-    nuggetVars = sapply(postSamples, function(x) {1 / x$hyperpar[1]})
+    hyperparNames = names(postSamples[[1]]$hyperpar)
+    nuggetVars = sapply(postSamples, function(x) {1 / x$hyperpar[which(hyperparNames == "Precision for the Gaussian observations")]})
   }
   
   latentVarNames = rownames(postSamples[[1]]$latent)
@@ -457,7 +460,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   
   # get aggregate summary statistics over prediction domain
   predAggEst = mean(predMat)
-  predAggSDs = apply(colMeans(predMat), 1, sd)
+  predAggSDs = sd(colMeans(predMat))
   predAggLower = quantile(colMeans(predMat), probs=(1-significanceCI)/2)
   predAggMedian = quantile(colMeans(predMat), probs=.5)
   predAggUpper = quantile(colMeans(predMat), probs=1-(1-significanceCI)/2)
@@ -470,15 +473,18 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
     interceptSummary = matrix(rep(0, 5), nrow=1)
     fixedEffectSummary = mod$summary.fixed
   }
-  rangeSummary=mod$summary.hyperpar[2,1:5]
-  spatialSDSummary = mod$summary.hyperpar[3,1:5]
+  hyperNames = row.names(mod$summary.hyperpar)
+  
+  rangeSummary=mod$summary.hyperpar[which(hyperNames == "Range for field"),1:5]
+  spatialSDSummary = mod$summary.hyperpar[which(hyperNames == "Stdev for field"),1:5]
   
   # get posterior hyperparameter samples and transform them as necessary
   hyperMat = sapply(postSamples, function(x) {x$hyperpar})
+  hyperNames = row.names(hyperMat)
   if(family == "normal") {
-    clusterVarI = 1
-    spatialRangeI = 2
-    spatialSDI = 3
+    clusterVarI = which(hyperNames == "Precision for the Gaussian observations")
+    spatialRangeI = which(hyperNames == "Range for field" )
+    spatialSDI = which(hyperNames == "Stdev for field")
     if(!is.matrix(hyperMat)) {
       mat = NULL
     } else {
@@ -509,9 +515,10 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
     
     # separate out default parameter summaries
     if(family == "normal") {
-      sdSummary=parameterSummaryTable[6,]
-      varSummary=parameterSummaryTable[3,]
-      rangeSummary=parameterSummaryTable[7,]
+      summaryHyperNames = row.names(parameterSummaryTable)
+      sdSummary=parameterSummaryTable[summaryHyperNames == "errorSD",]
+      varSummary=parameterSummaryTable[summaryHyperNames == "errorVar",]
+      rangeSummary=parameterSummaryTable[summaryHyperNames == "spatialRange",]
     } else {
       stop("family not supported")
     }

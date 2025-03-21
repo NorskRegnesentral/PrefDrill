@@ -38,7 +38,7 @@ globalDir <<- "~/git/PrefDrill/savedOutput/global/" # stores datasets used globa
 scriptDir <<- "~/git/PrefDrill/scripts/"
 
 # globals folder
-out = load(paste0(globalDir, "testDat.RData"))
+out = load(paste0(globalDir, "testDat.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
 
 # other variables
 simStudyXlims <<- c(0, 10000) # TODO: CHECK THIS
