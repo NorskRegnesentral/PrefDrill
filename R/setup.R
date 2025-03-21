@@ -37,6 +37,9 @@ outputDir <<- "~/git/PrefDrill/savedOutput/" # for storing output from the R cod
 globalDir <<- "~/git/PrefDrill/savedOutput/global/" # stores datasets used globally
 scriptDir <<- "~/git/PrefDrill/scripts"
 
+# globals folder
+out = load(paste0(globalDir, "/testDat.RData"))
+
 # other variables
 simStudyXlims <<- c(0, 10000) # TODO: CHECK THIS
 simStudyYlims <<- c(0, 10000) # TODO: CHECK THIS

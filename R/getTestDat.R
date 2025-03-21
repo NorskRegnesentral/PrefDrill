@@ -2,12 +2,13 @@
 
 
 # NOTE: this is not supposed to look like the simulation study data...
-getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims, sigmaSqTruth=1, 
-                      corrSeismic=.6, sigmaSqErr=.1, aRange=diff(xlim)/4, 
-                      seismicPrefPar=.5, 
-                      grid=make.surface.grid(list(east=seq(xlim[1], xlim[2], l=100), 
-                                                  north=seq(ylim[1], ylim[2], l=100))), 
-                      seed=123) {
+getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims, 
+                      muSpat=0, sigmaSqSpat=1, corrSeismic=.6, sigmaSqErr=.1, 
+                      aRange=diff(xlim)/4, seismicPrefPar=.5, 
+                      grid=make.surface.grid(list(east=seq(xlim[1], xlim[2], l=50), 
+                                                  north=seq(ylim[1], ylim[2], l=50))), 
+                      seed=123, 
+                      saveDat=TRUE) {
   require(fields)
   set.seed(seed)
   
@@ -18,6 +19,10 @@ getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims, sigmaSqTruth
   indepPt = L %*% rnorm(nrow(L))
   seismicEst = corrSeismic^2 * truth + sqrt(1-corrSeismic^2) * indepPt
   
+  # add in mean
+  truth = truth + muSpat
+  seismicEst = seismicEst + muSpat
+  
   # sample well point locations at grid centroids based on seismic estimates
   lambdas = exp(seismicPrefPar * seismicEst)
   sampleProbs = lambdas * (1/sum(lambdas))
@@ -26,17 +31,24 @@ getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims, sigmaSqTruth
   # now sample well point locations uniformly within the cells
   gridWidth = diff(sort(grid[1,])[1:2])
   pts = grid[sampleI,] + matrix(runif(2*n)*gridWidth - gridWidth/2, ncol=2)
-  wellSeismicEst = bilinearInterp(pts, cbind(grid, seismicEst))
+  
+  # bilinearly interpolate the truth at the well points and add nugget effect
+  wellVolFrac = bilinearInterp(pts, cbind(grid, truth)) + rnorm(n, sd=sqrt(sigmaSqErr))
   
   # transform the truth and seismic data to correspond to fractions
   truthTrans = expit(truth)
   seismicEstTrans = expit(seismicEst)
-  wellSeismicEstTrans = expit(wellSeismicEst)
+  wellVolFracTrans = expit(wellVolFrac)
   
   # construct final datasets and truth
-  truthDat = cbind(grid, truth=truthTrans)
-  seismicDat = cbind(grid, seismicEst=seismicEstTrans)
-  wellDat = data.frame(east=pts[,1], north=pts[,2], volFrac=wellSeismicEstTrans)
+  truthTestDat = data.frame(east=grid[,1], north=grid[,2], truth=truthTrans)
+  seismicTestDat = data.frame(east=grid[,1], north=grid[,2], seismicEst=seismicEstTrans)
+  wellTestDat = data.frame(east=pts[,1], north=pts[,2], volFrac=wellVolFracTrans)
+  
+  browser() # run checks to see if it looks reasonable
+  if(saveDat) {
+    save(truthTestDat, seismicTestDat, wellTestDat, file=paste0(globalDir, "/testDat.RData"))
+  }
   
   list(wellDat=wellDat, seismicDat=seismicDat, truthDat=truthDat)
 }

@@ -25,15 +25,16 @@ bilinearInterp = function(pts, gridDat) {
   
   # use bilinear interpolation to get seismic estimate at that point
   # First must convert to akima format into matrix grid form for z
+  eastGrid = sort(unique(gridDat[,2]))
   northGrid = eastGrid
-  sortI1 = sort(gridDat$east)
+  sortI1 = order(gridDat[,1]) # east
   gridDat = gridDat[sortI1,]
-  sortI2 = sort(gridDat$north)
+  sortI2 = order(gridDat[,2]) # north
   gridDat = gridDat[sortI2,]
   
   z = matrix(gridDat[,3], nrow=length(eastGrid), ncol=length(northGrid))
   
-  seismicEst = akima::bilinear(x=eastGrid, y=northGrid, z=z, x0 = pts[,1], y0=pts[,2])
+  seismicEst = akima::bilinear(x=eastGrid, y=northGrid, z=z, x0 = pts[,1], y0=pts[,2])$z
   seismicEst
 }
 
