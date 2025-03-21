@@ -19,7 +19,7 @@ getSimStudyPredGrid = function(xLims = simStudyXlims, yLims = simStudyXlims) {
 # seismicDat: data.frame with columns:
 #   east
 #   north
-#   seismicEst: estimate of logit sand volume fraction
+#   seismicEst: estimate of sand volume fraction
 # spatDat: data.frame with columns:
 #   east
 #   north
@@ -45,7 +45,7 @@ getPrefDrillLoc = function(seismicDat,
   delta = eastGrid[2] - eastGrid[1]
   
   # calculate linear predictor, sampling probabilities
-  etaP = seismicDat$seismicEst * betaP + spatDat$spatEst * gammaP
+  etaP = logit(seismicDat$seismicEst) * betaP + spatDat$spatEst * gammaP
   sampleProbs = exp(etaP)
   sampleProbs = sampleProbs/sum(sampleProbs)
   
@@ -84,3 +84,9 @@ getPrefDrillLoc = function(seismicDat,
 fitModel = function(wellDat, seismicDat, fitModFun, ...) {
   
 }
+
+
+
+
+
+

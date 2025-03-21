@@ -34,6 +34,7 @@ bilinearInterp = function(pts, gridDat) {
   z = matrix(gridDat[,3], nrow=length(eastGrid), ncol=length(northGrid))
   
   seismicEst = akima::bilinear(x=eastGrid, y=northGrid, z=z, x0 = pts[,1], y0=pts[,2])
+  seismicEst
 }
 
 

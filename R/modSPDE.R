@@ -130,7 +130,7 @@ getSPDEmeshSimStudy = function(doPlot=FALSE) {
 # mesh: SPDE mesh
 # prior: SPDE prior
 # significanceCI: the credible level of the CIs (e.g., .8 means 80% CI)
-# int.stategery: inla integration strategy
+# int.strategy: inla integration strategy
 # strategy: inla strategy
 # nPostSamples: number posterior draws
 # verbose: verbose argument to inla
@@ -196,7 +196,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
 # mesh: SPDE mesh
 # prior: SPDE prior
 # significanceCI: the credible level of the CIs (e.g., .8 means 80% CI)
-# int.stategery: inla integration strategy
+# int.strategy: inla integration strategy
 # strategy: inla strategy
 # nPostSamples: number posterior draws
 # verbose: verbose argument to inla
