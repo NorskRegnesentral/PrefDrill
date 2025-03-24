@@ -110,7 +110,9 @@ getSPDEmeshRect = function(lowerLeft=c(0,0), width=1, height=1, n=3500, max.n=50
 # mesh to give to INLA
 getSPDEmeshSimStudy = function(doPlot=FALSE) {
   
-  getSPDEmeshRect(doPlot=doPlot)
+  getSPDEmeshRect(width=diff(simStudyXlims), 
+                  height=diff(simStudyYlims), 
+                  doPlot=doPlot)
 }
 
 # Fits SPDE model to well and seismic data from simulation study
@@ -459,11 +461,12 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
   
   # get aggregate summary statistics over prediction domain
-  predAggEst = mean(predMat)
-  predAggSDs = sd(colMeans(predMat))
-  predAggLower = quantile(colMeans(predMat), probs=(1-significanceCI)/2)
-  predAggMedian = quantile(colMeans(predMat), probs=.5)
-  predAggUpper = quantile(colMeans(predMat), probs=1-(1-significanceCI)/2)
+  predAggMat = colMeans(predMat)
+  predAggEst = mean(predAggMat)
+  predAggSDs = sd(predAggMat)
+  predAggLower = quantile(predAggMat, probs=(1-significanceCI)/2)
+  predAggMedian = quantile(predAggMat, probs=.5)
+  predAggUpper = quantile(predAggMat, probs=1-(1-significanceCI)/2)
   
   if(length(xPred) != 0) {
     interceptSummary=mod$summary.fixed[1,1:5]
@@ -545,7 +548,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   list(mod=mod, 
        obsCoords=obsCoords, xObs=xObs, obsValues=obsValues, predCoords=predCoords, xPred=xPred, 
        obsEst=obsEst, obsSDs=obsSDs, obsLower=obsLower, obsMedian=obsMedian, obsUpper=obsUpper, 
-       predEst=predEst, predSDs=predSDs, predLower=predLower, predMedian=predMedian, predUpper=predUpper, 
+       predEst=predEst, predSDs=predSDs, predLower=predLower, predMedian=predMedian, predUpper=predUpper, predAggMat=predAggMat, 
        predAggEst=predAggEst, predAggSDs=predAggSDs, predAggLower=predAggLower, predAggMedian=predAggMedian, predAggUpper=predAggUpper, 
        mesh=mesh, prior=prior, stack=stack.full, 
        interceptSummary=interceptSummary, fixedEffectSummary=fixedEffectSummary, rangeSummary=rangeSummary, 

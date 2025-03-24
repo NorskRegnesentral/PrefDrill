@@ -4,7 +4,7 @@
 # NOTE: this is not supposed to look like the simulation study data...
 getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims, 
                       muSpat=0, sigmaSqSpat=1, corrSeismic=.6, sigmaSqErr=.1, 
-                      aRange=diff(xlim)/4, seismicPrefPar=.5, 
+                      aRange=diff(xlim)/4, seismicPrefPar=2.5, 
                       grid=make.surface.grid(list(east=seq(xlim[1], xlim[2], l=50), 
                                                   north=seq(ylim[1], ylim[2], l=50))), 
                       seed=123, 
@@ -17,7 +17,7 @@ getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims,
   L = t(chol(Sigma))
   truth = L %*% rnorm(nrow(L))
   indepPt = L %*% rnorm(nrow(L))
-  seismicEst = corrSeismic^2 * truth + sqrt(1-corrSeismic^2) * indepPt
+  seismicEst = corrSeismic * truth + sqrt(1-corrSeismic) * indepPt
   
   # add in mean
   truth = truth + muSpat
@@ -50,5 +50,13 @@ getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims,
     save(truthTestDat, seismicTestDat, wellTestDat, file=paste0(globalDir, "/testDat.RData"))
   }
   
-  list(wellDat=wellDat, seismicDat=seismicDat, truthDat=truthDat)
+  list(wellDat=wellTestDat, seismicDat=seismicTestDat, truthDat=truthTestDat)
 }
+
+
+
+
+
+
+
+
