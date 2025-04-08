@@ -131,6 +131,10 @@ getSPDEmeshSimStudy = function(doPlot=FALSE) {
 # invTransform: inverse of transform. Used to backtransform predictions prior to aggregation
 # mesh: SPDE mesh
 # prior: SPDE prior
+# addKDE: Whether or not to add log of a kde density estimator as a covariate
+# esthFromSeismic: whether to estimate h, kde's bandwidth parameter, from 
+#                  seismic/grid data
+# kde.args: arguments passed to kde function
 # significanceCI: the credible level of the CIs (e.g., .8 means 80% CI)
 # int.strategy: inla integration strategy
 # strategy: inla strategy
@@ -153,24 +157,69 @@ fitSPDEsimDat = function(wellDat, seismicDat,
                          predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
                          transform=logit, invTransform=expit, 
                          mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
+                         addKDE=FALSE, esthFromSeismic=TRUE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
                          significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
-                         nPostSamples=1000, verbose=TRUE, seed=123, 
+                         nPostSamples=1000, verbose=FALSE, seed=123, 
                          family="normal", doModAssess=FALSE, previousFit=NULL, 
                          improperCovariatePrior=TRUE, fixedParameters=NULL, 
                          experimentalMode=FALSE) {
   
   # set defaults
   # family = match.arg(family)
+  pProcMethod = match.arg(pProcMethod)
+  
+  if(pProcMethod != "kde") {
+    stop("currently only kde method is supported")
+  }
+  
+  if(addKDE) {
+    # add log kernel density estimator as a covariate
+    
+    if(esthFromSeismic) {
+      # estimate bandwidth via a variogram estimator on the seismic data
+      require(gstat)
+      require(sf)
+      # transformedGridEsts = transform(seismicDat[,3])
+      varioMod = vgm(model="Gau")
+      varioDat = data.frame(gridEsts=seismicDat[,3], x=seismicDat$east, y=seismicDat$north)
+      # require(sp)
+      # # coordinates(varioDat) = ~x+y
+      # empVario = variogram(transformedGridEsts~x+y, data=varioDat)
+      # varioFit = fit.variogram(empVario, varioMod)
+      # 
+      varioDatSF = sf::st_as_sf(varioDat, coords=c("x", "y"))
+      empVario = variogram(gridEsts~1, data=varioDatSF)
+      varioFit = fit.variogram(empVario, varioMod)
+      hEst = varioFit$range^2
+      
+      if(is.null(kde.args)) {
+        kde.args = list(H=diag(rep(hEst, 2)))
+      } else {
+        kde.args$H = diag(rep(hEst, 2))
+      }
+    }
+    
+    # fit the density estimator
+    fitPProc = getDensityDueToWells(seismicDat=seismicDat, wellDat=wellDat, 
+                                    predPts=as.matrix(wellDat[,1:2]), method=pProcMethod, 
+                                    centerScale=TRUE, kde.args=kde.args)
+    wGrid = fitPProc$wellEffectGrid
+    wObs = fitPProc$wellEffectPredPts
+  } else {
+    wGrid = NULL
+    wObs = NULL
+  }
   
   # construct prediction points and covariates
   predPts = matrix(unlist(seismicDat[,1:2]), ncol=2)
-  xPred = cbind(1, transform(seismicDat$seismicEst))
+  xPred = cbind(1, transform(seismicDat$seismicEst), wGrid)
   
   # interpolate seismic data to the well points
-  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat)
+  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat, 
+                                   transform=transform, invTransform=invTransform)
   
   # construct well data covariates
-  xObs = cbind(1, transform(wellSeismicEsts))
+  xObs = cbind(1, transform(wellSeismicEsts), wObs)
   
   # set observations
   obsValues = wellDat$volFrac
@@ -191,7 +240,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
 # function for fitting the SPDE model to data
 # 
 # Inputs:
-# obsCoords: data.frame with easting and northing columns for observations
+# obsCoords: matrix with easting and northing columns for observations
 # xObs: matrix with intercept and covariate information for observations
 # predCoords: data.frame with easting and northing columns for prediction grid
 # xPred: matrix with intercept and covariate information for prediction grid
@@ -209,6 +258,9 @@ fitSPDEsimDat = function(wellDat, seismicDat,
 # seed: random seed. Not set if NULL
 # family: currently only normal is supported
 # doModAssess: whether or not to calculate CPO, DIC, and WAIC
+# customFixedI: if not NULL, a vector of length ncol(xObs) determining a custom 
+#               linear combination of fixed effects to add to SPDE effect in 
+#               order to make a custom set of predictions
 # previousFit: a previous INLA model fit used to initialize optimization
 # improperCovariatePrior: if TRUE, N(0, infty) prior on covariates (aside from 
 #                         intercept, which already has this prior)
@@ -226,7 +278,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
                    significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                    nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
                    family=c("normal", "binomial", "betabinomial"), 
-                   doModAssess=FALSE, 
+                   doModAssess=FALSE, customFixedI=NULL, 
                    previousFit=NULL, improperCovariatePrior=TRUE, 
                    fixedParameters=NULL, experimentalMode=FALSE) {
   family = match.arg(family)
@@ -404,6 +456,18 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
     predMat = sweep(predMat, 1, offsetPred, "+")
   }
   
+  # now make custom predictions
+  if(!is.null(customFixedI)) {
+    customFixedMat = diag(customFixedI)
+    customFixedPredMat = xPred  %*% customFixedMat %*% latentMat[fixedIndices,]
+    
+    customPredMat = customFixedPredMat + spatialPredMat
+    
+    if(!is.null(fixedParameters$beta)) {
+      stop("setting customFixedI and fixedParameters simultaneously not supported")
+    }
+  }
+  
   # do the same for the observations
   if(length(xObs) != 0)
     fixedObsMat = xObs  %*% latentMat[fixedIndices,]
@@ -416,6 +480,17 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   
   if(!is.null(offsetEst)) {
     obsMat = sweep(obsMat, 1, offsetEst, "+")
+  }
+  
+  # now make custom predictions
+  if(!is.null(customFixedI)) {
+    customFixedObsMat = xObs  %*% customFixedMat %*% latentMat[fixedIndices,]
+    
+    customObsMat = customFixedObsMat + spatialObsMat
+    
+    if(!is.null(fixedParameters$beta)) {
+      stop("setting customFixedI and fixedParameters simultaneously not supported")
+    }
   }
   
   # add in nugget if necessary
@@ -434,6 +509,11 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   obsMatNugget = invTransform(obsMatNugget)
   predMat = invTransform(predMat)
   predMatNugget = invTransform(predMatNugget)
+  
+  if(!is.null(customFixedI)) {
+    customObsMat = invTransform(customObsMat)
+    customPredMat = invTransform(customPredMat)
+  }
   
   # get summary statistics
   obsEst = rowMeans(obsMat)
@@ -459,6 +539,33 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   predNuggetLower = apply(predMatNugget, 1, quantile, probs=(1-significanceCI)/2)
   predNuggetMedian = apply(predMatNugget, 1, median)
   predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  if(!is.null(customFixedI)) {
+    customObsEst = rowMeans(customObsMat)
+    customObsSDs = apply(customObsMat, 1, sd)
+    customObsLower = apply(customObsMat, 1, quantile, probs=(1-significanceCI)/2)
+    customObsMedian = apply(customObsMat, 1, median)
+    customObsUpper = apply(customObsMat, 1, quantile, probs=1-(1-significanceCI)/2)
+    
+    customPredEst = rowMeans(customPredMat)
+    customPredSDs = apply(customPredMat, 1, sd)
+    customPredLower = apply(customPredMat, 1, quantile, probs=(1-significanceCI)/2)
+    customPredMedian = apply(customPredMat, 1, median)
+    customPredUpper = apply(customPredMat, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    customObsEst = NULL
+    customObsSDs = NULL
+    customObsLower = NULL
+    customObsMedian = NULL
+    customObsUpper = NULL
+    
+    customPredEst = NULL
+    customPredSDs = NULL
+    customPredLower = NULL
+    customPredMedian = NULL
+    customPredUpper = NULL
+  }
+  
   
   # get aggregate summary statistics over prediction domain
   predAggMat = colMeans(predMat)
@@ -558,6 +665,11 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
        spatialPredMat=spatialPredMat, fixedPredMat=fixedPredMat, 
        spatialObsMat=spatialObsMat, fixedObsMat=fixedObsMat, 
        obsMat=obsMat, obsMatNugget=obsMatNugget, predMat=predMat, predMatNugget=predMatNugget, 
+       customObsEst=customObsEst, customObsSDs=customObsSDs, customObsLower=customObsLower, 
+       customObsMedian=customObsMedian, customObsUpper=customObsUpper, 
+       customPredEst=customPredEst, customPredSDs=customPredSDs, 
+       customPredLower=customPredLower, customPredMedian=customPredMedian, 
+       customPredUpper=customPredUpper, 
        hyperMat=hyperMat, timings=timings, sigmaEpsilonDraws=sqrt(clusterVars))
 }
 

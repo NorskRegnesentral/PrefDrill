@@ -1,6 +1,8 @@
 # script for testing SPDE model
 
-# seismic data, truth ----
+# _ ----
+# load seismic pref data ----
+# _ ----
 gEast = seismicTestDat$east
 gNorth = seismicTestDat$north
 gSeismic = seismicTestDat$seismicEst
@@ -14,65 +16,38 @@ northGrid = sort(unique(gNorth))
 
 print(cor(gSeismic, gTruth))
 
-divCols = function(n) {redBlueDivCols(n, rev=TRUE)}
+seqCols = function(n) {purpleYellowSeqCols(n)}
 
-pdf(file=paste0(figDir, "testing/testDatTruth.pdf"), width=5, height=5)
-# par(mar=c(3, 3, 2, 5), mgp=c(1.7, .5, 0))
-par(oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=divCols, 
-       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-       asp=1, smallplot=c(.83,.87,.25,.8))
-# squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), 
-#        zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-#        asp=1, legend.args=list(axis.args=list(labels=FALSE, tick=FALSE), 
-#                               legend.cex=1, smallplot=c(.825,.86,.19,.85), 
-#                               legend.lab="urban", legend.line=0.5))
-# quilt.plot(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), 
-#            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-#            asp=1, legend.args=list(axis.args=list(labels=FALSE, tick=FALSE), 
-#                                    legend.cex=1, smallplot=c(.825,.86,.19,.85), 
-#                                    legend.lab="urban", legend.line=0.5))
-dev.off()
+# naive estimators ----
+pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicTestDat, 
+                          transform=logit, invTransform = expit)
+pTruth = bilinearInterp(cbind(pEast, pNorth), cbind(gEast, gNorth, gTruth), 
+                        transform=logit, invTransform = expit)
+lmDat = data.frame(logitVfrac = logit(pVolFrac), logitSeismic=logit(pSeismic))
+lmMod = lm(logitVfrac~logitSeismic, data=lmDat)
+logitGridPreds = predict(lmMod, data.frame(logitSeismic=logit(gSeismic)))
+naiveAggEst = mean(logitNormMean(cbind(logitGridPreds, summary(lmMod)$sigma)))
 
-pdf(file=paste0(figDir, "testing/testDatSeismic.pdf"), width=5, height=5)
-par(oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-       xlim=simStudyXlims, ylim=simStudyYlims, colScale=divCols, 
-       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
-       asp=1, smallplot=c(.83,.87,.25,.8))
-dev.off()
+library(survey)
+svyDat = cbind(lmDat, seismic=pSeismic, truth=pTruth)
+design = svydesign(~1, weights=~I(1/pSeismic), data=svyDat)
+svyMod = svyglm(logitVfrac~logitSeismic, design)
+logitGridPreds = predict(svyMod, data.frame(logitSeismic=logit(gSeismic)))
+wts = 1/pSeismic * (1/sum(1/pSeismic))
+sigmaHat = sqrt(1/sum(wts) * sum(wts * residuals(svyMod)^2))
+svyAggEst = mean(logitNormMean(cbind(logitGridPreds, sigmaHat)))
 
-pdf(file=paste0(figDir, "testing/testDatWell.pdf"), width=5, height=5)
-par(oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-splot(pEast, pNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-      xlim=simStudyXlims, ylim=simStudyYlims, colScale=divCols, 
-       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
-       asp=1, smallplot=c(.83,.87,.25,.8))
-dev.off()
+trueAgg = mean(gTruth)
 
-# plot all together
-pdf(file=paste0(figDir, "testing/testData.pdf"), width=8, height=8)
-par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=divCols, 
-       xlim=simStudyXlims, ylim=simStudyYlims, 
-       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-       asp=1, smallplot=c(.83,.87,.25,.8))
-points(pEast, pNorth, cex=.5)
+trueAgg
+svyAggEst
+naiveAggEst
 
-squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-       xlim=simStudyXlims, ylim=simStudyYlims, colScale=divCols, 
-       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
-       asp=1, smallplot=c(.83,.87,.25,.8))
-points(pEast, pNorth, cex=.5)
+# fit model (without kde) ----
 
-splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=divCols, 
-      xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
-      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
-      asp=1, smallplot=c(.83,.87,.25,.8))
-dev.off()
-
-# fit model ----
 out = fitSPDEsimDat(wellTestDat, seismicTestDat)
+
+summary(out$mod)
 
 names(out)
 
@@ -87,39 +62,399 @@ trueAgg = mean(gTruth)
 predAgg
 trueAgg
 
-pdf(file=paste0(figDir, "testing/testSPDE.pdf"), width=8, height=8)
+pdf(file=paste0(figDir, "testing/testPreds_SPDE_seismicPref.pdf"), width=8, height=8)
 par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=divCols, 
+squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
        xlim=simStudyXlims, ylim=simStudyYlims, 
        zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
        asp=1, smallplot=c(.83,.87,.25,.8))
 points(pEast, pNorth, cex=.5)
 
 squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-       xlim=simStudyXlims, ylim=simStudyYlims, colScale=divCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
        zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
        asp=1, smallplot=c(.83,.87,.25,.8))
 points(pEast, pNorth, cex=.5)
 
-splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=divCols, 
+splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
       xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
-      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data, seismicPref", 
       asp=1, smallplot=c(.83,.87,.25,.8))
 
 squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
-       xlim=simStudyXlims, ylim=simStudyYlims, colScale=divCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
        zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate (SPDE)", 
        asp=1, smallplot=c(.83,.87,.25,.8))
 points(pEast, pNorth, cex=.5)
 dev.off()
 
-pdf(file=paste0(figDir, "testing/testSPDE_agg.pdf"), width=5, height=5)
+pdf(file=paste0(figDir, "testing/testAgg_SPDE_seismicPref.pdf"), width=5, height=5)
 hist(predAggMat, breaks=30, col="skyblue", main="Posterior for Volume Fraction (SPDE)", 
-     xlab="Volume Fraction", freq=F)
+     xlab="Volume Fraction", freq=F, xlim=c(0,1))
 abline(v=c(predAggL, predAggU), col="purple", lty=2)
 abline(v=predAgg, col="purple")
 abline(v=trueAgg, col="black")
-legend("topright", legend=c("Mean", "80% CI", "Truth"), lty=c(1, 2, 1), col=c("purple", "purple", "black"))
+abline(v=svyAggEst, col="blue")
+legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
+dev.off()
+
+# fit model (with kde covariate) ----
+out = fitSPDEsimDat(wellTestDat, seismicTestDat, addKDE=TRUE)
+
+summary(out$mod)
+
+names(out)
+
+# plot predictions ----
+
+preds = out$predEst
+predAggMat = out$predAggMat
+predAgg = out$predAggEst
+predAggU = out$predAggUpper
+predAggL = out$predAggLower
+trueAgg = mean(gTruth)
+predAgg
+trueAgg
+
+pdf(file=paste0(figDir, "testing/testPreds_SPDE_kde_seismicPref.pdf"), width=8, height=8)
+par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+      xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
+      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data, seismicPref", 
+      asp=1, smallplot=c(.83,.87,.25,.8))
+
+squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate (SPDE, kde)", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+dev.off()
+
+pdf(file=paste0(figDir, "testing/testAgg_SPDE_kde_seismicPref.pdf"), width=5, height=5)
+hist(predAggMat, breaks=30, col="skyblue", main="Posterior for Volume Fraction (SPDE, kde, seismicPref)", 
+     xlab="Volume Fraction", freq=F, xlim=c(0,1))
+abline(v=c(predAggL, predAggU), col="purple", lty=2)
+abline(v=predAgg, col="purple")
+abline(v=trueAgg, col="black")
+abline(v=svyAggEst, col="blue")
+legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
+dev.off()
+
+
+
+# _ ----
+# load truth pref data ----
+# _ ----
+gEast = seismicTestDat_truthPref$east
+gNorth = seismicTestDat_truthPref$north
+gSeismic = seismicTestDat_truthPref$seismicEst
+gTruth = truthTestDat_truthPref$truth
+pEast = wellTestDat_truthPref$east
+pNorth = wellTestDat_truthPref$north
+pVolFrac = wellTestDat_truthPref$volFrac
+
+eastGrid = sort(unique(gEast))
+northGrid = sort(unique(gNorth))
+
+print(cor(gSeismic, gTruth))
+
+seqCols = function(n) {purpleYellowSeqCols(n)}
+
+# naive estimators ----
+pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicTestDat, 
+                          transform=logit, invTransform = expit)
+pTruth = bilinearInterp(cbind(pEast, pNorth), cbind(gEast, gNorth, gTruth), 
+                        transform=logit, invTransform = expit)
+lmDat = data.frame(logitVfrac = logit(pVolFrac), logitSeismic=logit(pSeismic))
+lmMod = lm(logitVfrac~logitSeismic, data=lmDat)
+logitGridPreds = predict(lmMod, data.frame(logitSeismic=logit(gSeismic)))
+naiveAggEst = mean(logitNormMean(cbind(logitGridPreds, summary(lmMod)$sigma)))
+
+library(survey)
+svyDat = cbind(lmDat, seismic=pSeismic, truth=pTruth)
+design = svydesign(~1, weights=~I(1/truth), data=svyDat)
+svyMod = svyglm(logitVfrac~logitSeismic, design)
+logitGridPreds = predict(svyMod, data.frame(logitSeismic=logit(gSeismic)))
+wts = 1/pTruth * (1/sum(1/pTruth))
+sigmaHat = sqrt(1/sum(wts) * sum(wts * residuals(svyMod)^2))
+svyAggEst = mean(logitNormMean(cbind(logitGridPreds, sigmaHat)))
+
+trueAgg = mean(gTruth)
+
+trueAgg
+svyAggEst
+naiveAggEst
+
+# fit model (without kde) ----
+out = fitSPDEsimDat(wellTestDat_truthPref, seismicTestDat_truthPref)
+
+summary(out$mod)
+
+names(out)
+
+# plot predictions ----
+
+preds = out$predEst
+predAggMat = out$predAggMat
+predAgg = out$predAggEst
+predAggU = out$predAggUpper
+predAggL = out$predAggLower
+trueAgg = mean(gTruth)
+predAgg
+trueAgg
+
+pdf(file=paste0(figDir, "testing/testPreds_SPDE_truthPref.pdf"), width=8, height=8)
+par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+      xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
+      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+      asp=1, smallplot=c(.83,.87,.25,.8))
+
+squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate (SPDE)", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+dev.off()
+
+pdf(file=paste0(figDir, "testing/testAgg_SPDE_truthPref.pdf"), width=5, height=5)
+hist(predAggMat, breaks=30, col="skyblue", main="Posterior for Volume Fraction (SPDE)", 
+     xlab="Volume Fraction", freq=F, xlim=c(0,1))
+abline(v=c(predAggL, predAggU), col="purple", lty=2)
+abline(v=predAgg, col="purple")
+abline(v=trueAgg, col="black")
+abline(v=svyAggEst, col="blue")
+legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
+dev.off()
+
+# fit model (with kde covariate) ----
+out = fitSPDEsimDat(wellTestDat_truthPref, seismicTestDat_truthPref, addKDE=TRUE)
+
+summary(out$mod)
+
+names(out)
+
+# plot predictions ----
+
+preds = out$predEst
+predAggMat = out$predAggMat
+predAgg = out$predAggEst
+predAggU = out$predAggUpper
+predAggL = out$predAggLower
+trueAgg = mean(gTruth)
+predAgg
+trueAgg
+
+pdf(file=paste0(figDir, "testing/testPreds_SPDE_kde_truthPref.pdf"), width=8, height=8)
+par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+      xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
+      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data, truthPref", 
+      asp=1, smallplot=c(.83,.87,.25,.8))
+
+squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate (SPDE, kde)", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+dev.off()
+
+pdf(file=paste0(figDir, "testing/testAgg_SPDE_kde_truthPref.pdf"), width=5, height=5)
+hist(predAggMat, breaks=30, col="skyblue", main="Posterior for Volume Fraction (SPDE, kde, truthPref)", 
+     xlab="Volume Fraction", freq=F, xlim=c(0,1))
+abline(v=c(predAggL, predAggU), col="purple", lty=2)
+abline(v=predAgg, col="purple")
+abline(v=trueAgg, col="black")
+abline(v=svyAggEst, col="blue")
+legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
+dev.off()
+
+
+# _ ----
+# load successive pref data ----
+# _ ----
+gEast = seismicTestDat_successiveIPP$east
+gNorth = seismicTestDat_successiveIPP$north
+gSeismic = seismicTestDat_successiveIPP$seismicEst
+gTruth = truthTestDat_successiveIPP$truth
+pEast = wellTestDat_successiveIPP$east
+pNorth = wellTestDat_successiveIPP$north
+pVolFrac = wellTestDat_successiveIPP$volFrac
+
+eastGrid = sort(unique(gEast))
+northGrid = sort(unique(gNorth))
+
+print(cor(gSeismic, gTruth))
+
+seqCols = function(n) {purpleYellowSeqCols(n)}
+
+# naive estimators ----
+pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicTestDat, 
+                          transform=logit, invTransform = expit)
+pTruth = bilinearInterp(cbind(pEast, pNorth), cbind(gEast, gNorth, gTruth), 
+                        transform=logit, invTransform = expit)
+lmDat = data.frame(logitVfrac = logit(pVolFrac), logitSeismic=logit(pSeismic))
+lmMod = lm(logitVfrac~logitSeismic, data=lmDat)
+logitGridPreds = predict(lmMod, data.frame(logitSeismic=logit(gSeismic)))
+naiveAggEst = mean(logitNormMean(cbind(logitGridPreds, summary(lmMod)$sigma)))
+
+library(survey)
+svyDat = cbind(lmDat, seismic=pSeismic, truth=pTruth)
+design = svydesign(~1, weights=~I(1/truth), data=svyDat)
+svyMod = svyglm(logitVfrac~logitSeismic, design)
+logitGridPreds = predict(svyMod, data.frame(logitSeismic=logit(gSeismic)))
+wts = 1/pTruth * (1/sum(1/pTruth))
+sigmaHat = sqrt(1/sum(wts) * sum(wts * residuals(svyMod)^2))
+svyAggEst = mean(logitNormMean(cbind(logitGridPreds, sigmaHat)))
+
+trueAgg = mean(gTruth)
+
+trueAgg
+svyAggEst
+naiveAggEst
+
+# fit model (without kde) ----
+out = fitSPDEsimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP)
+
+summary(out$mod)
+
+names(out)
+
+# plot predictions ----
+
+preds = out$predEst
+predAggMat = out$predAggMat
+predAgg = out$predAggEst
+predAggU = out$predAggUpper
+predAggL = out$predAggLower
+trueAgg = mean(gTruth)
+predAgg
+trueAgg
+
+pdf(file=paste0(figDir, "testing/testPreds_SPDE_successiveIPP.pdf"), width=8, height=8)
+par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+      xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
+      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+      asp=1, smallplot=c(.83,.87,.25,.8))
+
+squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate (SPDE)", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+dev.off()
+
+pdf(file=paste0(figDir, "testing/testAgg_SPDE_successiveIPP.pdf"), width=5, height=5)
+hist(predAggMat, breaks=30, col="skyblue", main="Posterior for Volume Fraction (SPDE)", 
+     xlab="Volume Fraction", freq=F, xlim=c(0,1))
+abline(v=c(predAggL, predAggU), col="purple", lty=2)
+abline(v=predAgg, col="purple")
+abline(v=trueAgg, col="black")
+abline(v=svyAggEst, col="blue")
+legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
+dev.off()
+
+# fit model (with kde covariate) ----
+out = fitSPDEsimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP, addKDE=TRUE)
+
+summary(out$mod)
+
+names(out)
+
+# plot predictions ----
+
+preds = out$predEst
+predAggMat = out$predAggMat
+predAgg = out$predAggEst
+predAggU = out$predAggUpper
+predAggL = out$predAggLower
+trueAgg = mean(gTruth)
+predAgg
+trueAgg
+
+pdf(file=paste0(figDir, "testing/testPreds_SPDE_kde_successiveIPP.pdf"), width=8, height=8)
+par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+       xlim=simStudyXlims, ylim=simStudyYlims, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+
+splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+      xlim=simStudyXlims, ylim=simStudyYlims, resetGraphics=FALSE, 
+      zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data, Successive IPP", 
+      asp=1, smallplot=c(.83,.87,.25,.8))
+
+squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+       xlim=simStudyXlims, ylim=simStudyYlims, colScale=seqCols, 
+       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate (SPDE, kde)", 
+       asp=1, smallplot=c(.83,.87,.25,.8))
+points(pEast, pNorth, cex=.5)
+dev.off()
+
+pdf(file=paste0(figDir, "testing/testAgg_SPDE_kde_successiveIPP.pdf"), width=5, height=5)
+hist(predAggMat, breaks=30, col="skyblue", main="Posterior for Volume Fraction (SPDE, kde, Successive IPP)", 
+     xlab="Volume Fraction", freq=F, xlim=c(0,1))
+abline(v=c(predAggL, predAggU), col="purple", lty=2)
+abline(v=predAgg, col="purple")
+abline(v=trueAgg, col="black")
+abline(v=svyAggEst, col="blue")
+legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
 dev.off()
 
 

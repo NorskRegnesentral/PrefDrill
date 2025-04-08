@@ -11,6 +11,8 @@ library(INLA)
 library(inlabru)
 library(akima)
 library(ks)
+library(gstat)
+library(sf)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising
@@ -38,6 +40,14 @@ globalDir <<- "~/git/PrefDrill/savedOutput/global/" # stores datasets used globa
 scriptDir <<- "~/git/PrefDrill/scripts/"
 
 # globals folder
+out = load(paste0(globalDir, "testDat_truthPref.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
+truthTestDat_truthPref = truthTestDat
+seismicTestDat_truthPref = seismicTestDat
+wellTestDat_truthPref = wellTestDat
+out = load(paste0(globalDir, "testSuccessiveDat_ipp.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
+truthTestDat_successiveIPP = truthTestDat
+seismicTestDat_successiveIPP = seismicTestDat
+wellTestDat_successiveIPP = wellTestDat
 out = load(paste0(globalDir, "testDat.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
 
 # other variables
