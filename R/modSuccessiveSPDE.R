@@ -44,7 +44,7 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
                                    significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                                    successiveMethod=c("pproc", "spde"), pProcMethod=c("kde", "inlabru"), includeInt=FALSE, 
                                    priorW=ifelse(includeInt, 0, 1), useLastPtPProc=TRUE, 
-                                   nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
+                                   nPostSamples=1000, verbose=FALSE, link=1, seed=NULL, 
                                    family=c("normal", "binomial", "betabinomial"), 
                                    doModAssess=FALSE, storeSuccessiveWs=TRUE, 
                                    previousFit=NULL, improperCovariatePrior=TRUE, 
@@ -72,15 +72,13 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
     wCol = 2
     seismicCols = 3:ncol(gridDat)
     xObs[,1] = 1 # add in intercept
-    xObs[,2] = NA # add in w (successive spatial estimates that start at 0)
-    xObs[1:(minN+1), 2] = priorW
+    xObs[,wCol] = priorW # add in w (successive spatial estimates that start at 0)
     colnames(xObs) = c("int", "w", gridColNames[-(1:2)])
     customFixedI = c(rep(1, 2), rep(0, ncol(gridDat)-2))
   } else {
     wCol = 1
     seismicCols = (3:ncol(gridDat)) - 1
-    xObs[,1] = NA # add in w (successive spatial estimates that start at 0)
-    xObs[1:(minN+2), 1] = priorW
+    xObs[,wCol] = priorW # add in w (successive spatial estimates that start at 0)
     colnames(xObs) = c("w", gridColNames[-(1:2)])
     customFixedI = c(rep(1, 1), rep(0, ncol(gridDat)-2))
   }
@@ -145,110 +143,13 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
     thisObsValues = obsVals[1:i]
     thisXobs = matrix(xObs[1:i,], nrow=i)
     
-    # set prediction points
-    if(i != nrow(obsPts)) {
-      if(useLastPtPProc && (successiveMethod == "pproc")) {
-        # If we're predicting at a well point location given we know we've 
-        # selected that location. I.e., predict at point i based on spatial info 
-        # from points 1-i
-        
-        # predict at the latest observed well point location(s) and at full pred Grid
-        if(i == minN) {
-          thisPredCoords = matrix(obsPts[1:minN,], nrow=minN)
-          colnames(thisPredCoords) = colnames(predPts)
-        } else {
-          thisPredCoords = matrix(obsPts[i,], nrow=1)
-          colnames(thisPredCoords) = colnames(predPts)
-        }
-      } else {
-        # predict at the next (unobserved) well point and at full pred Grid
-        
-        if(successiveMethod == "spde") {
-          thisPredCoords = matrix(obsPts[i+1,], nrow=1)
-          thisXpred = matrix(xObs[i+1,], nrow=1)
-          if(i != nrow(obsPts)-1) {
-            # in addition to predicting at the next point, also need to predict 
-            # at the point after to get
-            # w_i(s_{i+1}) = eta_{i-1}(s_{i+1}) - beta_{i-1} u(s_{i+1})
-            thisPredCoords = rbind(thisPredCoords, obsPts[i+2,])
-            thisXpred = rbind(thisXpred, xObs[i+2,])
-          } else {
-            # second to last iteration
-            # in addition to predicting at the last point, also need to predict 
-            # at the full prediction grid to get
-            # w_n(s_{n+1}) = eta_{n-1}(s_{n+1}) - beta_{n-1} u(s_{n+1})
-            if(! storeSuccessiveWs) {
-              thisPredCoords = rbind(thisPredCoords, predPts)
-              thisXpred = rbind(thisXpred, xPred)
-            }
-          }
-          colnames(thisPredCoords) = colnames(predPts)
-          
-          if(storeSuccessiveWs && i != nrow(obsPts)-1) {
-            # if storing w for each iteration, and it's not second to last iter 
-            # (where we've already added grid points to pred pts), add grid pts 
-            # to pred pts
-            thisPredCoords = rbind(thisPredCoords, predPts)
-            thisXpred = rbind(thisXpred, xPred)
-          }
-        } else {
-          # If using a kde
-          
-          # no need to include grid points with density estimator, since already 
-          # being estimated there
-          thisPredCoords = matrix(obsPts[i+1,], nrow=1)
-          thisXpred = matrix(xObs[i+1,], nrow=1)
-          
-          if(i != nrow(obsPts)-1) {
-            # in addition to predicting at the next point, also need to predict 
-            # at the point after to get
-            # w_i(s_{i+1}) = eta_{i-1}(s_{i+1}) - beta_{i-1} u(s_{i+1})
-            thisPredCoords = rbind(thisPredCoords, obsPts[i+2,])
-            thisXpred = rbind(thisXpred, matrix(xObs[i+2,], nrow=1))
-          }
-        }
-        
-        colnames(thisPredCoords) = colnames(predPts)
-        colnames(thisXpred) = colnames(xPred)
-        
-        # 
-        # thisXpred = rbind(matrix(xObs[i+1,], nrow=1), xPred)
-      }
-      
-      thisCustomFixedI = customFixedI
-    } else {
-      # This is the last iteration (i == n)
-      
-      if(useLastPtPProc && (successiveMethod == "pproc")) {
-        # for the last fit, predict at the latest observed well point location(s) 
-        # and at full pred Grid. Don't need to include the full pred grid here 
-        # for the kde fit, since we add them in for the final SPDE model fit
-        thisPredCoords = matrix(obsPts[i,], nrow=1)
-        colnames(thisPredCoords) = colnames(predPts)
-        thisXpred = matrix(xObs[i,], nrow=1)
-        colnames(thisXpred) = colnames(xPred)
-        thisCustomFixedI = NULL
-      } else if(successiveMethod == "pproc") {
-        # for the last fit, generate predictions over whole grid
-        thisPredCoords = NULL # no need to include grid points explicitly
-        thisXpred = xPred
-        thisCustomFixedI = NULL
-      } else {
-        # for the last fit, generate predictions over whole grid
-        thisPredCoords = predPts
-        thisXpred = xPred
-        thisCustomFixedI = NULL
-      }
-      
-    }
-    
     if(successiveMethod == "spde") {
       # fit a full SPDE model each iteration
       
       fit = fitSPDE(obsCoords=as.matrix(thisObsCoords), obsValues=thisObsValues, xObs=thisXobs, 
-                    predCoords=as.matrix(thisPredCoords), xPred=thisXpred, 
+                    predCoords=as.matrix(predPts), xPred=xPred, 
                     transform=transform, invTransform=invTransform, 
-                    mesh=mesh, prior=prior, customFixedI=thisCustomFixedI, 
+                    mesh=mesh, prior=prior, customFixedI=customFixedI, 
                     significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
                     nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
                     family=family, doModAssess=doModAssess, 
@@ -259,33 +160,6 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
       previousFit = fit$mod
       
       nextWs = transform(fit$customPredEst) # predictions minus effect due to seismic data
-      
-      if(i != nrow(obsPts)) {
-        # If this isn't the final fit:
-        
-        # update w (covariate representing information from previous point data)
-        browser()
-        xObs[i+1,wCol] = nextWs[1]
-        nextWs = nextWs[-1]
-        if(i != (nrow(obsPts)-1)) {
-          # in addition to predicting at the next point, also need to predict 
-          # at the point after to get
-          # w_i(s_{i+1}) = eta_{i-1}(s_{i+1}) - beta_{i-1} u(s_{i+1})
-          xObs[i+2,wCol] = nextWs[1]
-          nextWs = nextWs[-1]
-        } else {
-          # in the second to last iteration, must save all predictions over the grid. 
-          # no need to set xPred here, since this is done at the end of the for loop. 
-          # nextWs already consists of predictions over the grid.
-          # DO NOTHING
-        }
-        
-      } else {
-        # If this is the final fit:
-        
-        # nextWs already consists of only w at prediction coords.
-        # DO NOTHING
-      }
     } else {
       # successiveMethod == "pproc". I.e., we fit a density estimator
       
@@ -294,26 +168,16 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
         
         # fit the density estimator
         fitPProc = getDensityDueToWells(seismicDat=gridDat, wellDat=thisObsCoords, 
-                                        predPts=thisPredCoords, method=pProcMethod, 
+                                        method=pProcMethod, 
                                         centerScale=TRUE, kde.args=kde.args)
         # list(wellEffectGrid=wellEffect, wellEffectPts=wellEffectWells)
         nextWs = fitPProc$wellEffectGrid
-        
-        # update w (covariate representing information from previous point data)
-        # browser()
-        if(!useLastPtPProc) {
-          xObs[i+1,wCol] = fitPProc$wellEffectPredPts
-        } else if(i == minN) {
-          xObs[1:minN,wCol] = fitPProc$wellEffectPredPts
-        } else {
-          xObs[i,wCol] = fitPProc$wellEffectPredPts[1]
-        }
       } else {
         # If this is the final fit:
         
         # first fit the density estimator one last time
         fitPProc = getDensityDueToWells(seismicDat=gridDat, wellDat=thisObsCoords, 
-                                        predPts=thisPredCoords, method=pProcMethod, 
+                                        method=pProcMethod, 
                                         centerScale=TRUE, kde.args=kde.args)
         nextWs = fitPProc$wellEffectGrid
         
@@ -322,14 +186,14 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
         
         if(useLastPtPProc) {
           # In this case, we still need to set w for the last observation
-          xObs[i,wCol] = fitPProc$wellEffectPredPts
+          xObs[i,wCol] = bilinearInterp(matrix(obsPts[i,], nrow=1), cbind(predPts, nextWs))
         }
         
         # get final model fit
         fit = fitSPDE(obsCoords=as.matrix(obsPts), obsValues=obsVals, xObs=xObs, 
                       predCoords=as.matrix(predPts), xPred=xPred, 
                       transform=transform, invTransform=invTransform, 
-                      mesh=mesh, prior=prior, customFixedI=thisCustomFixedI, 
+                      mesh=mesh, prior=prior, customFixedI=customFixedI, 
                       significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
                       nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
                       family=family, doModAssess=doModAssess, 
@@ -345,6 +209,31 @@ fitSuccessiveSPDEsimDat = function(ptDat, gridDat,
     if(storeSuccessiveWs) {
       allWs[,i-minN+1+extraWs] = xPred[,wCol]
     }
+    
+    # update xObs w column. First interpolate prediction ws from grid to pts
+    if(successiveMethod == "pproc" && useLastPtPProc) {
+      if(i == minN) {
+        pts = obsPts
+      } else {
+        pts = matrix(obsPts[i:nrow(obsPts),], ncol=2)
+      }
+    } else {
+      if(i != nrow(obsPts)) {
+        pts = matrix(obsPts[(i+1):nrow(obsPts),], ncol=2)
+      } else {
+        pts = NULL
+      }
+    }
+    
+    if(!is.null(pts)) {
+      # interpolate grid ws onto the rest of the dataset sampled later
+      interpW = bilinearInterp(pts, cbind(predPts, nextWs))
+      
+      # update xObs
+      inds = (1:length(interpW)) + nrow(xObs) - length(interpW)
+      xObs[inds, wCol] = interpW
+    }
+    
   }
   
   c(list(allWs=allWs, obsWs=xObs[,wCol]), fit)

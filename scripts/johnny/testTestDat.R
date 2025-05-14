@@ -193,6 +193,11 @@ pVolFrac = wellTestDat_successiveIPP$volFrac
 
 print(cor(gSeismic, gTruth))
 
+# minimum distance between well points
+distMat = rdist(cbind(pEast, pNorth))
+minDists = sapply(1:nrow(distMat), function(i) {min(distMat[i, -i])})
+min(minDists)
+
 # naive estimators ----
 pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicTestDat, 
                           transform=logit, invTransform = expit)
@@ -264,4 +269,13 @@ splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqC
       zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
       asp=1, smallplot=c(.83,.87,.25,.8), cex=.6)
 
+plot(1:length(pSeismic), pSeismic, pch=19, cex=.5, main="Sampled values", 
+     xlab="Iteration number", ylab="Value", ylim=c(0, 1), col="blue")
+points(1:length(pSeismic), pTruth, pch=19, cex=.5, col="green")
+legend("bottomright", c("Seismic estimate", "Truth"), pch=19, col=c("blue", "green"))
+
 dev.off()
+
+# plot ratio of truth to seismic estimate at well points through time
+
+

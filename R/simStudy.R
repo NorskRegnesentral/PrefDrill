@@ -33,7 +33,10 @@ getSimStudyPredGrid = function(xLims = simStudyXlims, yLims = simStudyXlims) {
 # a 3-vector with values: east, north, seismicEst
 getPrefDrillLoc = function(seismicDat, 
                            spatDat=cbind(seismicDat$east, seismicDat$north, spatEst=0), 
-                           betaP=0, gammaP=0, seed=NULL) {
+                           betaP=0, gammaP=0, seed=NULL, 
+                           repulsionType=c("none", "uniform"), bandwidth=10) {
+  
+  repulsionType = match.arg(repulsionType)
   
   # set random number seed
   if(!is.null(seed)) {

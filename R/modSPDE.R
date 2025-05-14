@@ -82,7 +82,7 @@ getSPDEmeshRect = function(lowerLeft=c(0,0), width=1, height=1, n=3500, max.n=50
                            scale=max(c(width, height)), max.edge=c(.01, .1)*scale, 
                            offset=-.015, cutoff=.005*scale, doPlot=TRUE, ...) {
   
-  locs = cbind(c(0, width, width, 0), c(0, 0, height, height))
+  locs = cbind(c(0, width, width, 0, 0), c(0, 0, height, height, 0))
   locs = sweep(locs, 2, lowerLeft, "+")
   
   # generate mesh on R2
@@ -115,6 +115,25 @@ getSPDEmeshSimStudy = function(doPlot=FALSE) {
                   doPlot=doPlot)
 }
 
+getDomainSimStudy = function(returnClass=c("sf", "matrix")) {
+  returnClass = match.arg(returnClass)
+  
+  locs = cbind(c(simStudyXlims[1], simStudyXlims[2], simStudyXlims[2], simStudyXlims[1], simStudyXlims[1]), 
+               c(simStudyYlims[1], simStudyYlims[1], simStudyYlims[2], simStudyYlims[2], simStudyYlims[1]))
+  
+  if(returnClass == "matrix") {
+    locs
+  } else {
+    require(sf)
+    pol = st_polygon(
+      list(
+        locs
+      )
+    )
+    pol
+  }
+}
+
 # Fits SPDE model to well and seismic data from simulation study
 # 
 # Inputs:
@@ -144,8 +163,6 @@ getSPDEmeshSimStudy = function(doPlot=FALSE) {
 # family: currently only normal is supported
 # doModAssess: whether or not to calculate CPO, DIC, and WAIC
 # previousFit: a previous INLA model fit used to initialize optimization
-# improperCovariatePrior: if TRUE, N(0, infty) prior on covariates (aside from 
-#                         intercept, which already has this prior)
 # fixedParameters: A list of parameters to fix in the model rather than infer. 
 #                  Contains some of all of the elements: spde$effRange, 
 #                  spde$margVar, familyPrec, clusterPrec, beta (NOT TESTED)
@@ -155,14 +172,14 @@ getSPDEmeshSimStudy = function(doPlot=FALSE) {
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
 fitSPDEsimDat = function(wellDat, seismicDat, 
                          predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
+                         control.fixed = list(prec=list(default=0, X2=1/.5^2, X3=1), mean=list(default=0, X2=1)), 
                          transform=logit, invTransform=expit, 
                          mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
                          addKDE=FALSE, esthFromSeismic=TRUE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
                          significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                          nPostSamples=1000, verbose=FALSE, seed=123, 
                          family="normal", doModAssess=FALSE, previousFit=NULL, 
-                         improperCovariatePrior=TRUE, fixedParameters=NULL, 
-                         experimentalMode=FALSE) {
+                         fixedParameters=NULL, experimentalMode=FALSE) {
   
   # set defaults
   # family = match.arg(family)
@@ -208,6 +225,8 @@ fitSPDEsimDat = function(wellDat, seismicDat,
   } else {
     wGrid = NULL
     wObs = NULL
+    
+    control.fixed$prec$X3 = NULL
   }
   
   # construct prediction points and covariates
@@ -215,7 +234,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
   xPred = cbind(1, transform(seismicDat$seismicEst), wGrid)
   
   # interpolate seismic data to the well points
-  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat, 
+  wellSeismicEsts = bilinearInterp(as.matrix(wellDat[,1:2]), seismicDat, 
                                    transform=transform, invTransform=invTransform)
   
   # construct well data covariates
@@ -226,13 +245,12 @@ fitSPDEsimDat = function(wellDat, seismicDat,
   obsCoords = cbind(wellDat$east, wellDat$north)
   
   fitSPDE(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, 
-          predCoords=predPts, xPred=xPred, 
+          predCoords=predPts, xPred=xPred, control.fixed=control.fixed, 
           transform=transform, invTransform=invTransform, 
           mesh=mesh, prior=prior, 
           significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
           nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
           family=family, doModAssess=doModAssess, previousFit=previousFit, 
-          improperCovariatePrior=improperCovariatePrior, 
           fixedParameters=fixedParameters, experimentalMode=experimentalMode)
 }
 
@@ -262,8 +280,6 @@ fitSPDEsimDat = function(wellDat, seismicDat,
 #               linear combination of fixed effects to add to SPDE effect in 
 #               order to make a custom set of predictions
 # previousFit: a previous INLA model fit used to initialize optimization
-# improperCovariatePrior: if TRUE, N(0, infty) prior on covariates (aside from 
-#                         intercept, which already has this prior)
 # fixedParameters: A list of parameters to fix in the model rather than infer. 
 #                  Contains some of all of the elements: spde$effRange, 
 #                  spde$margVar, familyPrec, clusterPrec, beta (NOT TESTED)
@@ -273,13 +289,14 @@ fitSPDEsimDat = function(wellDat, seismicDat,
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
 fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), ncol=1), 
                    predCoords, xPred = matrix(rep(1, nrow(predCoords)), ncol=1), 
+                   control.fixed = list(prec=list(default=0), mean=list(default=0)), 
                    transform=I, invTransform=I, 
                    mesh=getSPDEmesh(obsCoords), prior=getSPDEprior(mesh), 
                    significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                    nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
                    family=c("normal", "binomial", "betabinomial"), 
                    doModAssess=FALSE, customFixedI=NULL, 
-                   previousFit=NULL, improperCovariatePrior=TRUE, 
+                   previousFit=NULL, 
                    fixedParameters=NULL, experimentalMode=FALSE) {
   family = match.arg(family)
   startTime = proc.time()[3]
@@ -301,7 +318,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   }
   
   # set family prior
-  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(0.1,0.1))))
+  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
   
   if(!is.null(fixedParameters$familyPrec)) {
     # fix the family precision parameter on INLA's latent scale
@@ -374,11 +391,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   allQuantiles = c(0.5, (1-significanceCI) / 2, 1 - (1-significanceCI) / 2)
   
   # fixed effect priors: are they improper or not?
-  if(improperCovariatePrior) {
-    controlFixed=list(quantiles=allQuantiles, mean=0, prec=0)
-  } else {
-    controlFixed=list(quantiles=allQuantiles)
-  }
+  controlFixed = c(list(quantiles=allQuantiles), control.fixed)
   
   # construct the stack
   stack.full = stack.est

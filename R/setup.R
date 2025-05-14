@@ -13,6 +13,7 @@ library(akima)
 library(ks)
 library(gstat)
 library(sf)
+library(Matrix)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising
@@ -24,10 +25,12 @@ setwd("~/git/PrefDrill/")
 # source R code ----
 source('R/modSPDE.R')
 source('R/modSuccessiveSPDE.R')
+source('R/modWatson.R')
 source('R/modWellDensity.R')
 source('R/utilityFuns.R')
 source('R/simStudy.R')
 source('R/getTestDat.R')
+source("R/readRMS.R")
 
 # set up global variables ----
 
@@ -44,7 +47,7 @@ out = load(paste0(globalDir, "testDat_truthPref.RData")) # "truthTestDat", "seis
 truthTestDat_truthPref = truthTestDat
 seismicTestDat_truthPref = seismicTestDat
 wellTestDat_truthPref = wellTestDat
-out = load(paste0(globalDir, "testSuccessiveDat_ipp.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
+out = load(paste0(globalDir, "testSuccessiveDat_ipp_uniform.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
 truthTestDat_successiveIPP = truthTestDat
 seismicTestDat_successiveIPP = seismicTestDat
 wellTestDat_successiveIPP = wellTestDat
