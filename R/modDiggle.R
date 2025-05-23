@@ -5,6 +5,8 @@
 # Inputs:
 # wellDat: data.frame with columns: east, north
 # seismicDat: data.frame with columns: east, north, [additional columns with covariate info]
+# studyArea: Polygons that delimits the area where observations are made
+# predGrid: grid over which to make predictions
 # transform: how to transform obsValues prior to modeling
 # invTransform: inverse of transform. Used to backtransform predictions prior to aggregation
 # mesh: SPDE mesh
@@ -30,21 +32,24 @@
 
 
 fitDigglesimDat = function(wellDat, seismicDat, studyArea,
-                           #predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
+                           predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
+                           control.fixed = list(prec=list(default=0, X2=1/.5^2, X3=1), mean=list(default=0, X2=1)), ##NBNB: Review
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
+                           #addKDE=FALSE, esthFromSeismic=TRUE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                            nPostSamples=1000, verbose=TRUE, seed=123, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
-                           improperCovariatePrior=TRUE, fixedParameters=NULL, 
-                           experimentalMode=FALSE) {
+                           fixedParameters=NULL, experimentalMode=FALSE) {
   
+  #mesh = inla.mesh.2d(boundary=studyArea,loc.domain = testData$wellDat[,c("east","north")],max.edge=c(1000,10000),cutoff=100,offset=c(10,-.1))
+  #Not sure about kde stuff
   
-  #predPts = matrix(unlist(seismicDat[,1:2]), ncol=2)
+  predPts = st_as_sf(seismicDat[,1:2], coords = c("east", "north"))
   #xPred = data.frame(X =  transform(seismicDat$seismicEst))
   
   # interpolate seismic data to the well points
-  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat)
+  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat, transform = transform, invTransform = invTransform)
   
   # construct well data covariates
   xObs = data.frame(X = transform(wellSeismicEsts))
@@ -53,30 +58,33 @@ fitDigglesimDat = function(wellDat, seismicDat, studyArea,
   obsValues = wellDat$volFrac
   obsCoords = cbind(wellDat$east, wellDat$north)
   
-  fitDiggle(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, studyArea=studyArea, 
+  fitDiggle(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, studyArea=studyArea,
             covs = list(X= seismicDat),
-            #predCoords=predPts, xPred=xPred, 
+            predCoords=predPts, control.fixed = control.fixed,#xPred=xPred, 
             transform=transform, invTransform=invTransform, 
             mesh=mesh, prior=prior, 
             significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
-            nPostSamples=nPostSamples, verbose=verbose, #link=link, 
-            seed=seed, family=family, doModAssess=doModAssess, previousFit=previousFit, 
-            improperCovariatePrior=improperCovariatePrior, 
+            nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
+            family=family, doModAssess=doModAssess, previousFit=previousFit, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode)
   
 }
 
 
+#Document
+
 fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), ncol=1), 
-                     studyArea=studyArea, covs= NULL,
-                     #predCoords, xPred = matrix(rep(1, nrow(predCoords)), ncol=1), 
+                     studyArea=studyArea, ## Do it inside, not user input
+                     covs= NULL,
+                     predCoords, #xPred = matrix(rep(1, nrow(predCoords)), ncol=1), 
+                     control.fixed = list(prec=list(default=0), mean=list(default=0)), 
                      transform=I, invTransform=I, 
                      mesh=getSPDEmesh(obsCoords), prior=getSPDEprior(mesh), 
                      significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
-                     nPostSamples=1000, verbose=TRUE, #link=1,
-                     seed=NULL, family=c("normal", "binomial", "betabinomial"), 
-                     doModAssess=FALSE, 
-                     previousFit=NULL, improperCovariatePrior=TRUE, 
+                     nPostSamples=1000, verbose=TRUE, link=1, seed=NULL,
+                     family=c("normal", "binomial", "betabinomial"), 
+                     doModAssess=FALSE, customFixedI = NULL,
+                     previousFit=NULL,
                      fixedParameters=NULL, experimentalMode=FALSE) {
   
   family = match.arg(family)
@@ -99,7 +107,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   # set family prior
-  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(0.1,0.1))))
+  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
   
   if(!is.null(fixedParameters$familyPrec)) {
     # fix the family precision parameter on INLA's latent scale
@@ -108,60 +116,63 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   ## inlabru code
   wellDat$X = as.numeric(xObs[,1]) ##NBNB
-  wellDat$volFrac = as.numeric(wellDat$volFrac)
-  well_data_sf =st_as_sf(wellDat, coords = c("east", "north"), crs = 32633)  
+  ys = as.numeric(transform(obsValues))
+  # Making X terra
+  X_terra = terra::rast(covs$X, type="xyz")
+  
+  
+  #prior = inla.spde2.pcmatern(mesh, prior.range=c(1000, 0.5), prior.sigma = c(0.5, 0.5))
+  #wellDat$volFrac = as.numeric(wellDat$volFrac) #Review this part please!
+  wellDat$y = ys
+  well_data_sf =st_as_sf(wellDat, coords = c("east", "north"), crs = crs(studyArea))  
   cmp <- ~ field_pp(geometry, copy = "field_y", fixed =F) + Intercept_y(1) + Intercept_pp(1) + X(X_terra, model="linear") +
+    field_y(geometry, model=prior)
+  cmp_alt <- ~ field_pp(geometry, model = prior) + Intercept_y(1) +
+    Intercept_pp(1) + X(X_terra, model="linear") +
     field_y(geometry, model = prior)
   
   mesh$crs <- st_crs(studyArea)$wkt
+
+  ## Check for covariate extent
+  lik1_vect <- vect(mesh$loc[,1:2])
+  ext_rast <- ext(X_terra)
+  ext_pts <- ext(lik1_vect)
+  combined_ext <- ext(
+    min(ext_rast$xmin, ext_pts$xmin),
+    max(ext_rast$xmax, ext_pts$xmax),
+    min(ext_rast$ymin, ext_pts$ymin),
+    max(ext_rast$ymax, ext_pts$ymax)
+  )
+  expanded_rast <- extend(X_terra, combined_ext)
+  while(any(is.na(values(expanded_rast)))){
+    w <- matrix(1, 3, 3)
+    expanded_rast <- focal(expanded_rast, w = w, fun = mean, na.policy = "only", na.rm = TRUE)
+    X_terra <- expanded_rast
+  }
   
   lik1 <- bru_obs("cp",
-                  formula = geometry ~ Intercept_pp + field_pp,
+                  formula = geometry ~  Intercept_pp + X + field_pp,
                   data = well_data_sf,
                   domain = list(geometry = mesh),
-                  samplers = bbox_poly
+                  samplers = studyArea
   )
   
-  # Making X terra
-  r <- raster(SpatialPoints(covs$X[,c("east","north")]))
-  r1<-disaggregate(r, fact=res(r)/c(200,200)) ##Check this out
-  X.rast <- rasterize(cbind(covs$X[,c("east","north")]),r1,covs$X$seismicEst, fun=mean,na.rm=T)
-  X_terra = terra::rast(X.rast)
-  
   lik2 <- bru_obs(family,
-                  formula = volFrac ~ Intercept_y + X + field_y,
+                  formula = y ~  Intercept_y + X + field_y,
                   data = well_data_sf,
                   domain = list(geometry = mesh),
                   control.family = control.family
   )
   
   allQuantiles = c(0.5, (1-significanceCI) / 2, 1 - (1-significanceCI) / 2)
-  if(improperCovariatePrior) {
-    controlFixed=list(quantiles=allQuantiles, mean=0, prec=0)
-  } else {
-    controlFixed=list(quantiles=allQuantiles)
-  }
-  mod1 <- bru(cmp,lik2,options = list(bru_verbose=3,
-                                      control.inla = list(strategy = strategy, int.strategy = int.strategy),
-                                      control.mode = inla.set.control.mode.default(),
-                                      control.fixed = controlFixed
-  )
-  )
+  controlFixed=list(quantiles=allQuantiles)
   
   modeControl = inla.set.control.mode.default()
-  # if(!is.null(previousFit)) {
-  #   # initialize the fitting process based on a previous optimum
-  #   
-  #   # modeControl$result = previousFit
-  #   modeControl$theta = previousFit$mode$theta
-  #   modeControl$x = previousFit$mode$x
-  #   modeControl$restart = TRUE
-  # }
-  
-  mod <- bru(cmp,lik1, lik2,
+
+    mod <- bru(cmp, lik1, lik2,
              options = list(
                bru_verbose=3,
-               control.inla = list(strategy = strategy, int.strategy = int.strategy),
+               control.inla = list(strategy = strategy, int.strategy = int.strategy, verbose=TRUE),
                control.mode = modeControl,
                control.fixed = controlFixed
              )
@@ -173,11 +184,11 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   pred <- predict(
     mod,
-    fm_pixels(mesh, mask = studyArea),
+    predCoords,
     ~ data.frame(
       #lambda = exp(eco_intercept + eco_cov + w1),
       log_lambda = Intercept_pp + field_pp,
-      volFrac = Intercept_y  + X + field_y,
+      volFrac = as.numeric(invTransform(Intercept_y  + X + field_y)),
       AggObs = mean(Intercept_y + X + field_y)
     ))
   
@@ -216,13 +227,12 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   obsMedian = obs_pred$Obs$median
   obsUpper = obs_pred$Obs$q0.975
   
-  postSamples = inla.posterior.sample(nPostSamples, mod)
+  postSamples = inla.posterior.sample(nPostSamples, mod) #Use this then
+  
   if(family == "normal") {
     hyperparNames = names(postSamples[[1]]$hyperpar)
     nuggetVars = sapply(postSamples, function(x) {1 / x$hyperpar[which(hyperparNames == "Precision for the Gaussian observations[2]")]})
   }
-  
-  
   
   hyperMat = sapply(postSamples, function(x) {x$hyperpar})
   hyperNames = row.names(hyperMat)
@@ -280,7 +290,8 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   timings = data.frame(totalTime = totalTime)
   list(mod=mod, 
        obsCoords=obsCoords, xObs=xObs, obsValues=obsValues, #predCoords=predCoords,
-       xPred=xPred, obsEst=obsEst, obsSDs=obsSDs, obsLower=obsLower, obsMedian=obsMedian, obsUpper=obsUpper, 
+       #xPred=xPred, 
+       obsEst=obsEst, obsSDs=obsSDs, obsLower=obsLower, obsMedian=obsMedian, obsUpper=obsUpper, 
        predEst=predEst, predSDs=predSDs, predLower=predLower, predMedian=predMedian, predUpper=predUpper, #predAggMat=predAggMat, 
        predAggEst=predAggEst, predAggSDs=predAggSDs, predAggLower=predAggLower, predAggMedian=predAggMedian, predAggUpper=predAggUpper, 
        mesh=mesh, prior=prior, #stack=stack.full, 
