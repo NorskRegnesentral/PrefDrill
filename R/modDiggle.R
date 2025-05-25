@@ -5,7 +5,6 @@
 # Inputs:
 # wellDat: data.frame with columns: east, north
 # seismicDat: data.frame with columns: east, north, [additional columns with covariate info]
-# studyArea: Polygons that delimits the area where observations are made
 # predGrid: grid over which to make predictions
 # transform: how to transform obsValues prior to modeling
 # invTransform: inverse of transform. Used to backtransform predictions prior to aggregation
@@ -31,25 +30,22 @@
 # INLA model, predictions, summary statistics, input data, (posterior draws), etc.
 
 
-fitDigglesimDat = function(wellDat, seismicDat, studyArea,
+fitDigglesimDat = function(wellDat, seismicDat,
                            predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
-                           control.fixed = list(prec=list(default=0, X2=1/.5^2, X3=1), mean=list(default=0, X2=1)), ##NBNB: Review
+                           control.fixed = list(prec=list(default=0, X_y=1/.5^2), mean=list(default=0, X_y=1)), ##NBNB: Review
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
-                           #addKDE=FALSE, esthFromSeismic=TRUE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                            nPostSamples=1000, verbose=TRUE, seed=123, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
                            fixedParameters=NULL, experimentalMode=FALSE) {
   
-  #mesh = inla.mesh.2d(boundary=studyArea,loc.domain = testData$wellDat[,c("east","north")],max.edge=c(1000,10000),cutoff=100,offset=c(10,-.1))
-  #Not sure about kde stuff
-  
+  # construct prediction points
   predPts = st_as_sf(seismicDat[,1:2], coords = c("east", "north"))
-  #xPred = data.frame(X =  transform(seismicDat$seismicEst))
   
   # interpolate seismic data to the well points
-  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat, transform = transform, invTransform = invTransform)
+  wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat,
+                                   transform = transform, invTransform = invTransform)
   
   # construct well data covariates
   xObs = data.frame(X = transform(wellSeismicEsts))
@@ -58,25 +54,26 @@ fitDigglesimDat = function(wellDat, seismicDat, studyArea,
   obsValues = wellDat$volFrac
   obsCoords = cbind(wellDat$east, wellDat$north)
   
-  fitDiggle(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, studyArea=studyArea,
+  seismicDat$seismicEst = transform(seismicDat$seismicEst)
+  
+  fitDiggle(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs,
             covs = list(X= seismicDat),
-            predCoords=predPts, control.fixed = control.fixed,#xPred=xPred, 
+            predCoords=predPts, 
+            control.fixed = control.fixed,
             transform=transform, invTransform=invTransform, 
-            mesh=mesh, prior=prior, 
-            significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
-            nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
+            mesh=mesh, prior=prior, significanceCI=significanceCI,
+            int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
+            verbose=verbose, link=link, seed=seed, 
             family=family, doModAssess=doModAssess, previousFit=previousFit, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode)
   
 }
 
 
-#Document
+#Document!
 
 fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), ncol=1), 
-                     studyArea=studyArea, ## Do it inside, not user input
-                     covs= NULL,
-                     predCoords, #xPred = matrix(rep(1, nrow(predCoords)), ncol=1), 
+                     covs,predCoords,
                      control.fixed = list(prec=list(default=0), mean=list(default=0)), 
                      transform=I, invTransform=I, 
                      mesh=getSPDEmesh(obsCoords), prior=getSPDEprior(mesh), 
@@ -115,27 +112,29 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   ## inlabru code
-  wellDat$X = as.numeric(xObs[,1]) ##NBNB
+  prefPrior = list(prior="gaussian", param=c(0,4))
   ys = as.numeric(transform(obsValues))
   # Making X terra
   X_terra = terra::rast(covs$X, type="xyz")
   
-  
-  #prior = inla.spde2.pcmatern(mesh, prior.range=c(1000, 0.5), prior.sigma = c(0.5, 0.5))
-  #wellDat$volFrac = as.numeric(wellDat$volFrac) #Review this part please!
-  wellDat$y = ys
-  well_data_sf =st_as_sf(wellDat, coords = c("east", "north"), crs = crs(studyArea))  
-  cmp <- ~ field_pp(geometry, copy = "field_y", fixed =F) + Intercept_y(1) + Intercept_pp(1) + X(X_terra, model="linear") +
-    field_y(geometry, model=prior)
-  cmp_alt <- ~ field_pp(geometry, model = prior) + Intercept_y(1) +
-    Intercept_pp(1) + X(X_terra, model="linear") +
-    field_y(geometry, model = prior)
-  
-  mesh$crs <- st_crs(studyArea)$wkt
+  wellDat = data.frame(X=as.numeric(xObs[,1]),
+                       y = ys,
+                       volFrac = obsValues,
+                       east=obsCoords[,1],
+                       north=obsCoords[,2]
+                       )
 
+  well_data_sf =st_as_sf(wellDat, coords = c("east", "north"))  
+  
+  cmp <- ~ field_pp(geometry, copy = "field_y", fixed =F, hyper = list(beta=prefPrior)) + Intercept_y(1) + Intercept_pp(1) + X_pp(X_terra, model="linear") +
+    field_y(geometry, model=prior) + X_y(X, model="linear")
+  
+  ## Construct study area
+  ext_rast <- ext(X_terra)
+  studyArea <- as.polygons(ext_rast)
+  
   ## Check for covariate extent
   lik1_vect <- vect(mesh$loc[,1:2])
-  ext_rast <- ext(X_terra)
   ext_pts <- ext(lik1_vect)
   combined_ext <- ext(
     min(ext_rast$xmin, ext_pts$xmin),
@@ -150,111 +149,165 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     X_terra <- expanded_rast
   }
   
+  
   lik1 <- bru_obs("cp",
-                  formula = geometry ~  Intercept_pp + X + field_pp,
-                  data = well_data_sf,
+                  formula = geometry ~  Intercept_pp + X_pp + field_pp,
+                  data = well_data_sf[,c("volFrac","geometry")],
                   domain = list(geometry = mesh),
                   samplers = studyArea
   )
   
   lik2 <- bru_obs(family,
-                  formula = y ~  Intercept_y + X + field_y,
+                  formula = y ~  Intercept_y + X_y + field_y,
                   data = well_data_sf,
-                  domain = list(geometry = mesh),
                   control.family = control.family
   )
   
   allQuantiles = c(0.5, (1-significanceCI) / 2, 1 - (1-significanceCI) / 2)
-  controlFixed=list(quantiles=allQuantiles)
   
   modeControl = inla.set.control.mode.default()
 
-    mod <- bru(cmp, lik1, lik2,
+  endTimeDefineModel = proc.time()[3]
+  totalTimeDefineModel = endTimeDefineModel - startTimeDefineModel
+  
+  startModelFitTime = proc.time()[3]
+  
+  mod <- bru(cmp, lik1,lik2,
              options = list(
-               bru_verbose=3,
-               control.inla = list(strategy = strategy, int.strategy = int.strategy, verbose=TRUE),
-               control.mode = modeControl,
-               control.fixed = controlFixed
+               bru_verbose=0,verbose=T,bru_max_iter=1,
+               control.inla = list(strategy = strategy, int.strategy = int.strategy)
+               )
              )
-  )
-  
-  interceptSummary = mod$summary.fixed[2,1:5]
-  fixedEffectSummary = mod$summary.fixed[3,1:5]
-  rangeSummary = mod$summary.hyperpar[2,1:5]  
-  
-  pred <- predict(
-    mod,
-    predCoords,
-    ~ data.frame(
-      #lambda = exp(eco_intercept + eco_cov + w1),
-      log_lambda = Intercept_pp + field_pp,
-      volFrac = as.numeric(invTransform(Intercept_y  + X + field_y)),
-      AggObs = mean(Intercept_y + X + field_y)
-    ))
-  
-  predEst = pred$volFrac$mean
-  predSDs = pred$volFrac$sd
-  predLower = pred$volFrac$q0.025
-  predMedian = pred$volFrac$median
-  predUpper = pred$volFrac$q0.975
-  
-  predAggEst = pred$AggObs$mean[1]
-  predAggSDs = pred$AggObs$sd[1]
-  predAggLower = pred$AggObs$q0.025[1]
-  predAggMedian = pred$AggObs$median[1]
-  predAggUpper = pred$AggObs$q0.975[1]
+  endModelFitTime = proc.time()[3]
+  totalModelFitTime = endModelFitTime - startModelFitTime
   
   
-  obsCoords_sf = st_as_sf(as.data.frame(obsCoords), coords = c(1, 2), crs = "+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs")
+  startTimePosteriorSampling = proc.time()[3]
+  postSamples = inla.posterior.sample(nPostSamples, mod)
+  endTimePosteriorSampling = proc.time()[3]
+  totalTimePosteriorSampling = endTimePosteriorSampling - startTimePosteriorSampling
   
-  
-  obs_pred <- predict(
-    mod,
-    obsCoords_sf,
-    ~ data.frame(
-      #lambda = exp(eco_intercept + eco_cov + w1),
-      fixedObs = Intercept_y + X,
-      spatialObs = field_y,
-      Obs = Intercept_y + X + field_y,
-      AggObs = mean(Intercept_y + X + field_y)
-      #volFrac = Intercept_y  + X + field_y
-    ))
-  
-  
-  obsEst = obs_pred$Obs$mean
-  obsSDs = obs_pred$Obs$sd
-  obsLower = obs_pred$Obs$q0.025
-  obsMedian = obs_pred$Obs$median
-  obsUpper = obs_pred$Obs$q0.975
-  
-  postSamples = inla.posterior.sample(nPostSamples, mod) #Use this then
+  latentMat = sapply(postSamples, function(x) {x$latent})
   
   if(family == "normal") {
     hyperparNames = names(postSamples[[1]]$hyperpar)
     nuggetVars = sapply(postSamples, function(x) {1 / x$hyperpar[which(hyperparNames == "Precision for the Gaussian observations[2]")]})
   }
   
-  hyperMat = sapply(postSamples, function(x) {x$hyperpar})
-  hyperNames = row.names(hyperMat)
+  latentVarNames = rownames(postSamples[[1]]$latent)
+  field_y_Indices = which(grepl("field_y", latentVarNames))
+  field_pp_Indices = which(grepl("field_pp", latentVarNames))
+  fixedIndices = which(grepl("X_y", latentVarNames))
+  fixedInt_y_Indices = which(grepl("Intercept_y", latentVarNames))
+  fixedInt_pp_Indices = which(grepl("Intercept_pp", latentVarNames))
+  
+  ## Spatial GRF predictions
+  APred = inla.spde.make.A(mesh, loc = predCoords)
+  AObs = inla.spde.make.A(mesh,loc=well_data_sf)
+  spatial_y_PredMat = APred %*% latentMat[field_y_Indices,]
+  spatial_pp_PredMat = APred %*% latentMat[field_pp_Indices,]
+  spatial_y_ObsMat = AObs %*% latentMat[field_y_Indices,]
+
+  fixed_y_pred = latentMat[fixedInt_y_Indices,]
+  fixed_pp_pred = latentMat[fixedInt_pp_Indices,]
+  
+  X_pred_covs = extract(X_terra,predCoords)[,2]
+  X_pred_cov_mat = matrix(rep(X_pred_covs,ncol(latentMat)), 
+                          ncol = ncol(latentMat))
+  X_obs_mat = matrix(rep(well_data_sf$X,ncol(latentMat)), 
+                     ncol = ncol(latentMat))
+  
+  X_samps = matrix(latentMat[fixedIndices,], nrow = 1, ncol = ncol(latentMat))
+  fixedPredMat = sweep(X_pred_cov_mat, MARGIN = 2, STATS = X_samps, FUN = "*")
+  fixedObsMat = sweep(X_obs_mat, MARGIN = 2, STATS = X_samps, FUN = "*")
+  
+  Predbase_int_mat = matrix(1,nrow=nrow(predCoords),ncol=nPostSamples)
+  IntPred_y_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_y_Indices,], FUN = "*")
+  IntPred_pp_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_pp_Indices,], FUN = "*")
+  
+  Obsbase_int_mat = matrix(1,nrow=nrow(well_data_sf),ncol=nPostSamples)
+  IntObs_y_samps = sweep(Obsbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_y_Indices,], FUN = "*")
+ 
+  predMat = IntPred_y_samps + fixedPredMat + spatial_y_PredMat
+  obsMat = IntObs_y_samps + fixedObsMat + spatial_y_ObsMat
+  
   if(family == "normal") {
-    clusterVarI = which(hyperNames == "Precision for the Gaussian observations[2]")
-    spatialRangeI = which(hyperNames == "Range for field_y" )
-    spatialSDI = which(hyperNames == "Stdev for field_y")
+    # get cluster effect variance
+    clusterVars = nuggetVars
+    
+    predMatNugget = predMat + matrix(rnorm(length(predMat), sd=rep(sqrt(clusterVars), each=nrow(predMat))), nrow=nrow(predMat))
+    obsMatNugget = obsMat + matrix(rnorm(length(obsMat), sd=rep(sqrt(clusterVars), each=nrow(obsMat))), nrow=nrow(obsMat))
+  } else {
+    stop("family not supported")
+  }
+  
+  obsMat = invTransform(obsMat)
+  obsMatNugget = invTransform(obsMatNugget)
+  predMat = invTransform(predMat)
+  predMatNugget = invTransform(predMatNugget)
+  
+  # summary statistic
+  obsEst = rowMeans(obsMat)
+  obsSDs = apply(obsMat, 1, sd)
+  obsLower = apply(obsMat, 1, quantile, probs=(1-significanceCI)/2)
+  obsMedian = apply(obsMat, 1, median)
+  obsUpper = apply(obsMat, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  obsNuggetEst = obsEst
+  obsNuggetSDs = apply(obsMatNugget, 1, sd)
+  obsNuggetLower = apply(obsMatNugget, 1, quantile, probs=(1-significanceCI)/2)
+  obsNuggetMedian = apply(obsMatNugget, 1, median)
+  obsNuggetUpper = apply(obsMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  predEst = rowMeans(predMat)
+  predSDs = apply(predMat, 1, sd)
+  predLower = apply(predMat, 1, quantile, probs=(1-significanceCI)/2)
+  predMedian = apply(predMat, 1, median)
+  predUpper = apply(predMat, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  predNuggetEst = predEst
+  predNuggetSDs = apply(predMatNugget, 1, sd)
+  predNuggetLower = apply(predMatNugget, 1, quantile, probs=(1-significanceCI)/2)
+  predNuggetMedian = apply(predMatNugget, 1, median)
+  predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  # aggregate summary statistics
+  predAggMat = colMeans(predMat)
+  predAggEst = mean(predAggMat)
+  predAggSDs = sd(predAggMat)
+  predAggLower = quantile(predAggMat, probs=(1-significanceCI)/2)
+  predAggMedian = quantile(predAggMat, probs=.5)
+  predAggUpper = quantile(predAggMat, probs=1-(1-significanceCI)/2)
+  
+  interceptSummary=mod$summary.fixed[3,1:5]
+  fixedEffectSummary=mod$summary.fixed[2,1:5]
+  
+  rangeSummary=mod$summary.hyperpar[which(hyperparNames == "Range for field_y"),1:5]
+  spatialSDSummary = mod$summary.hyperpar[which(hyperparNames == "Stdev for field_y"),1:5]
+  prefParSummary = mod$summary.hyperpar[which(hyperparNames == "Beta for field_pp"),1:5]
+  
+  # posterior hyperparameter samples
+  hyperMat = sapply(postSamples, function(x) {x$hyperpar})
+  if(family == "normal") {
+    clusterVarI = which(hyperparNames == "Precision for the Gaussian observations[2]")
+    spatialRangeI = which(hyperparNames == "Range for field_y" )
+    spatialSDI = which(hyperparNames == "Stdev for field_y")
+    prefParI = which(hyperparNames == "Beta for field_pp")
     if(!is.matrix(hyperMat)) {
       mat = NULL
     } else {
       mat = apply(hyperMat, 2, function(x) {c(totalVar=x[spatialSDI]^2+1/x[clusterVarI], spatialVar=x[spatialSDI]^2, errorVar=1/x[clusterVarI], 
                                               totalSD=sqrt(x[spatialSDI]^2+1/x[clusterVarI]), spatialSD=x[spatialSDI], errorSD=sqrt(1/x[clusterVarI]), 
-                                              spatialRange=x[spatialRangeI])})
+                                              spatialRange=x[spatialRangeI], preferentialParameter=x[prefParI])})
     }
   } else {
     stop("family not supported")
   }
+  
   if(family == "normal")
-    hyperNames = c("totalVar", "spatialVar", "errorVar", "totalSD", "spatialSD", "errorSD", "spatialRange")
+    hyperNames = c("totalVar", "spatialVar", "errorVar", "totalSD", "spatialSD", "errorSD", "spatialRange", "prefPar")
   else 
     stop("family not supported")
-  
   if(is.matrix(hyperMat)) {
     rownames(mat) = hyperNames
     
@@ -274,6 +327,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
       sdSummary=parameterSummaryTable[summaryHyperNames == "errorSD",]
       varSummary=parameterSummaryTable[summaryHyperNames == "errorVar",]
       rangeSummary=parameterSummaryTable[summaryHyperNames == "spatialRange",]
+      prefParSummary = parameterSummaryTable[summaryHyperNames == "prefPar",]
     } else {
       stop("family not supported")
     }
@@ -287,23 +341,28 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   endTime = proc.time()[3]
   totalTime = endTime - startTime
-  timings = data.frame(totalTime = totalTime)
+  timings = data.frame(totalTime=totalTime, 
+                       modelDefineTime=totalTimeDefineModel, 
+                       modelFitTime=totalModelFitTime, 
+                       posteriorSamplingTime=totalTimePosteriorSampling, 
+                       otherTime=totalTime-(totalTimeDefineModel + totalModelFitTime + totalTimePosteriorSampling))
+  timings$modelDefinePct = timings$modelDefineTime / timings$totalTime
+  timings$modelFitTimePct = timings$modelFitTime / timings$totalTime
+  timings$posteriorSamplingTimePct = timings$posteriorSamplingTime / timings$totalTime
+  timings$otherTimePct = timings$otherTime / timings$totalTime
   list(mod=mod, 
-       obsCoords=obsCoords, xObs=xObs, obsValues=obsValues, #predCoords=predCoords,
-       #xPred=xPred, 
+       obsCoords=obsCoords, xObs=xObs, obsValues=obsValues, predCoords=predCoords,
        obsEst=obsEst, obsSDs=obsSDs, obsLower=obsLower, obsMedian=obsMedian, obsUpper=obsUpper, 
-       predEst=predEst, predSDs=predSDs, predLower=predLower, predMedian=predMedian, predUpper=predUpper, #predAggMat=predAggMat, 
+       predEst=predEst, predSDs=predSDs, predLower=predLower, predMedian=predMedian, predUpper=predUpper, predAggMat=predAggMat, 
        predAggEst=predAggEst, predAggSDs=predAggSDs, predAggLower=predAggLower, predAggMedian=predAggMedian, predAggUpper=predAggUpper, 
-       mesh=mesh, prior=prior, #stack=stack.full, 
+       mesh=mesh, prior=prior,
        interceptSummary=interceptSummary, fixedEffectSummary=fixedEffectSummary, rangeSummary=rangeSummary, 
        sdSummary=sdSummary, varSummary=varSummary, 
        parameterSummaryTable=parameterSummaryTable, 
-       #fixedEffectDraws=latentMat[fixedIndices,], 
-       #spatialPredMat=spatialPredMat, fixedPredMat=fixedPredMat, 
-       #spatialObsMat=spatialObsMat, fixedObsMat=fixedObsMat, 
-       #obsMat=obsMat, obsMatNugget=obsMatNugget, predMat=predMat, predMatNugget=predMatNugget, 
-       hyperMat=hyperMat, timings=timings#, sigmaEpsilonDraws=sqrt(clusterVars)
-  )
-  
-  
+       fixedEffectDraws=latentMat[fixedIndices,], 
+       spatialPredMat=spatial_y_PredMat, fixedPredMat=fixedPredMat, 
+       spatialObsMat=spatial_y_ObsMat, fixedObsMat=fixedObsMat, 
+       obsMat=obsMat, obsMatNugget=obsMatNugget, predMat=predMat, predMatNugget=predMatNugget, 
+       hyperMat=hyperMat, timings=timings, sigmaEpsilonDraws=sqrt(clusterVars))
+
 }
