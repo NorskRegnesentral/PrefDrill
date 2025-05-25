@@ -46,7 +46,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
   # interpolate seismic data to the well points
   wellSeismicEsts = bilinearInterp(wellDat[,1:2], seismicDat,
                                    transform = transform, invTransform = invTransform)
-  
+
   # construct well data covariates
   xObs = data.frame(X = transform(wellSeismicEsts))
   
@@ -105,7 +105,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   # set family prior
   control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
-  
+
   if(!is.null(fixedParameters$familyPrec)) {
     # fix the family precision parameter on INLA's latent scale
     control.family = list(initial=log(fixedParameters$familyPrec), fixed=TRUE)
@@ -164,7 +164,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   )
   
   allQuantiles = c(0.5, (1-significanceCI) / 2, 1 - (1-significanceCI) / 2)
-  
+
   modeControl = inla.set.control.mode.default()
 
   endTimeDefineModel = proc.time()[3]
@@ -293,6 +293,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     spatialRangeI = which(hyperparNames == "Range for field_y" )
     spatialSDI = which(hyperparNames == "Stdev for field_y")
     prefParI = which(hyperparNames == "Beta for field_pp")
+    
     if(!is.matrix(hyperMat)) {
       mat = NULL
     } else {
@@ -303,11 +304,12 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   } else {
     stop("family not supported")
   }
-  
+
   if(family == "normal")
     hyperNames = c("totalVar", "spatialVar", "errorVar", "totalSD", "spatialSD", "errorSD", "spatialRange", "prefPar")
   else 
     stop("family not supported")
+  
   if(is.matrix(hyperMat)) {
     rownames(mat) = hyperNames
     
@@ -341,6 +343,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   endTime = proc.time()[3]
   totalTime = endTime - startTime
+  
   timings = data.frame(totalTime=totalTime, 
                        modelDefineTime=totalTimeDefineModel, 
                        modelFitTime=totalModelFitTime, 
