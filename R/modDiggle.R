@@ -174,7 +174,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   mod <- bru(cmp, lik1,lik2,
              options = list(
-               bru_verbose=0,verbose=T,bru_max_iter=1,
+               bru_verbose=0,bru_max_iter=1,
                control.inla = list(strategy = strategy, int.strategy = int.strategy)
                )
              )
