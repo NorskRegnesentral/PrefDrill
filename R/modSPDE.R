@@ -17,7 +17,7 @@ getSPDEprior = function(mesh, U=1, alpha=0.05, medianRange=NULL) {
   
   # set default median range
   if(is.null(medianRange))
-    range0 <- size/5
+    range0 <- size/5 # 2074.898 for sim study mesh
   else
     range0 = medianRange
   

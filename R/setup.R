@@ -54,7 +54,11 @@ wellTestDat_successiveIPP = wellTestDat
 out = load(paste0(globalDir, "testDat.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
 
 # other variables
-simStudyXlims <<- c(0, 10000) # TODO: CHECK THIS
-simStudyYlims <<- c(0, 10000) # TODO: CHECK THIS
+simStudyXlims <<- c(-12.5, 15012.5)
+simStudyYlims <<- c(-8.3335, 5008.4336)
+
+# simStudyXlims <<- c(0, 10000) # TODO: CHECK THIS
+# simStudyYlims <<- c(0, 10000) # TODO: CHECK THIS
+
 
 

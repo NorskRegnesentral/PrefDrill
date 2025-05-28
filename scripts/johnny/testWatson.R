@@ -586,6 +586,24 @@ print(paste0("logit MSE (seismic and Watson): ", mean(logit(pTruth) - logit(pSei
 # [1] "logit MSE (seismic and Watson): 0.000706596851712083 and 0.00017709516220975" # current # before seismic prior
 # [1] "logit MSE (seismic and Watson): 0.000706596851712083 and 0.000159484950630608"
 
+temp= logit(gTruth)
+loess_fit <- loess(I(logit(preds)) ~ temp)
+
+# Predict fitted values
+x_vals <- seq(0, 1, length.out = 100)
+x_vals <- seq(-3, 3, length.out = 100)
+y_pred <- predict(loess_fit, newdata = data.frame(temp = x_vals))
+
+lines(x_vals, y_pred, col="green")
+
+library(ggplot2)
+data = data.frame(gTruth=gTruth, preds=preds)
+ggplot(data, aes(x = gTruth, y = preds)) +
+  geom_point() +                              # Scatter plot
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE, color = "blue") +
+  theme_minimal()
+
+
 var(logit(pTruth) - logit(pVolFrac))
 # 0.01149867
 var(logit(pTruth) - logit(pSeismic))
