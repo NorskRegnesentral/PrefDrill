@@ -187,7 +187,7 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
   sigmaSqErr = thisPar$nuggetVar
   repelAmount = thisPar$repEffect
   nWells = thisPar$n
-  modelFitter = getFitModFuns()[thisPar$fitModFunI]
+  modelFitter = getFitModFuns()[[thisPar$fitModFunI]]
   repelDist = repAreaToDist(thisPar$repelAreaProp)
   
   # Generate unique seeds for each replicated simulation
