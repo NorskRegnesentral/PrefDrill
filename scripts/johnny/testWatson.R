@@ -784,4 +784,13 @@ print(paste0("MSE (seismic and Watson): ", mean(pTruth - pSeismic)^2, " and ", m
 print(paste0("logit MSE (seismic and Watson): ", mean(logit(pTruth) - logit(pSeismic))^2, " and ", mean(logit(pTruth) - logit(obsPreds))^2))
 # [1] "logit MSE (seismic and Watson): 0.000706596851712083 and 0.000182783198580526"
 
+# _ ----
+# Test pseudosites ----
+# _ ----
+gEast = seismicTestDat_successiveIPP$east
+gNorth = seismicTestDat_successiveIPP$north
 
+pdf(file=paste0(figDir, "testing/testPseudo_Watson.pdf"), width=5, height=5)
+plot(gEast, gNorth, main="Pseudosites", 
+     xlab="Easting", ylab="Northing", xlim=c(0, 10000), ylim=c(0, 10000), pch=19, col="black", cex=.1)
+dev.off()

@@ -108,10 +108,11 @@ getSPDEmeshRect = function(lowerLeft=c(0,0), width=1, height=1, n=3500, max.n=50
 # 
 # Outputs:
 # mesh to give to INLA
-getSPDEmeshSimStudy = function(doPlot=FALSE) {
+getSPDEmeshSimStudy = function(n=1500, max.n=2500, doPlot=FALSE) {
   
   getSPDEmeshRect(width=diff(simStudyXlims), 
                   height=diff(simStudyYlims), 
+                  n=n, max.n=max.n, 
                   doPlot=doPlot)
 }
 
@@ -177,7 +178,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
                          mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
                          addKDE=FALSE, esthFromSeismic=TRUE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
                          significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
-                         nPostSamples=1000, verbose=FALSE, seed=123, 
+                         nPostSamples=1000, useSeismic=TRUE, verbose=FALSE, seed=NULL, 
                          family="normal", doModAssess=FALSE, previousFit=NULL, 
                          fixedParameters=NULL, experimentalMode=FALSE) {
   
@@ -231,14 +232,22 @@ fitSPDEsimDat = function(wellDat, seismicDat,
   
   # construct prediction points and covariates
   predPts = matrix(unlist(seismicDat[,1:2]), ncol=2)
-  xPred = cbind(1, transform(seismicDat$seismicEst), wGrid)
   
-  # interpolate seismic data to the well points
-  wellSeismicEsts = bilinearInterp(as.matrix(wellDat[,1:2]), seismicDat, 
-                                   transform=transform, invTransform=invTransform)
-  
-  # construct well data covariates
-  xObs = cbind(1, transform(wellSeismicEsts), wObs)
+  if(!useSeismic) {
+    xPred = cbind(1, wGrid)
+    
+    # construct well data covariates
+    xObs = cbind(1, wObs)
+  } else {
+    xPred = cbind(1, transform(seismicDat$seismicEst), wGrid)
+    
+    # interpolate seismic data to the well points
+    wellSeismicEsts = bilinearInterp(as.matrix(wellDat[,1:2]), seismicDat, 
+                                     transform=transform, invTransform=invTransform)
+    
+    # construct well data covariates
+    xObs = cbind(1, transform(wellSeismicEsts), wObs)
+  }
   
   # set observations
   obsValues = wellDat$volFrac

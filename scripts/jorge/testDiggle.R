@@ -230,7 +230,10 @@ svyAggEst
 naiveAggEst
 
 # fit model ----
-out = fitDigglesimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP)
+profvis({out <- fitDigglesimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP)})
+system.time(out <- fitDigglesimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP))
+# n=3500, max.n=5000: 288.56 
+# n=1500, max.n=2500: 71.86  
 
 # plot predictions ----
 preds = out$predEst

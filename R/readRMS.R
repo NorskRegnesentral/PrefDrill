@@ -2,7 +2,6 @@
 
 
 readSurfaceRMS = function(filename) {
-  
   # << "  -996" << " "
   # << std::setw(5)  << grid.GetNY()     << "  "
   # << std::setw(12) << grid.GetXInc()   << "  "
@@ -47,8 +46,14 @@ readSurfaceRMS = function(filename) {
   ygrid = seq(from=ystart, to=yend, l=ny)
   surfMat = matrix(vals, nrow=nx, ncol=ny)
   
-  list(xgrid=xgrid, ygrid=ygrid, surfMat=surfMat, 
+  # convert to long format
+  surfFrame = data.frame(east = rep(xgrid, ny), north=rep(ygrid, each=nx), 
+                         seismicEst=c(surfMat))
+  
+  list(xgrid=xgrid, ygrid=ygrid, surfMat=surfMat, surfFrame=surfFrame, 
        nx=nx, ny=ny, xstart=xstart, ystart=ystart, xend=xend, yend=yend)
+  
+  
 }
 
 

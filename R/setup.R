@@ -26,12 +26,14 @@ setwd("~/git/PrefDrill/")
 # source R code ----
 source('R/modSPDE.R')
 source('R/modSuccessiveSPDE.R')
+source('R/modDiggle.R')
 source('R/modWatson.R')
 source('R/modWellDensity.R')
 source('R/utilityFuns.R')
 source('R/simStudy.R')
 source('R/getTestDat.R')
 source("R/readRMS.R")
+source("R/wellSampler.R")
 
 # set up global variables ----
 
@@ -55,11 +57,11 @@ wellTestDat_successiveIPP = wellTestDat
 out = load(paste0(globalDir, "testDat.RData")) # "truthTestDat", "seismicTestDat", "wellTestDat" 
 
 # other variables
-simStudyXlims <<- c(-12.5, 15012.5)
-simStudyYlims <<- c(-8.3335, 5008.4336)
+# simStudyXlims <<- c(-12.5, 15012.5)
+# simStudyYlims <<- c(-8.3335, 5008.4336)
 
-# simStudyXlims <<- c(0, 10000) # TODO: CHECK THIS
-# simStudyYlims <<- c(0, 10000) # TODO: CHECK THIS
+simStudyXlims <<- c(0, 10000) # TODO: CHECK THIS
+simStudyYlims <<- c(0, 10000) # TODO: CHECK THIS
 
 
 

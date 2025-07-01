@@ -36,7 +36,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
-                           nPostSamples=1000, verbose=TRUE, seed=123, 
+                           nPostSamples=1000, verbose=FALSE, seed=NULL, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
                            fixedParameters=NULL, experimentalMode=FALSE) {
   
