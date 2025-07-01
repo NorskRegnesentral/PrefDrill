@@ -209,7 +209,7 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("/nr/sand/user/jpaige/synthetic_model/RegularizedTruth_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("/nr/sand/user/jpaige/synthetic_model/RegularizedSand_", repI, ".txt"))
   truth = out$surfFrame
   
   # set repulsion parameters
