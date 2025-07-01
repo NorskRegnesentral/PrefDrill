@@ -227,6 +227,7 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
     tempPar$n = NULL
     thisTempPar = thisPar
     thisTempPar$n = NULL
+    thisTempPar$seed = tempPar$seed
     
     if(identical(tempPar, thisTempPar)) {
       if(is.null(maxJ)) {
