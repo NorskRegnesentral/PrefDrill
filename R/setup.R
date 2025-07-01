@@ -1,10 +1,34 @@
 
+# Check if running on linux
+inf = sessionInfo()
+
 # load required packages ----
 library(devtools)
-if(identical(find.package("splott", quiet=TRUE), character(0))) {
+if(grepl("linux", inf$platform)) {
+  # .libPaths(new="~/R")
+  
+  if(identical(find.package("splott", quiet=TRUE), character(0))) {
+    # make sure splott is cloned into ~/git/splott or else this won't work
+    install_local("~/git/splott")
+  }
+} else if(identical(find.package("splott", quiet=TRUE), character(0))) {
   # if splott not installed, install it
   install_github("paigejo/splott")
 }
+
+if(FALSE) {
+  install.packages("Matrix")
+  install.packages("INLA",repos=c(getOption("repos"),INLA="https://inla.r-inla-download.org/R/stable"), 
+                   dep=TRUE)
+  install.packages("fields")
+  install.packages("inlabru")
+  install.packages("akima")
+  install.packages("ks")
+  install.packages("gstat")
+  install.packages("sf")
+  install.packages("terra")
+}
+
 library(splott)
 library(fields)
 library(INLA)
