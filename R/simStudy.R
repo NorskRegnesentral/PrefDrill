@@ -238,6 +238,7 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
     }
   }
   maxN = simParList[[maxJ]]$n
+  thisSeed = simParList[[maxJ]]$seed
   browser()
   
   # sample the wells
@@ -246,7 +247,7 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
                         transform=logit, invTransform=expit, prefPar=prefPar, 
                         samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                         repelType=repelType, bwRepel=bwRepel, 
-                        repelAmount=repelAmount, seed=NULL, ...)
+                        repelAmount=repelAmount, seed=thisSeed, ...)
   
   save(wellDat, simPar=simParList[[maxJ]], file=paste0("savedOutput/simStudy/wellDat_par", parI, "_rep", repI, ".RData"))
 }
