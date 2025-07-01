@@ -29,7 +29,7 @@ wellSampler = function(truthDat, seismicDat, modelFitter, nWells=20, minN=4,
                                  transform=transform, invTransform=invTransform, 
                                  samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                                  repelType=repelType, bwRepel=bwRepel, rbf=rbf, 
-                                 repelAmount=repelAmount, seed=NULL, ...)
+                                 repelAmount=repelAmount, seed=NULL, ...)$wellDat
   wellDat = data.frame(east=initWellDat[,1], north=initWellDat[,2], volFrac=initWellDat[,3])
   
   # now loop through, sampling and fitting models
@@ -42,7 +42,7 @@ wellSampler = function(truthDat, seismicDat, modelFitter, nWells=20, minN=4,
                                   transform=transform, invTransform=invTransform, 
                                   samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                                   repelType=repelType, bwRepel=bwRepel, rbf=rbf, 
-                                  repelAmount=repelAmount, seed=NULL)
+                                  repelAmount=repelAmount, seed=NULL)$wellDat
     
     wellDat = rbind(wellDat, newWellDat)
   }

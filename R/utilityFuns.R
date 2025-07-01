@@ -28,8 +28,8 @@ bilinearInterp = function(pts, gridDat, transform=I, invTransform=I) {
   
   # use bilinear interpolation to get seismic estimate at that point
   # First must convert to akima format into matrix grid form for z
-  eastGrid = sort(unique(gridDat[,2]))
-  northGrid = eastGrid
+  eastGrid = sort(unique(gridDat[,1]))
+  northGrid = sort(unique(gridDat[,2]))
   sortI1 = order(gridDat[,1]) # east
   gridDat = gridDat[sortI1,]
   sortI2 = order(gridDat[,2]) # north
