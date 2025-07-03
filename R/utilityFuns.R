@@ -189,4 +189,10 @@ logitNormMeanSplineApprox = function(mus, sigma, npts=250, ...) {
   list(vals = outVals, fun=spFun, range=rangeMu)
 }
 
+# converts data.frame to a list of lists
+dfToListOfLists = function(df) {
+  list_of_lists <- split(df, seq(nrow(df)))
+  lapply(list_of_lists, as.list)
+}
+
 

@@ -102,6 +102,23 @@ getPrefDrillLoc = function(seismicDat,
 
 # Main simulation study functions -----
 
+# NOTE:
+# repI: ID of truth replicate. 100 total.
+# sampleParI: ID of parameters related to well sampling. 4 total. Depends on:
+#   repelAreaProp (1-2)
+#   propVarCase (1-2)
+# wellDatI: ID of full well dataset. 400 total. Depends on:
+#   repelAreaProp (1-2)
+#   propVarCase (1-2)
+#   repI (1-100)
+# fitModFunI: ID of model used to make predictions. 4/5 total including seismic only case.
+# ModelFitI: ID of parameters for model fit. 4800/4900 total. Depends on:
+#   repelAreaProp (1-2) (doesn't affect seismic data only case)
+#   propVarCase (1-2) (doesn't affect seismic data only case)
+#   repI (1-100)
+#   n (1-3) (doesn't affect seismic data only case)
+#   fitModFunI (1-4 + seismic data only case)
+
 # Inputs:
 # Seed: random seed
 # inputListFile: filename to save output as
@@ -128,51 +145,62 @@ setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParLis
   prefPar = 3
   
   # Generate all combinations of varying parameters
-  # combinations = expand.grid(
-  #   fitModFuns = fitModFuns, 
-  #   prefPar = prefPar,
-  #   repelAreaProp = repelAreaProp,
-  #   propVarCase = propVarCase,
-  #   stringsAsFactors = FALSE
-  # )
-  combinations = expand.grid(
-    fitModFunI = fitModFunI, 
+  sampleParCombs = expand.grid(
     repelAreaProp = repelAreaProp,
     propVarCase = propVarCase,
+    repEffect = repEffect, 
+    nuggetVar = nuggetVar, 
+    sigmaSq = sigmaSq, 
+    prefPar = prefPar, 
+    stringsAsFactors = FALSE
+  )
+  wellDatCombs = expand.grid(
+    repelAreaProp = repelAreaProp,
+    propVarCase = propVarCase,
+    repI = 1:nsim, 
+    repEffect = repEffect, 
+    nuggetVar = nuggetVar, 
+    sigmaSq = sigmaSq, 
+    prefPar = prefPar, 
+    stringsAsFactors = FALSE
+  )
+  modelFitCombs = expand.grid(
+    repelAreaProp = repelAreaProp,
+    propVarCase = propVarCase,
+    fitModFunI = fitModFunI, 
+    repI = 1:nsim, 
+    n = n, 
+    repEffect = repEffect, 
+    nuggetVar = nuggetVar, 
+    sigmaSq = sigmaSq, 
+    prefPar = prefPar, 
     stringsAsFactors = FALSE
   )
   
-  nComb = nrow(combinations)
-  totalSim = nComb * nsim * length(n)
+  # add in IDs into the combination lists
+  sampleParCombs$sampleParI = 1:nrow(sampleParCombs)
+  wellDatCombs$wellDatI = 1:nrow(wellDatCombs)
+  modelFitCombs$modelFitI = 1:nrow(modelFitCombs)
   
-  # Generate unique seeds for each replicated simulation
-  seedVec = sample.int(.Machine$integer.max, size = totalSim, replace = FALSE)
+  # add in IDs from corresponding combination lists
+  wellDatCombs = merge(wellDatCombs, sampleParCombs)
+  modelFitCombs = merge(modelFitCombs, wellDatCombs)
+  wellDatCombs$n = max(n)
   
-  # Repeat each combination nsim times
-  simParList = vector("list", length = totalSim)
-  idx = 1
+  # Generate unique seeds for each replicated simulation and simulated dataset
+  nDatasets = nrow(wellDatCombs)
+  nFits = nrow(modelFitCombs)
+  seedVec = sample.int(.Machine$integer.max, size = nDatasets + nFits, replace = FALSE)
+  wellDatCombs$seed = seedVec[1:nDatasets]
+  modelFitCombs$seed = seedVec[(nDatasets+1):(nDatasets + nFits)]
   
-  for(i in 1:nsim) {
-    for(k in 1:length(n)) {
-      for(j in 1:nComb) {
-        simParList[[idx]] = list(
-          parI = j, 
-          repI = i, 
-          fitModFunI = combinations$fitModFunI[j],
-          n = n[k],
-          repelAreaProp = combinations$repelAreaProp[j],
-          propVarCase = combinations$propVarCase[j],
-          prefPar = prefPar,
-          repEffect = repEffect,
-          nuggetVar = nuggetVar,
-          seed = seedVec[idx]
-        )
-        idx = idx + 1
-      }
-    }
-  }
+  # construct list of lists from each data.frame
+  sampleParCombsList = dfToListOfLists(sampleParCombs)
+  wellDatCombsList = dfToListOfLists(wellDatCombs)
+  modelFitCombsList = dfToListOfLists(modelFitCombs)
   
-  save(simParList, file=inputListFile)
+  save(sampleParCombsList, sampleParCombs, wellDatCombsList, wellDatCombs, 
+       modelFitCombsList, modelFitCombs, file=inputListFile)
 }
 
 # generates the well data for the simulation study
@@ -180,24 +208,20 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
   
   # parameters
   out = load("savedOutput/simStudy/simParList.RData")
-  thisPar = simParList[[i]]
+  thisPar = wellDatCombsList[[i]]
   prefPar = thisPar$prefPar
-  parI = thisPar$parI
+  wellDatI = thisPar$wellDatI
+  modelFitI = thisPar$modelFitI
   repI = thisPar$repI
   sigmaSqErr = thisPar$nuggetVar
   repelAmount = thisPar$repEffect
   nWells = thisPar$n
   modelFitter = getFitModFuns()[[thisPar$fitModFunI]]
   repelDist = repAreaToDist(thisPar$repelAreaProp)
-  
-  # Generate unique seeds for each replicated simulation
-  set.seed(seed)
-  seedVec = sample.int(.Machine$integer.max, size = length(simParList), replace = FALSE)
-  thisSeed = seedVec[i]
-  set.seed(seed)
+  seed = thisPar$seed
   
   # if the well data already exists and we don't want to regenerate it, don't
-  wellDatFile = paste0("savedOutput/simStudy/wellDat_par", parI, "_rep", repI, ".RData")
+  wellDatFile = paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData")
   if(file.exists(wellDatFile) && !regenData) {
     return(invisible(NULL))
   }
@@ -205,11 +229,11 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
   # get truth and data
   
   # seismic data
-  out = readSurfaceRMS(paste0("/nr/sand/user/jpaige/synthetic_model/RegularizedPred_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"))
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("/nr/sand/user/jpaige/synthetic_model/RegularizedSand_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"))
   truthDat = out$surfFrame
   
   # set repulsion parameters
@@ -220,43 +244,27 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
     bwRepel = NULL
   }
   
-  # get max n fo this set of parameters
-  maxJ = NULL
-  for(j in 1:length(simParList)) {
-    tempPar = simParList[[j]]
-    tempPar$n = NULL
-    thisTempPar = thisPar
-    thisTempPar$n = NULL
-    thisTempPar$seed = tempPar$seed
-    
-    if(identical(tempPar, thisTempPar)) {
-      if(is.null(maxJ)) {
-        maxJ = j
-      } else if(simParList[[j]]$n > thisPar$n) {
-        maxJ = j
-      }
-    }
-  }
-  maxN = simParList[[maxJ]]$n
-  thisSeed = simParList[[maxJ]]$seed
   
   # sample the wells
-  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=maxN, minN=4, 
+  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4, 
                         predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
                         transform=logit, invTransform=expit, prefPar=prefPar, 
                         samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                         repelType=repelType, bwRepel=bwRepel, 
-                        repelAmount=repelAmount, seed=thisSeed)
+                        repelAmount=repelAmount, seed=seed)
   
-  save(wellDat, simPar=simParList[[maxJ]], file=paste0("savedOutput/simStudy/wellDat_par", parI, "_rep", repI, ".RData"))
+  save(wellDat, simPar=simParList[[maxJ]], 
+       file=paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
 }
 
 runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
   
   out = load("savedOutput/simStudy/simParList.RData")
-  simPar = simParList[[i]]
+  simPar = modelFitCombsList[[i]]
   
-  parI = simPar$parI
+  sampleParI = simPar$sampleParI
+  wellDatI = simPar$wellDatI
+  modelFitI = simPar$modelFitI
   repI = simPar$repI
   fitModFunI = simPar$fitModFunI
   n = simPar$n
@@ -268,11 +276,12 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
   seed = simPar$seed
   
   parString = paste(
-    "i", parI,
-    "j", repI,
+    "sampI", sampleParI,
+    "datI", wellDatI,
+    "mFitI", modelFitI, 
     "mod", fitModFunI,
     "n", n,
-    "samp", substr(propVarCase, 1, 3),
+    "scen", substr(propVarCase, 1, 3),
     "pref", prefPar,
     "repP", repelAreaProp,
     "repE", repEffect,
@@ -280,6 +289,7 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
     sep = "_"
   )
   
+  browser() # check length of string
   fitModFun = getFitModFuns()[fitModFunI]
   
   # get seismic + well data and truth
@@ -287,15 +297,15 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
   #      nx=nx, ny=ny, xstart=xstart, ystart=ystart, xend=xend, yend=yend)
   
   # seismic data
-  out = readSurfaceRMS(paste0("/nr/sand/user/jpaige/synthetic_model/RegularizedPred_", parI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"))
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("/nr/sand/user/jpaige/synthetic_model/RegularizedSand_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"))
   truth = out$surfFrame
   
   # well data
-  out = load(paste0("savedOutput/simStudy/wellDat_par", parI, "_rep", repI, ".RData"))
+  out = load(paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
   
   # interpolate truth to well points
   truthWells = bilinearInterp(seismicDat[,1:2], truth[,3], transform=logit, invTransform=expit)
@@ -307,7 +317,8 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
     predAggMat = out$predAggMat # doesn't include nugget?
     obsMat = out$obsMat # doesn't include nuggget
     
-    save(predMat, predAggMat, truthWells, obsMat, file=paste0("savedOutput/simStudy/modeRes_", resI, ".RData"))
+    save(predMat, predAggMat, truthWells, obsMat, 
+         file=paste0("savedOutput/simStudy/modeRes_", resI, ".RData"))
   } else {
     out = load(paste0("savedOutput/simStudy/modeRes_", resI, ".RData"))
   }

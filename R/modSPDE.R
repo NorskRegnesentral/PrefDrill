@@ -390,7 +390,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   if(!is.null(previousFit)) {
     # initialize the fitting process based on a previous optimum
     
-    # modeControl$result = previousFit
+    modeControl$result = previousFit
     modeControl$theta = previousFit$mode$theta
     modeControl$x = previousFit$mode$x
     modeControl$restart = TRUE

@@ -32,20 +32,28 @@ wellSampler = function(truthDat, seismicDat, modelFitter, nWells=20, minN=4,
                                  repelAmount=repelAmount, seed=NULL, ...)$wellDat
   wellDat = data.frame(east=initWellDat[,1], north=initWellDat[,2], volFrac=initWellDat[,3])
   
-  # now loop through, sampling and fitting models
+  # now loop through, sampling and fitting models. Capture previous model fits 
+  # to hopefully make things go faster
   print("Successive sampling...")
+  startT = proc.time()[3]
+  prevFit = NULL
   for(i in (minN+1):nWells) {
     print(paste0("sampling well ", i, "/", nWells))
-    newWellDat = basicWellSampler(nWells=1, wellDat=wellDat, seismicDat=seismicDat, 
+    sampT = system.time(out <- basicWellSampler(nWells=1, wellDat=wellDat, seismicDat=seismicDat, 
                                   truthDat=truthDat, modelFitter=modelFitter, 
                                   predGrid=predGrid, prefPar=prefPar, 
                                   transform=transform, invTransform=invTransform, 
                                   samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                                   repelType=repelType, bwRepel=bwRepel, rbf=rbf, 
-                                  repelAmount=repelAmount, seed=NULL)$wellDat
+                                  repelAmount=repelAmount, seed=NULL, previousFit=prevFit))[3]
+    newWellDat = out$wellDat
+    prevFit = out$mod
+    print(paste0("took ", sampT, " seconds"))
     
     wellDat = rbind(wellDat, newWellDat)
   }
+  endT = proc.time()[3]
+  print(paste0("total time: ", (endT - startT)/60, " minutes"))
   
   wellDat
 }
@@ -108,6 +116,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
     preds = mod$predEst
     predAggMat = mod$predAggMat
   } else {
+    mod = NULL
     preds = seismicDat[,3]
     predAggMat = mean(preds)
   }
@@ -126,7 +135,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   }
   
   # update selection probabilities to account for repulsion effects
-  if(!is.null(wellDat)) {
+  if(!is.null(wellDat) && repelType != "none") {
     # calculate cross-distance matrix from grid to well points
     distMat = rdist(predGrid[,1:2], as.matrix(wellDat[,1:2]))
     
@@ -166,9 +175,10 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
     colnames(res) = c("east", "north")
   }
   
-  list(wellDat = as.data.frame(res), preds=preds, predAggMat=predAggMat)
+  list(wellDat = as.data.frame(res), preds=preds, predAggMat=predAggMat, mod=mod)
 }
 
+# 0 if no repulsion, 1 if max repulsion
 repelKernel = function(repelType=c("none", "rbf"), 
                        bw=1, rbf=c("uniform", "gaussian", "exp")) {
   
@@ -177,7 +187,7 @@ repelKernel = function(repelType=c("none", "rbf"),
   
   if(repelType == "none") {
     kern = function(d) {
-      rep(1, length(d))
+      rep(0, length(d))
     }
   } else if(repelType == "rbf") {
     if(rbf == "gaussian") {
