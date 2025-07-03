@@ -241,7 +241,7 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
   thisSeed = simParList[[maxJ]]$seed
   
   # sample the wells
-  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=maxN, minN=5, 
+  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=maxN, minN=4, 
                         predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
                         transform=logit, invTransform=expit, prefPar=prefPar, 
                         samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
