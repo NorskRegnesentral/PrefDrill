@@ -111,8 +111,8 @@ getPrefDrillLoc = function(seismicDat,
 #   repelAreaProp (1-2)
 #   propVarCase (1-2)
 #   repI (1-100)
-# fitModFunI: ID of model used to make predictions. 4/5 total including seismic only case.
-# ModelFitI: ID of parameters for model fit. 4800/4900 total. Depends on:
+# fitModFunI: ID of model used to make predictions. 4+1 total including seismic only case.
+# ModelFitI: ID of parameters for model fit. 4800+100 total. Depends on:
 #   repelAreaProp (1-2) (doesn't affect seismic data only case)
 #   propVarCase (1-2) (doesn't affect seismic data only case)
 #   repI (1-100)
@@ -204,19 +204,18 @@ setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParLis
 }
 
 # generates the well data for the simulation study
-simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
+simStudySequentialSampler = function(i=1, regenData=FALSE) {
   
   # parameters
   out = load("savedOutput/simStudy/simParList.RData")
   thisPar = wellDatCombsList[[i]]
   prefPar = thisPar$prefPar
   wellDatI = thisPar$wellDatI
-  modelFitI = thisPar$modelFitI
   repI = thisPar$repI
   sigmaSqErr = thisPar$nuggetVar
   repelAmount = thisPar$repEffect
   nWells = thisPar$n
-  modelFitter = getFitModFuns()[[thisPar$fitModFunI]]
+  modelFitter = getFitModFuns()[[1]] # use SPDE model for predictions when sampling
   repelDist = repAreaToDist(thisPar$repelAreaProp)
   seed = thisPar$seed
   
@@ -246,13 +245,16 @@ simStudySequentialSampler = function(i=1, seed=1, regenData=FALSE) {
   
   
   # sample the wells
+  browser()
   wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4, 
                         predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
                         transform=logit, invTransform=expit, prefPar=prefPar, 
                         samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                         repelType=repelType, bwRepel=bwRepel, 
-                        repelAmount=repelAmount, seed=seed)
+                        repelAmount=repelAmount, seed=seed, 
+                        int.strategy="eb", strategy="gaussian")
   
+  browser()
   save(wellDat, simPar=simParList[[maxJ]], 
        file=paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
 }
