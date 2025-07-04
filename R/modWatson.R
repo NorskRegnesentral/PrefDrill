@@ -48,6 +48,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
                            doModAssess=FALSE, previousFit=NULL, customFixedI=NULL, 
                            quadratureMethod=c("pseudoSites", "mesh"), 
                            fixedParameters=NULL, fixedRepelAmt=500, 
+                           addNugToPredCoords=FALSE, getPPres=FALSE, 
                            experimentalMode=FALSE) {
   
   # set defaults
@@ -91,7 +92,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
             verbose=verbose, link=link, seed=seed, doModAssess=doModAssess, 
             customFixedI=customFixedI, quadratureMethod=quadratureMethod, 
-            previousFit=previousFit, 
+            previousFit=previousFit, addNugToPredCoords=addNugToPredCoords, getPPres=getPPres, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode)
 }
 
@@ -137,6 +138,9 @@ fitWatsonSimDat = function(wellDat, seismicDat,
 #                  Contains some of all of the elements: spde$effRange, 
 #                  spde$margVar, familyPrec, clusterPrec, beta (NOT TESTED)
 # experimentalMode: Whether to use INLA variational inference tools (NOT TESTED)
+# addNugToPredCoords: whether or not to compute results regarding adding nugget 
+#                     at predictive coords
+# getPPres: Whether or not to compute information on point process estimation
 # 
 # Outputs:
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
@@ -149,7 +153,8 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                      nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
                      doModAssess=FALSE, customFixedI=NULL, quadratureMethod=c("pseudoSites", "mesh"), 
-                     previousFit=NULL, fixedRepelAmt=NULL, 
+                     previousFit=NULL, fixedRepelAmt=NULL, addNugToPredCoords=TRUE, 
+                     getPPres=TRUE, 
                      fixedParameters=NULL, experimentalMode=FALSE) {
   
   startTime = proc.time()[3]
@@ -231,8 +236,8 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   # make sure matrices are sparse
-  xObs.pp = Matrix(xObs.pp, nrow=nrow(xObs.pp), sparse = TRUE)
-  xPseudoModInt = Matrix(xPseudoModInt, nrow=nrow(xPseudo), sparse = TRUE)
+  xObs.pp = Matrix(xObs.pp, sparse = TRUE)
+  xPseudoModInt = Matrix(xPseudoModInt, sparse = TRUE)
   
   # construct A matrix for observations (response)
   AObs = inla.spde.make.A(mesh, loc = obsCoords)
@@ -249,7 +254,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     } else if(hasInt) {
       thisXpseudo.pp = cbind(matrix(0, nrow=nPseudoPerIter, ncol=nObs), xPseudoModInt)
       thisXpseudo.pp[,i] = 1
-      thisXpseudo.pp = Matrix(thisXpseudo.pp, nrow=nrow(thisXpseudo.pp), sparse = TRUE)
+      thisXpseudo.pp = Matrix(thisXpseudo.pp, sparse = TRUE)
     }
     
     # combine observation and pseudo-site covariates in covariates for this iteration
@@ -258,7 +263,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     
     # get repulsion covariate as a separate design matrix to it's easier to fix
     if(i == 1) {
-      thisRepelMat = Matrix(matrix(rep(0, 1+nPseudoPerIter), ncol=1), ncol=1, sparse=TRUE)
+      thisRepelMat = Matrix(matrix(rep(0, 1+nPseudoPerIter), ncol=1), sparse=TRUE)
     } else {
       thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
                                      repelDist=repelDist, returnSparse=TRUE)
@@ -472,31 +477,51 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   # do the same for the observations
   if(length(xObs) != 0) {
     fixedObsMat.y = xObs  %*% matrix(latentMat[fixed.yIndices,], ncol=nPostSamples)
-    if(!sharedInt && hasInt) {
-      fixedObsMat.pp = xObs[,-1] %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+    if(getPPres) {
+      if(!sharedInt && hasInt) {
+        fixedObsMat.pp = xObs[,-1] %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+      } else {
+        fixedObsMat.pp = xObs %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+      }
     } else {
-      fixedObsMat.pp = xObs %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+      fixedObsMat.pp = NULL
     }
   } else {
     fixedObsMat.y = 0
-    fixedObsMat.pp = 0
+    if(getPPres) {
+      fixedObsMat.pp = 0
+    } else {
+      fixedObsMat.pp = NULL
+    }
   }
-  fixedObsMat.pp = sweep(fixedObsMat.pp, 2, intercept.pp, "+")
+  if(getPPres) {
+    fixedObsMat.pp = sweep(fixedObsMat.pp, 2, intercept.pp, "+")
+  } else {
+    fixedObsMat.pp = NULL
+  }
   
   # get repulsion design matrix at observations (at the time they were sampled). 
   # Add effect to observation predictions (not necessary if repulsion isn't 
   # fixed, since already included in fixedObsMat.pp)
   obsRepelMat = getRepulsionCovAtObs(obsCoords=obsCoords, repelDist=repelDist, returnSparse=TRUE)
-  if(!is.null(fixedRepelAmt)) {
+  if(!is.null(fixedRepelAmt) && getPPres) {
     offsetObs = obsRepelMat %*% fixedRepelAmt
     fixedObsMat.pp = sweep(fixedObsMat.pp, 1, offsetObs, "+")
   }
   
   spatialObsMat.y = AObs %*% latentMat[field.yIndices,]
-  spatialObsMat.pp = AObs %*% latentMat[field.ppIndices,]
+  if(getPPres) {
+    spatialObsMat.pp = AObs %*% latentMat[field.ppIndices,]
+  } else {
+    spatialObsMat.pp = NULL
+  }
   
   obsMat.y = fixedObsMat.y + spatialObsMat.y
-  obsMat.pp = fixedObsMat.pp + spatialObsMat.pp
+  if(getPPres) {
+    obsMat.pp = fixedObsMat.pp + spatialObsMat.pp
+  } else {
+    obsMat.pp = NULL
+  }
   
   # currently, fixed parameters aside from fixed repulsion not supported
   # if(!is.null(offsetEst)) {
@@ -524,14 +549,22 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   # get cluster effect variance
   clusterVars = nuggetVars
   
-  predMat.yNugget = predMat.y + matrix(rnorm(length(predMat.y), sd=rep(sqrt(clusterVars), each=nrow(predMat.y))), nrow=nrow(predMat.y))
+  if(addNugToPredCoords) {
+    predMat.yNugget = predMat.y + matrix(rnorm(length(predMat.y), sd=rep(sqrt(clusterVars), each=nrow(predMat.y))), nrow=nrow(predMat.y))
+  } else {
+    predMat.yNugget = NULL
+  }
   obsMat.yNugget = obsMat.y + matrix(rnorm(length(obsMat.y), sd=rep(sqrt(clusterVars), each=nrow(obsMat.y))), nrow=nrow(obsMat.y))
   
   # back transform predictions
   obsMat.y = invTransform(obsMat.y)
   obsMat.yNugget = invTransform(obsMat.yNugget)
   predMat.y = invTransform(predMat.y)
-  predMat.yNugget = invTransform(predMat.yNugget)
+  if(addNugToPredCoords) {
+    predMat.yNugget = invTransform(predMat.yNugget)
+  } else {
+    predMat.yNugget = NULL
+  }
   
   if(!is.null(customFixedI)) {
     browser()
@@ -546,11 +579,19 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   obs.yMedian = apply(obsMat.y, 1, median)
   obs.yUpper = apply(obsMat.y, 1, quantile, probs=1-(1-significanceCI)/2)
   
-  obs.ppEst = rowMeans(obsMat.pp)
-  obs.ppSDs = apply(obsMat.pp, 1, sd)
-  obs.ppLower = apply(obsMat.pp, 1, quantile, probs=(1-significanceCI)/2)
-  obs.ppMedian = apply(obsMat.pp, 1, median)
-  obs.ppUpper = apply(obsMat.pp, 1, quantile, probs=1-(1-significanceCI)/2)
+  if(getPPres) {
+    obs.ppEst = rowMeans(obsMat.pp)
+    obs.ppSDs = apply(obsMat.pp, 1, sd)
+    obs.ppLower = apply(obsMat.pp, 1, quantile, probs=(1-significanceCI)/2)
+    obs.ppMedian = apply(obsMat.pp, 1, median)
+    obs.ppUpper = apply(obsMat.pp, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    obs.ppEst = NULL
+    obs.ppSDs = NULL
+    obs.ppLower = NULL
+    obs.ppMedian = NULL
+    obs.ppUpper = NULL
+  }
   
   obs.yNuggetEst = obs.yEst
   obs.yNuggetSDs = apply(obsMat.yNugget, 1, sd)
@@ -564,17 +605,33 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   pred.yMedian = apply(predMat.y, 1, median)
   pred.yUpper = apply(predMat.y, 1, quantile, probs=1-(1-significanceCI)/2)
   
-  pred.ppEst = rowMeans(predMat.pp)
-  pred.ppSDs = apply(predMat.pp, 1, sd)
-  pred.ppLower = apply(predMat.pp, 1, quantile, probs=(1-significanceCI)/2)
-  pred.ppMedian = apply(predMat.pp, 1, median)
-  pred.ppUpper = apply(predMat.pp, 1, quantile, probs=1-(1-significanceCI)/2)
+  if(getPPres) {
+    pred.ppEst = rowMeans(predMat.pp)
+    pred.ppSDs = apply(predMat.pp, 1, sd)
+    pred.ppLower = apply(predMat.pp, 1, quantile, probs=(1-significanceCI)/2)
+    pred.ppMedian = apply(predMat.pp, 1, median)
+    pred.ppUpper = apply(predMat.pp, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    pred.ppEst = NULL
+    pred.ppSDs = NULL
+    pred.ppLower = NULL
+    pred.ppMedian = NULL
+    pred.ppUpper = NULL
+  }
   
-  pred.yNuggetEst = pred.yEst
-  pred.yNuggetSDs = apply(predMat.yNugget, 1, sd)
-  pred.yNuggetLower = apply(predMat.yNugget, 1, quantile, probs=(1-significanceCI)/2)
-  pred.yNuggetMedian = apply(predMat.yNugget, 1, median)
-  pred.yNuggetUpper = apply(predMat.yNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  if(addNugToPredCoords) {
+    pred.yNuggetEst = pred.yEst
+    pred.yNuggetSDs = apply(predMat.yNugget, 1, sd)
+    pred.yNuggetLower = apply(predMat.yNugget, 1, quantile, probs=(1-significanceCI)/2)
+    pred.yNuggetMedian = apply(predMat.yNugget, 1, median)
+    pred.yNuggetUpper = apply(predMat.yNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    pred.yNuggetEst = NULL
+    pred.yNuggetSDs = NULL
+    pred.yNuggetLower = NULL
+    pred.yNuggetMedian = NULL
+    pred.yNuggetUpper = NULL
+  }
   
   if(!is.null(customFixedI)) {
     customObsEst = rowMeans(customObsMat)
@@ -829,7 +886,10 @@ getRepulsionCov = function(predCoords, obsCoords, repelDist=10, returnSparse=FAL
 getRepulsionCovAtObs = function(obsCoords, repelDist=10, returnSparse=FALSE) {
   dists = rdist(obsCoords)
   diag(dists) = Inf
-  repelInd = apply(dists, 1, function(x) {min(which(x < repelDist))})
+  repelInd = apply(dists, 1, function(x) {
+    inRangeI = which(x < repelDist)
+    ifelse(identical(integer(0), inRangeI), Inf, min(inRangeI))
+    })
   out = matrix(-as.numeric(repelInd < 1:nrow(obsCoords)), ncol=1)
   
   if(returnSparse) {

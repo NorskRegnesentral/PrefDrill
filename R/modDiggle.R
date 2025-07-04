@@ -29,7 +29,6 @@
 # Outputs:
 # INLA model, predictions, summary statistics, input data, (posterior draws), etc.
 
-
 fitDigglesimDat = function(wellDat, seismicDat,
                            predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
                            control.fixed = list(prec=list(default=0, X_y=1/.5^2), mean=list(default=0, X_y=1)), ##NBNB: Review
@@ -38,6 +37,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                            nPostSamples=1000, verbose=FALSE, seed=NULL, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
+                           addNugToPredCoords=FALSE, 
                            fixedParameters=NULL, experimentalMode=FALSE) {
   
   # construct prediction points
@@ -63,7 +63,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
             transform=transform, invTransform=invTransform, 
             mesh=mesh, prior=prior, significanceCI=significanceCI,
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
-            verbose=verbose, link=link, seed=seed, 
+            verbose=verbose, link=link, seed=seed, addNugToPredCoords=addNugToPredCoords, 
             family=family, doModAssess=doModAssess, previousFit=previousFit, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode)
   
@@ -80,8 +80,8 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                      nPostSamples=1000, verbose=TRUE, link=1, seed=NULL,
                      family=c("normal", "binomial", "betabinomial"), 
-                     doModAssess=FALSE, customFixedI = NULL,
-                     previousFit=NULL,
+                     doModAssess=FALSE, customFixedI = NULL, 
+                     previousFit=NULL, addNugToPredCoords=TRUE, 
                      fixedParameters=NULL, experimentalMode=FALSE) {
   
   family = match.arg(family)
@@ -235,7 +235,11 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     # get cluster effect variance
     clusterVars = nuggetVars
     
-    predMatNugget = predMat + matrix(rnorm(length(predMat), sd=rep(sqrt(clusterVars), each=nrow(predMat))), nrow=nrow(predMat))
+    if(addNugToPredCoords) {
+      predMatNugget = predMat + matrix(rnorm(length(predMat), sd=rep(sqrt(clusterVars), each=nrow(predMat))), nrow=nrow(predMat))
+    } else {
+      predMatNugget = NULL
+    }
     obsMatNugget = obsMat + matrix(rnorm(length(obsMat), sd=rep(sqrt(clusterVars), each=nrow(obsMat))), nrow=nrow(obsMat))
   } else {
     stop("family not supported")
@@ -244,7 +248,11 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   obsMat = invTransform(obsMat)
   obsMatNugget = invTransform(obsMatNugget)
   predMat = invTransform(predMat)
-  predMatNugget = invTransform(predMatNugget)
+  if(addNugToPredCoords) {
+    predMatNugget = invTransform(predMatNugget)
+  } else {
+    predMatNugget = NULL
+  }
   
   # summary statistic
   obsEst = rowMeans(obsMat)
@@ -265,11 +273,19 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   predMedian = apply(predMat, 1, median)
   predUpper = apply(predMat, 1, quantile, probs=1-(1-significanceCI)/2)
   
-  predNuggetEst = predEst
-  predNuggetSDs = apply(predMatNugget, 1, sd)
-  predNuggetLower = apply(predMatNugget, 1, quantile, probs=(1-significanceCI)/2)
-  predNuggetMedian = apply(predMatNugget, 1, median)
-  predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  if(addNugToPredCoords) {
+    predNuggetEst = predEst
+    predNuggetSDs = apply(predMatNugget, 1, sd)
+    predNuggetLower = apply(predMatNugget, 1, quantile, probs=(1-significanceCI)/2)
+    predNuggetMedian = apply(predMatNugget, 1, median)
+    predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    predNuggetEst = NULL
+    predNuggetSDs = NULL
+    predNuggetLower = NULL
+    predNuggetMedian = NULL
+    predNuggetUpper = NULL
+  }
   
   # aggregate summary statistics
   predAggMat = colMeans(predMat)

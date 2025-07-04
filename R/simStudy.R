@@ -245,18 +245,32 @@ simStudySequentialSampler = function(i=1, regenData=FALSE) {
   
   
   # sample the wells
-  browser()
-  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4, 
-                        predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
-                        transform=logit, invTransform=expit, prefPar=prefPar, 
-                        samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
-                        repelType=repelType, bwRepel=bwRepel, 
-                        repelAmount=repelAmount, seed=seed, 
+  # wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4,
+  #                       predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
+  #                       transform=logit, invTransform=expit, prefPar=prefPar,
+  #                       samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
+  #                       repelType=repelType, bwRepel=bwRepel,
+  #                       repelAmount=repelAmount, seed=seed,
+  #                       int.strategy="eb", strategy="gaussian")
+  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
+                        predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
+                        transform=logit, invTransform=expit, prefPar=prefPar,
+                        samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
+                        repelType=repelType, bwRepel=bwRepel,
+                        repelAmount=repelAmount, seed=seed,
                         int.strategy="eb", strategy="gaussian")
   
-  browser()
-  save(wellDat, simPar=simParList[[maxJ]], 
-       file=paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
+  # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
+  #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
+  #                                transform=logit, invTransform=expit, prefPar=prefPar,
+  #                                samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
+  #                                repelType=repelType, bwRepel=bwRepel,
+  #                                repelAmount=repelAmount, seed=seed,
+  #                                int.strategy="eb", strategy="gaussian"))
+  
+  # save(wellDat, simPar=thisPar, 
+  #      file=paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
+  invisible(NULL)
 }
 
 runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {

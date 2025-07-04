@@ -351,6 +351,9 @@ naiveAggEst
 
 # fit model (without kde) ----
 out = fitWatsonSimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP)
+# for testing timings:
+# out = fitWatsonSimDat(wellTestDat_successiveIPP, seismicTestDat_successiveIPP, 
+#                       addNugToPredCoords=FALSE, getPPres=FALSE)
 
 summary(out$mod)
 out$fixedEffectSummary
@@ -419,10 +422,16 @@ out$parameterSummaryTable
 # prefPar        -0.01598913 1.789553e-01 -2.571784e-01 -2.147669e-02 2.187120e-01
 
 out$timings
+# before removing unnecessary nugget and PP calculations:
 #         totalTime modelDefineTime modelFitTime posteriorSamplingTime otherTime modelDefinePct modelFitTimePct
 # elapsed    192.09            3.95        79.67                102.22      6.25     0.02056328       0.4147535
 # posteriorSamplingTimePct otherTimePct
 # elapsed                0.5321464   0.03253683
+# after removing them:
+# totalTime modelDefineTime modelFitTime posteriorSamplingTime otherTime modelDefinePct modelFitTimePct
+# elapsed     79.24            1.96        38.08                 35.81      3.39     0.02473498       0.4805654
+# posteriorSamplingTimePct otherTimePct
+# elapsed                0.4519182   0.04278142
 
 # plot predictions ----
 

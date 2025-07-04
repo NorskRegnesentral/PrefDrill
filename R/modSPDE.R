@@ -256,7 +256,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
   fitSPDE(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, 
           predCoords=predPts, xPred=xPred, control.fixed=control.fixed, 
           transform=transform, invTransform=invTransform, 
-          mesh=mesh, prior=prior, 
+          mesh=mesh, prior=prior, addNugToPredCoords=FALSE, 
           significanceCI=significanceCI, int.strategy=int.strategy, strategy=strategy, 
           nPostSamples=nPostSamples, verbose=verbose, link=link, seed=seed, 
           family=family, doModAssess=doModAssess, previousFit=previousFit, 
@@ -305,7 +305,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
                    nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
                    family=c("normal", "binomial", "betabinomial"), 
                    doModAssess=FALSE, customFixedI=NULL, 
-                   previousFit=NULL, 
+                   previousFit=NULL, addNugToPredCoords=TRUE, 
                    fixedParameters=NULL, experimentalMode=FALSE) {
   family = match.arg(family)
   startTime = proc.time()[3]
@@ -394,6 +394,7 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
     modeControl$theta = previousFit$mode$theta
     modeControl$x = previousFit$mode$x
     modeControl$restart = TRUE
+    modeControl$fixed = FALSE
   }
   
   # Set distributional quantiles we're interested in: median and based on significanceCI
@@ -520,7 +521,11 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
     # get cluster effect variance
     clusterVars = nuggetVars
     
-    predMatNugget = predMat + matrix(rnorm(length(predMat), sd=rep(sqrt(clusterVars), each=nrow(predMat))), nrow=nrow(predMat))
+    if(addNugToPredCoords) {
+      predMatNugget = predMat + matrix(rnorm(length(predMat), sd=rep(sqrt(clusterVars), each=nrow(predMat))), nrow=nrow(predMat))
+    } else {
+      predMatNugget = NULL
+    }
     obsMatNugget = obsMat + matrix(rnorm(length(obsMat), sd=rep(sqrt(clusterVars), each=nrow(obsMat))), nrow=nrow(obsMat))
   } else {
     stop("family not supported")
@@ -530,7 +535,11 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   obsMat = invTransform(obsMat)
   obsMatNugget = invTransform(obsMatNugget)
   predMat = invTransform(predMat)
-  predMatNugget = invTransform(predMatNugget)
+  if(addNugToPredCoords) {
+    predMatNugget = invTransform(predMatNugget)
+  } else {
+    predMatNugget = NULL
+  }
   
   if(!is.null(customFixedI)) {
     customObsMat = invTransform(customObsMat)
@@ -556,11 +565,19 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
   predMedian = apply(predMat, 1, median)
   predUpper = apply(predMat, 1, quantile, probs=1-(1-significanceCI)/2)
   
-  predNuggetEst = predEst
-  predNuggetSDs = apply(predMatNugget, 1, sd)
-  predNuggetLower = apply(predMatNugget, 1, quantile, probs=(1-significanceCI)/2)
-  predNuggetMedian = apply(predMatNugget, 1, median)
-  predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  if(addNugToPredCoords) {
+    predNuggetEst = predEst
+    predNuggetSDs = apply(predMatNugget, 1, sd)
+    predNuggetLower = apply(predMatNugget, 1, quantile, probs=(1-significanceCI)/2)
+    predNuggetMedian = apply(predMatNugget, 1, median)
+    predNuggetUpper = apply(predMatNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    predNuggetEst = NULL
+    predNuggetSDs = NULL
+    predNuggetLower = NULL
+    predNuggetMedian = NULL
+    predNuggetUpper = NULL
+  }
   
   if(!is.null(customFixedI)) {
     customObsEst = rowMeans(customObsMat)
@@ -587,7 +604,6 @@ fitSPDE = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), 
     customPredMedian = NULL
     customPredUpper = NULL
   }
-  
   
   # get aggregate summary statistics over prediction domain
   predAggMat = colMeans(predMat)

@@ -47,7 +47,7 @@ wellSampler = function(truthDat, seismicDat, modelFitter, nWells=20, minN=4,
                                   repelType=repelType, bwRepel=bwRepel, rbf=rbf, 
                                   repelAmount=repelAmount, seed=NULL, previousFit=prevFit))[3]
     newWellDat = out$wellDat
-    prevFit = out$mod
+    prevFit = out$fit$mod
     print(paste0("took ", sampT, " seconds"))
     
     wellDat = rbind(wellDat, newWellDat)
@@ -111,12 +111,12 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   
   # first fit the model and get predictions over the grid (or just take seismic estimates)
   if(!is.null(wellDat)) {
-    mod = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
+    fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
                       transform=transform, invTransform=invTransform, ...)
-    preds = mod$predEst
-    predAggMat = mod$predAggMat
+    preds = fit$predEst
+    predAggMat = fit$predAggMat
   } else {
-    mod = NULL
+    fit = NULL
     preds = seismicDat[,3]
     predAggMat = mean(preds)
   }
@@ -159,9 +159,12 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   
   # sample the point uniformly within the grid cell
   # NOTE: with strict repulsion may need to modify this step
-  delta = diff(sort(unique(predGrid[,1]))[1:2])
+  deltaX = diff(sort(unique(predGrid[,1])))[1]
+  deltaY = diff(sort(unique(predGrid[,2])))[1]
+  delta = c(deltaX, deltaY)
   centerPts = matrix(predGrid[nextIs,], nrow=nWells)
-  nextPts = matrix(centerPts + (runif(2*nWells) - 0.5) * delta, nrow=nWells)
+  ptErrs = matrix((runif(2*nWells) - 0.5) * rep(delta, nWells), byrow=TRUE, ncol=2)
+  nextPts = centerPts + ptErrs
   
   if(!is.null(truthDat)) {
     # get seismic estimate at that point
@@ -175,7 +178,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
     colnames(res) = c("east", "north")
   }
   
-  list(wellDat = as.data.frame(res), preds=preds, predAggMat=predAggMat, mod=mod)
+  list(wellDat = as.data.frame(res), preds=preds, predAggMat=predAggMat, fit=fit)
 }
 
 # 0 if no repulsion, 1 if max repulsion

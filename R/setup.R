@@ -6,6 +6,14 @@ inf = sessionInfo()
 library(devtools)
 if(grepl("linux", inf$platform)) {
   # .libPaths(new="~/R")
+  library(flexiblas)
+  mkl <- "/opt/intel/oneapi/mkl/2025.2/lib/intel64/libmkl_rt.so"
+  dyn.load(mkl)
+  
+  
+  idx <- flexiblas_load_backend(mkl)
+  flexiblas_switch(idx)
+  flexiblas_current_backend()
   
   if(identical(find.package("splott", quiet=TRUE), character(0))) {
     # make sure splott is cloned into ~/git/splott or else this won't work
