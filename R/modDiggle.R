@@ -131,7 +131,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   ## Construct study area
   ext_rast <- ext(X_terra)
-  studyArea <- as.polygons(ext_rast)
+  studyArea <- sf::st_as_sf(as.polygons(ext_rast))
   
   ## Check for covariate extent
   lik1_vect <- vect(mesh$loc[,1:2])
