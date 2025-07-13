@@ -149,7 +149,6 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     X_terra <- expanded_rast
   }
   
-  
   lik1 <- bru_obs("cp",
                   formula = geometry ~  Intercept_pp + X_pp + field_pp,
                   data = well_data_sf[,c("volFrac","geometry")],
