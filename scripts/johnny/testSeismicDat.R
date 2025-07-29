@@ -115,10 +115,12 @@ plot(regSand, regPred, pch=".")
 abline(0, 1, col="blue")
 
 
-allCors = numeric(100)
-for(i in 1:100) {
-  print(paste0("i: ", i, "/100"))
-  out = readSurfaceRMS(paste0("C:/Users/jpaige/Desktop/synthetic_model/RegularizedPred_", i, ".txt"))
+root = "C:/Users/jpaige/Desktop/synthetic_model/"
+root = "~/synthetic_model/"
+allCors = numeric(140)
+for(i in 1:140) {
+  print(paste0("i: ", i, "/140"))
+  out = readSurfaceRMS(paste0(root, "RegularizedPred_", i, ".txt"))
   regPred = out$surfMat
   regPredFrame = out$surfFrame
   image(regPred)
@@ -126,7 +128,7 @@ for(i in 1:100) {
   
   # squilt(x=regPredFrame$east, y=regPredFrame$north, z=regPredFrame$seismicEst)
   
-  out = readSurfaceRMS(paste0("C:/Users/jpaige/Desktop/synthetic_model/RegularizedSand_", i, ".txt"))
+  out = readSurfaceRMS(paste0(root, "RegularizedSand_", i, ".txt"))
   regSand = out$surfMat
   image(regSand)
   dim(regSand)
@@ -134,13 +136,50 @@ for(i in 1:100) {
   allCors[i] = cor(c(regPred), c(regSand))
 }
 
+fixedAllCors = allCors[-c(53, 28, 24, 78, 22)]
+
+fnameTab = data.frame(oldI=1:length(allCors), goodL=allCors>0.5)
+newI = rep(NA, nrow(fnameTab))
+newI[fnameTab$goodL] = 1:sum(fnameTab$goodL)
+newI[newI > 100] = NA
+fnameTab$newI = newI
+
+# Loop through files, move them to the new directory only if their correlation 
+# is above 0.5
+for (row in 1:nrow(fnameTab)) {
+  old_i <- fnameTab$oldI[row]
+  is_good <- fnameTab$goodL[row]
+  new_i <- fnameTab$newI[row]
+  
+  if (is_good) {
+    old_name <- sprintf("RegularizedSand_%d.txt", old_i)
+    new_name <- sprintf("RegularizedSand_%d.txt", new_i)
+    
+    file.copy(old_name, new_name)
+    
+    old_name <- sprintf("RegularizedTruth_%d.txt", old_i)
+    new_name <- sprintf("~/git/PrefDrill/data/seisTruthReplicates/RegularizedTruth_%d.txt", new_i)
+    
+    file.copy(old_name, new_name)
+  } else {
+    message(sprintf("Skipping oldI = %d (marked as bad)", old_i))
+  }
+}
 
 pdf("figures/testSimStudy/corHist.pdf", width=5, height=5)
 hist(allCors, main="Cor(regPred, regSand)", breaks=20, xlab="Correlation")
 dev.off()
 
+pdf("figures/testSimStudy/corHistFixed.pdf", width=5, height=5)
+hist(fixedAllCors, main="Cor(regPred, regSand)", breaks=20, xlab="Correlation")
+dev.off()
+
 pdf("figures/testSimStudy/corECDF.pdf", width=5, height=5)
 plot(ecdf(allCors), main="Cor(regPred, regSand)", xlab="Correlation", ylab="ECDF")
+dev.off()
+
+pdf("figures/testSimStudy/corECDFfixed.pdf", width=5, height=5)
+plot(ecdf(fixedAllCors), main="Cor(regPred, regSand)", xlab="Correlation", ylab="ECDF")
 dev.off()
 
 tail(sort(allCors))
