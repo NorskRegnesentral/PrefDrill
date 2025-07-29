@@ -1,10 +1,15 @@
 # functions for the simulation study
 
 # construct a rectangular prediction grid over a domain
-# xLims: a 2-vector with the min and max x value
-# yLims: a 2-vector with the min and max y value
-getSimStudyPredGrid = function(xLims = simStudyXlims, yLims = simStudyXlims) {
-  make.surface.grid(list(x=xLims, y=yLims))
+# # xLims: a 2-vector with the min and max x value
+# # yLims: a 2-vector with the min and max y value
+getSimStudyPredGrid = function() {
+  out = readSurfaceRMS("data/seisTruthReplicates/RegularizedPred_1.txt")
+  regPred = out$surfFrame
+  # xlims = c(-12.5, 15012.5)
+  # ylims = c(-8.3335, 5008.4336)
+  
+  as.matrix(regPred[,1:2])
 }
 
 getFitModFuns = function() {
@@ -395,9 +400,9 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       seismicDatStd[,3] = logit(seismicDatStd[,3])
       truthDatStd[,3] = logit(truthDatStd[,3])
       indepDatStd[,3] = logit(indepDatStd[,3])
-      seismicDatStd = (seismicDat[,3] - mean(seismicDat[,3]))/sd(seismicDat[,3])
-      truthDatStd = (truthDat[,3] - mean(truthDat[,3]))/sd(truthDat[,3])
-      indepDatStd = (indepDat[,3] - mean(indepDat[,3]))/sd(indepDat[,3])
+      seismicDatStd[,3] = (seismicDat[,3] - mean(seismicDat[,3]))/sd(seismicDat[,3])
+      truthDatStd[,3] = (truthDat[,3] - mean(truthDat[,3]))/sd(truthDat[,3])
+      indepDatStd[,3] = (indepDat[,3] - mean(indepDat[,3]))/sd(indepDat[,3])
       
       # combine them into a realistic mix and convert back to [0,1] scale
       sampleDat = seismicDat

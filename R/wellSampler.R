@@ -96,7 +96,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
                                   samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                                   repelType=repelType, bwRepel=bwRepel, 
                                   rbf=rbf, repelAmount=repelAmount, 
-                                  seed=seed, ...)
+                                  seed=seed, ...)$wellDat
       
       if(i == 1) {
         allWells = thisWell
@@ -117,15 +117,21 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   
   # first fit the model and get predictions over the grid (or just take seismic estimates)
   if(is.null(preds)) {
-    if(!is.null(wellDat)) {
+    if(!is.null(wellDat) && !is.null(modelFitter)) {
       fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
                         transform=transform, invTransform=invTransform, ...)
       preds = fit$predEst
       predAggMat = fit$predAggMat
-    } else {
+    } else if(!is.null(seismicDat)) {
       fit = NULL
       preds = seismicDat[,3]
       predAggMat = mean(preds)
+    } else if(prefPar == 0) {
+      fit = NULL
+      preds = rep(0.5, nrow(predGrid))
+      predAggMat = mean(preds)
+    } else {
+      stop("preds, seismicDat, and modelFitter are all NULL, and prefPar != 0")
     }
   } else {
     fit = NULL
@@ -154,8 +160,11 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
     repelEffectsMat = matrix(repelKern(distMat), ncol=nrow(wellDat))
     
     # for each grid point, take sum of all repulsion effects together to get 
-    # total repulsion
-    repelEffectsGrid = apply(repelEffectsMat, 1, sum) * repelAmount
+    # total repulsion (define 0 * Inf = 0)
+    tempSum = apply(repelEffectsMat, 1, sum)
+    repelEffectsGrid = tempSum * repelAmount
+    forceZero = (tempSum == 0) & (is.infinite(repelAmount))
+    repelEffectsGrid[forceZero] = 0
     
     # update sampling probabilities
     logitProbs = logitProbs - repelEffectsGrid

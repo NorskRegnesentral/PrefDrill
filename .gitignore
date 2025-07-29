@@ -6,3 +6,4 @@ savedOutput/*
 .Ruserdata
 .RProj
 .Rbuildingore
+*.txt
