@@ -537,6 +537,14 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
                               doPar=TRUE, regenData=FALSE) {
   adaptScen = match.arg(adaptScen)
   
+  # load simulation parameters
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  out = load(inputListFile)
+  
+  # determine how many scenarios to simulate for:
+  n = nrow(wellDatCombs)
+  
   if(doPar) {
     # start parallel cluster
     cl = makeCluster(nCores)
