@@ -302,8 +302,12 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
 
 # generates sequentially-sampled well data for the simulation study
 simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                                     regenData=FALSE) {
+                               regenData=FALSE, verbose=FALSE) {
   adaptScen = match.arg(adaptScen)
+  
+  if(verbose) {
+    print(paste0("generating well data for i: ", i, ", adapt scenario: ", adaptScen))
+  }
   
   adaptScenCap = str_to_title(adaptScen)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
@@ -539,12 +543,12 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
     clusterEvalQ(cl, source("R/setup.R"))
     
     # generate well data in parallel
-    tmp = parLapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData)
+    tmp = parLapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
     
     # remember to stop the cluster
     stopCluster(cl)
   } else {
-    tmp = lapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData)
+    tmp = lapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
   }
   
   invisible(NULL)
