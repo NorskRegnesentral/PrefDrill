@@ -556,7 +556,9 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
     # remember to stop the cluster
     stopCluster(cl)
   } else {
-    tmp = lapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
+    for(i in 1:n) {
+      simStudyWellSampler(i, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
+    }
   }
   
   invisible(NULL)
