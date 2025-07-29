@@ -324,7 +324,9 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   sigmaSq = thisPar$sigmaSq
   repelAmount = thisPar$repEffect
   nWells = thisPar$n
-  modelFitter = getFitModFuns()[[thisPar$sampModFunI]] # use SPDE model for predictions when sampling
+  if(adaptScen != "batch") {
+    modelFitter = getFitModFuns()[[thisPar$sampModFunI]]
+  }
   repelDist = repAreaToDist(thisPar$repelAreaProp)
   seed = thisPar$seed
   
