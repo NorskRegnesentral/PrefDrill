@@ -144,21 +144,22 @@ newI[fnameTab$goodL] = 1:sum(fnameTab$goodL)
 newI[newI > 100] = NA
 fnameTab$newI = newI
 
+fnameTab$goodL = !is.na(fnameTab$newI)
+
 # Loop through files, move them to the new directory only if their correlation 
 # is above 0.5
-for (row in 1:nrow(fnameTab)) {
-  old_i <- fnameTab$oldI[row]
-  is_good <- fnameTab$goodL[row]
-  new_i <- fnameTab$newI[row]
+for (r in 1:nrow(fnameTab)) {
+  old_i <- fnameTab$oldI[r]
+  new_i <- fnameTab$newI[r]
   
-  if (is_good) {
-    old_name <- sprintf("RegularizedSand_%d.txt", old_i)
-    new_name <- sprintf("RegularizedSand_%d.txt", new_i)
+  if (!is.na(new_i)) {
+    old_name <- paste0("~/synthetic_model/RegularizedSand_", old_i, ".txt")
+    new_name <- paste0("~/git/PrefDrill/data/seisTruthReplicates/RegularizedSand_", new_i, ".txt")
     
     file.copy(old_name, new_name)
     
-    old_name <- sprintf("RegularizedTruth_%d.txt", old_i)
-    new_name <- sprintf("~/git/PrefDrill/data/seisTruthReplicates/RegularizedTruth_%d.txt", new_i)
+    old_name <- paste0("~/synthetic_model/RegularizedPred_", old_i, ".txt")
+    new_name <- paste0("~/git/PrefDrill/data/seisTruthReplicates/RegularizedPred_", new_i, ".txt")
     
     file.copy(old_name, new_name)
   } else {
