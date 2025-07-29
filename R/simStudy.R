@@ -16,7 +16,7 @@ getFitModFuns = function() {
   # SPDE with seismic
   funs = c(funs, list(fitSPDEsimDat))
   
-  # SPDE with kde covariate
+  # SPDE with seismic + kde covariate
   funs = c(funs, list(function(...) {fitSPDEsimDat(addKDE=TRUE, ...)}))
   
   # Diggle model
@@ -118,7 +118,7 @@ getPrefDrillLoc = function(seismicDat,
 #   repI (1-100)
 #   n (1-3) (doesn't affect seismic data only case)
 #   fitModFunI (1-4 + seismic data only case)
-
+# 
 # Inputs:
 # Seed: random seed
 # inputListFile: filename to save output as
@@ -131,32 +131,59 @@ getPrefDrillLoc = function(seismicDat,
 #   repelAreaProp: proportion of domain area repulsion around a single pt covers. Either 0 or 0.01
 #   propVarCase: either sequential or clustered sampling
 #   
-setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParList.RData") {
+setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
+  adaptScen = match.arg(adaptScen)
+  
+  if(adaptScen == "batch") {
+    seed = 1
+  } else if(adaptScen == "adaptPref") {
+    seed = 2
+  } else {
+    seed = 3
+  }
   set.seed(seed)
   
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  
+  if(adaptScen == "batch") {
+    n = c(20, 100, 500)
+    propVarCase = c("realistic", "uniform")
+    prefPar = c(1.5, 3)
+    repelAreaProp = c(0, 0.001, 0.01)
+  } else {
+    n = c(10, 20, 30)
+    propVarCase = c("spde", "self")
+    prefPar = c(3)
+    repelAreaProp = c(0, 0.01)
+  }
   fitModFunI = 1:length(getFitModFuns())
-  repelAreaProp = c(0, 0.01)
-  n = c(10, 20, 30)
-  propVarCase = c("sequential", "clustered")
+  
+  
   repEffect = Inf
   nuggetVar = 0.1^2
   nsim = 100
   sigmaSq = 1
-  prefPar = 3
   
   # Generate all combinations of varying parameters
+  
+  # parameters used to sample the wells (ID corresponds to well sampling scenario)
   sampleParCombs = expand.grid(
     repelAreaProp = repelAreaProp,
     propVarCase = propVarCase,
+    sampModFunI = fitModFunI, 
     repEffect = repEffect, 
     nuggetVar = nuggetVar, 
     sigmaSq = sigmaSq, 
     prefPar = prefPar, 
     stringsAsFactors = FALSE
   )
+  
+  # well dataset IDs, including 100 replicate IDs + corresponding parameters (+ eventually max n, seed)
   wellDatCombs = expand.grid(
     repelAreaProp = repelAreaProp,
     propVarCase = propVarCase,
+    sampModFunI = fitModFunI, 
     repI = 1:nsim, 
     repEffect = repEffect, 
     nuggetVar = nuggetVar, 
@@ -164,9 +191,12 @@ setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParLis
     prefPar = prefPar, 
     stringsAsFactors = FALSE
   )
+  
+  # model fit IDs, including full well dataset info + n (well dataset subset size) + model
   modelFitCombs = expand.grid(
     repelAreaProp = repelAreaProp,
     propVarCase = propVarCase,
+    sampModFunI = fitModFunI, 
     fitModFunI = fitModFunI, 
     repI = 1:nsim, 
     n = n, 
@@ -177,6 +207,71 @@ setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParLis
     stringsAsFactors = FALSE
   )
   
+  # remove cases we don't consider:
+  # - only use 1 beta value for uniform case
+  # - don't use Diggle model for variance adaptive sampling?
+  # - don't use repelAreaProp == .01 for n in 100,500 or repelAreaProp==.001 for n == 500
+  # - don't generate data based on propVarCase in adaptive settings
+  # - don't use sampModFunI in batch settings
+  # - either sampModFunI == fitModFunI or sampModFunI == 1 in adaptive case (for modelTab)
+  
+  removeBadRows = function(tab, modelTab=FALSE) {
+    # first remove extra beta value for uniform case
+    badBetas = (tab$propVarCase == "uniform") & (tab$prefPar == 3)
+    
+    # then remove bad values of repelAreaProp
+    if(!is.null(tab$n)) {
+      badRepArea = tab$repelAreaProp * tab$n > 0.4
+    } else {
+      badRepArea = rep(FALSE, nrow(tab))
+    }
+    
+    # remove rows (and column) based on sampModFunI in batch settings
+    if(adaptScen == "batch") {
+      badSampMod = tab$sampModFunI != fitModFunI[1]
+      tab$sampModFunI = NULL
+    } else {
+      badSampMod = rep(FALSE, nrow(tab))
+    }
+    
+    if(!modelTab) {
+      # just for the data table (everything but modelFitCombs)
+      
+      # remove rows (and column) based on propVarCase in adaptive settings
+      if(adaptScen == "batch") {
+        badPropVar = rep(FALSE, nrow(tab))
+      } else {
+        badPropVar = tab$propVarCase != propVarCase[1]
+        tab$propVarCase = NULL
+      }
+      
+      badRows = badPropVar
+    } else {
+      # just for modelFitCombs
+      
+      # either sampModFunI == fitModFunI or sampModFunI == 1 in adaptive case 
+      # depending on propVarCase (for modelTab)
+      
+      goodSampMod = rep(TRUE, nrow(tab))
+      
+      if(adaptScen != "batch") {
+        goodSampMod[tab$propVarCase == "spde"] = 
+          tab$sampModFunI[tab$propVarCase == "spde"] == 1
+        goodSampMod[tab$propVarCase == "self"] = 
+          tab$sampModFunI[tab$propVarCase == "self"] == tab$fitModFunI[tab$propVarCase == "self"]
+      }
+      
+      badRows = !goodSampMod
+    }
+    
+    badRows = badBetas | badRepArea | badSampMod | badRows
+    tab[!badRows,]
+  }
+  
+  sampleParCombs = removeBadRows(sampleParCombs)
+  wellDatCombs = removeBadRows(wellDatCombs)
+  modelFitCombs = removeBadRows(modelFitCombs, modelTab=TRUE)
+  
   # add in IDs into the combination lists
   sampleParCombs$sampleParI = 1:nrow(sampleParCombs)
   wellDatCombs$wellDatI = 1:nrow(wellDatCombs)
@@ -184,7 +279,9 @@ setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParLis
   
   # add in IDs from corresponding combination lists
   wellDatCombs = merge(wellDatCombs, sampleParCombs)
+  wellDatCombs = wellDatCombs[order(wellDatCombs$wellDatI),]
   modelFitCombs = merge(modelFitCombs, wellDatCombs)
+  modelFitCombs = modelFitCombs[order(modelFitCombs$modelFitI),]
   wellDatCombs$n = max(n)
   
   # Generate unique seeds for each replicated simulation and simulated dataset
@@ -203,24 +300,32 @@ setupSimStudy = function(seed=123, inputListFile="savedOutput/simStudy/simParLis
        modelFitCombsList, modelFitCombs, file=inputListFile)
 }
 
-# generates the well data for the simulation study
-simStudySequentialSampler = function(i=1, regenData=FALSE) {
+# generates sequentially-sampled well data for the simulation study
+simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
+                                     regenData=FALSE) {
+  adaptScen = match.arg(adaptScen)
+  
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   
   # parameters
-  out = load("savedOutput/simStudy/simParList.RData")
+  out = load(inputListFile)
   thisPar = wellDatCombsList[[i]]
+  propVarCase = thisPar$propVarCase
   prefPar = thisPar$prefPar
+  sampleParI = thisPar$sampleParI
   wellDatI = thisPar$wellDatI
   repI = thisPar$repI
   sigmaSqErr = thisPar$nuggetVar
+  sigmaSq = thisPar$sigmaSq
   repelAmount = thisPar$repEffect
   nWells = thisPar$n
-  modelFitter = getFitModFuns()[[1]] # use SPDE model for predictions when sampling
+  modelFitter = getFitModFuns()[[thisPar$sampModFunI]] # use SPDE model for predictions when sampling
   repelDist = repAreaToDist(thisPar$repelAreaProp)
   seed = thisPar$seed
   
   # if the well data already exists and we don't want to regenerate it, don't
-  wellDatFile = paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData")
+  wellDatFile = paste0("savedOutput/simStudy/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
   if(file.exists(wellDatFile) && !regenData) {
     return(invisible(NULL))
   }
@@ -243,33 +348,78 @@ simStudySequentialSampler = function(i=1, regenData=FALSE) {
     bwRepel = NULL
   }
   
+  if(adaptScen != "batch") {
+    # sample the wells
+    # wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4,
+    #                       predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
+    #                       transform=logit, invTransform=expit, prefPar=prefPar,
+    #                       samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
+    #                       repelType=repelType, bwRepel=bwRepel,
+    #                       repelAmount=repelAmount, seed=seed,
+    #                       int.strategy="eb", strategy="gaussian")
+    
+    # for testing purposes:
+    wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
+                          predGrid=getSimStudyPredGrid(),
+                          transform=logit, invTransform=expit, prefPar=prefPar,
+                          samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
+                          repelType=repelType, bwRepel=bwRepel,
+                          repelAmount=repelAmount, seed=seed,
+                          int.strategy="eb", strategy="gaussian")
+    
+    # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
+    #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
+    #                                transform=logit, invTransform=expit, prefPar=prefPar,
+    #                                samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
+    #                                repelType=repelType, bwRepel=bwRepel,
+    #                                repelAmount=repelAmount, seed=seed,
+    #                                int.strategy="eb", strategy="gaussian"))
+  } else {
+    
+    if(propVarCase == "realistic") {
+      # indep
+      otherRepI = ((repI + 1) %% 100) + 1
+      out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", otherRepI, ".txt"))
+      indepDat = out$surfFrame
+      
+      # standardize seismic, truth, and indep data on logit scale
+      seismicDatStd = seismicDat
+      truthDatStd = truthDat
+      indepDatStd = indepDat
+      seismicDatStd[,3] = logit(seismicDatStd[,3])
+      truthDatStd[,3] = logit(truthDatStd[,3])
+      indepDatStd[,3] = logit(indepDatStd[,3])
+      seismicDatStd = (seismicDat[,3] - mean(seismicDat[,3]))/sd(seismicDat[,3])
+      truthDatStd = (truthDat[,3] - mean(truthDat[,3]))/sd(truthDat[,3])
+      indepDatStd = (indepDat[,3] - mean(indepDat[,3]))/sd(indepDat[,3])
+      
+      # combine them into a realistic mix and convert back to [0,1] scale
+      sampleDat = seismicDat
+      sampleDat[,3] = 0.5 * seismicDatStd[,3] + 0.25 * truthDatStd[,3] + 0.25 * indepDatStd[,3]
+    } else if(propVarCase == "uniform") {
+      # in this case, seismic data doesn't matter that much
+      sampleDat = seismicDat
+      sampleDat[,3] = rep(0, nrow(sampleDat))
+    } else {
+      stop("unrecognized propVarCase")
+    }
+    
+    sampleDat[,3] = expit(sqrt(sigmaSq) * sampleDat[,3])
+    
+    # do batch sampling
+    wellDat = basicWellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
+                     predGrid=getSimStudyPredGrid(), preds=sampleDat[,3], 
+                     transform=logit, invTransform=expit, prefPar=prefPar, 
+                     samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
+                     repelType=repelType, bwRepel=bwRepel, 
+                     rbf="uniform", repelAmount=Inf, 
+                     seed=seed, int.strategy="eb", strategy="gaussian")$wellDat
+    
+  }
   
-  # sample the wells
-  # wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4,
-  #                       predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
-  #                       transform=logit, invTransform=expit, prefPar=prefPar,
-  #                       samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
-  #                       repelType=repelType, bwRepel=bwRepel,
-  #                       repelAmount=repelAmount, seed=seed,
-  #                       int.strategy="eb", strategy="gaussian")
-  wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
-                        predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
-                        transform=logit, invTransform=expit, prefPar=prefPar,
-                        samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
-                        repelType=repelType, bwRepel=bwRepel,
-                        repelAmount=repelAmount, seed=seed,
-                        int.strategy="eb", strategy="gaussian")
   
-  # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
-  #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
-  #                                transform=logit, invTransform=expit, prefPar=prefPar,
-  #                                samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
-  #                                repelType=repelType, bwRepel=bwRepel,
-  #                                repelAmount=repelAmount, seed=seed,
-  #                                int.strategy="eb", strategy="gaussian"))
-  
-  # save(wellDat, simPar=thisPar, 
-  #      file=paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
+  save(wellDat, simPar=thisPar,
+       file=wellDatFile)
   invisible(NULL)
 }
 
@@ -331,7 +481,7 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
     out = fitModFun(wellDat, seismicDat)
     predMat = out$predMat # doesn't include nugget
     predAggMat = out$predAggMat # doesn't include nugget?
-    obsMat = out$obsMat # doesn't include nuggget
+    obsMat = out$obsMat # doesn't include nugget
     
     save(predMat, predAggMat, truthWells, obsMat, 
          file=paste0("savedOutput/simStudy/modeRes_", resI, ".RData"))
@@ -369,7 +519,42 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
 
 
 
+# Final sim study funs ----
 
+# generate simulation parameter tables (simParList*.RData files)
+setupParSimStudy = function() {
+  setupSimStudy("batch")
+  setupSimStudy("adaptPref")
+  setupSimStudy("adaptVar")
+}
+
+# generates well data for the simulation study
+getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar"), 
+                              doPar=TRUE, regenData=FALSE) {
+  adaptScen = match.arg(adaptScen)
+  
+  if(doPar) {
+    # start parallel cluster
+    cl = makeCluster(nCores)
+    clusterEvalQ(cl, source("R/setup.R"))
+    
+    # generate well data in parallel
+    tmp = parLapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData)
+    
+    # remember to stop the cluster
+    stopCluster(cl)
+  } else {
+    tmp = lapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData)
+  }
+  
+  invisible(NULL)
+}
+
+# fits models based on generated well data for the simulation study
+fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100) {
+  adaptScen = match.arg(adaptScen)
+  
+}
 
 
 

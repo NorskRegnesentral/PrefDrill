@@ -59,9 +59,15 @@ wellSampler = function(truthDat, seismicDat, modelFitter, nWells=20, minN=4,
 }
 
 # for sampling wells from a fixed inhomogeneous Poisson process
-basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelFitter, 
+# 
+# NOTE: must sample points one at a time if there is any repulsion
+# 
+# Inputs:
+# modelFitter: If not null, uses predictions based on wellDat to get sampling 
+#              intensity. Else use seismicDat
+basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelFitter=NULL, 
                             predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
-                            transform=logit, invTransform=expit, prefPar=0, 
+                            preds=NULL, transform=logit, invTransform=expit, prefPar=0, 
                             samplingModel=c("ipp"), sigmaSqErr=.1^2, 
                             repelType=c("none", "rbf"), bwRepel=NULL, 
                             rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
@@ -110,14 +116,19 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   repelKern = repelKernel(repelType=repelType, bw=bwRepel, rbf=rbf)
   
   # first fit the model and get predictions over the grid (or just take seismic estimates)
-  if(!is.null(wellDat)) {
-    fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
-                      transform=transform, invTransform=invTransform, ...)
-    preds = fit$predEst
-    predAggMat = fit$predAggMat
+  if(is.null(preds)) {
+    if(!is.null(wellDat)) {
+      fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
+                        transform=transform, invTransform=invTransform, ...)
+      preds = fit$predEst
+      predAggMat = fit$predAggMat
+    } else {
+      fit = NULL
+      preds = seismicDat[,3]
+      predAggMat = mean(preds)
+    }
   } else {
     fit = NULL
-    preds = seismicDat[,3]
     predAggMat = mean(preds)
   }
   

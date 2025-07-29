@@ -35,6 +35,8 @@ if(FALSE) {
   install.packages("gstat")
   install.packages("sf")
   install.packages("terra")
+  install.packages("stringr")
+  install.packages("parallel")
 }
 
 library(splott)
@@ -47,6 +49,8 @@ library(gstat)
 library(sf)
 library(Matrix)
 library(terra)
+library(stringr)
+library(parallel)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising
