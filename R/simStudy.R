@@ -38,7 +38,9 @@ getFitModFuns = function() {
 repAreaToDist = function(repArea=.01) {
   # A = pi R^2
   # R = sqrt(A/pi)
-  domainArea = diff(simStudyXlims) * diff(simStudyYlims)
+  xlims = c(-12.5, 15012.5)
+  ylims = c(-8.3335, 5008.4336)
+  domainArea = diff(xlims) * diff(ylims)
   sqrt(repArea * domainArea / pi)
 }
 
