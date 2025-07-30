@@ -228,7 +228,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     
     # then remove bad values of repelAreaProp
     if(!is.null(tab$n)) {
-      badRepArea = tab$repelAreaProp * tab$n > 0.4
+      badRepArea = tab$repelAreaProp * tab$n > 0.5
     } else {
       badRepArea = rep(FALSE, nrow(tab))
     }
@@ -290,6 +290,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   modelFitCombs = merge(modelFitCombs, wellDatCombs)
   modelFitCombs = modelFitCombs[order(modelFitCombs$modelFitI),]
   wellDatCombs$n = max(n)
+  wellDatCombs$n[wellDatCombs$repelAreaProp * wellDatCombs$n > 0.5] = n[length(n)-1]
   
   # Generate unique seeds for each replicated simulation and simulated dataset
   nDatasets = nrow(wellDatCombs)
@@ -372,8 +373,9 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     #                       int.strategy="eb", strategy="gaussian")
     
     # for testing purposes:
-    wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
-                          predGrid=getSimStudyPredGrid(),
+    wellDat = wellSampler(truthDat=truthDat, seismicDat=seismicDat, 
+                          modelFitter=modelFitter, nWells=5, minN=4,
+                          predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
                           transform=logit, invTransform=expit, prefPar=prefPar,
                           samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
                           repelType=repelType, bwRepel=bwRepel,
@@ -420,13 +422,16 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     sampleDat[,3] = expit(sqrt(sigmaSq) * sampleDat[,3])
     
     # do batch sampling
-    wellDat = basicWellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
-                     predGrid=getSimStudyPredGrid(), preds=sampleDat[,3], 
+    wellDat = wellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
+                     predGrid=as.matrix(sampleDat[,1:2]), truthDat=truthDat, 
+                     preds=sampleDat[,3], 
                      transform=logit, invTransform=expit, prefPar=prefPar, 
                      samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                      repelType=repelType, bwRepel=bwRepel, 
                      rbf="uniform", repelAmount=Inf, 
                      seed=seed, int.strategy="eb", strategy="gaussian")$wellDat
+    
+    browser()
     
   }
   
