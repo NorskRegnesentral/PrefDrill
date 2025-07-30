@@ -431,7 +431,6 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      rbf="uniform", repelAmount=Inf, 
                      seed=seed, int.strategy="eb", strategy="gaussian")$wellDat
     
-    browser()
     
   }
   
