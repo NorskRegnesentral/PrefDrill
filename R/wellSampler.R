@@ -380,7 +380,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
     for(j in 1:thisBatchSize) {
       
       # calculate repulsion effects
-      if(i == 1) {
+      if((i == 1) && (j == 1)) {
         
         if(!is.null(wellDat)) {
           
