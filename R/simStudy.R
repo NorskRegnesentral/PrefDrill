@@ -476,7 +476,7 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
 runSimStudyI = function(i, significance=c(.8, .95), 
                         adaptScen=c("batch", "adaptPref", "adaptVar"), 
                         regenData=FALSE, verbose=FALSE) {
-  
+  startT = proc.time()[3]
   adaptScen = match.arg(adaptScen)
   
   if(verbose) {
@@ -550,10 +550,13 @@ runSimStudyI = function(i, significance=c(.8, .95),
     corEstTruthWells = cor(estsWells, truthWells)
     corEstTruthTrue = cor(ests, truth[,3])
     
+    endT = proc.time()[3]
+    totT = endT - startT
+    
     # save results
     save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
          corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-         varEst, corEstTruthWells, corEstTruthTrue, file=scoresFile)
+         varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
   }
   
   invisible(NULL)
