@@ -308,6 +308,22 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
        modelFitCombsList, modelFitCombs, file=inputListFile)
 }
 
+simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
+                                  regenData=FALSE, verbose=FALSE) {
+  
+  tryCatch(simStudyWellSampler(i, adaptScen, regenData, verbose), 
+           error = function(e) {
+             logfile <- paste0("well_", adaptScen, "_", i, "_err.txt")
+             sink(logfile)
+             cat("Error at i =", i, ":\n")
+             cat(paste("Call stack:\n", paste(deparse(sys.calls()), collapse = "\n")), "\n")
+             cat(conditionMessage(e), "\n")
+             sink()
+             return(invisible(NULL))
+           })
+  
+}
+
 # generates sequentially-sampled well data for the simulation study
 simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
                                regenData=FALSE, verbose=FALSE) {
@@ -564,7 +580,7 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
     clusterEvalQ(cl, source("R/setup.R"))
     
     # generate well data in parallel
-    tmp = parLapply(cl, 1:n, simStudyWellSampler, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
+    tmp = parLapply(cl, 1:n, simStudyWellSamplerPar, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
     
     # remember to stop the cluster
     stopCluster(cl)
