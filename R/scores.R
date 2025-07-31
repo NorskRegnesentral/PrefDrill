@@ -467,7 +467,7 @@ intervalScore = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL,
   
   if(returnCoverage) {
     if(aggScores) {
-      allResults = c(allResults, coverage=do.call("aggFun", c(list(cvg, significance=significance), aggFunArgs)))
+      allResults = c(allResults, coverage=do.call("aggFun", c(list(cvg), aggFunArgs)))
     } else {
       allResults = cbind(allResults, coverage=cvg)
     }
