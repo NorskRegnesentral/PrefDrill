@@ -12,6 +12,7 @@
 # distances: the distances to the nearest observation if not NULL, scores are broken up 
 #            as a function of nearest neighbor distances
 # breaks: the number of equal spaced bins to break the scores into as a function of distance
+# aggScores: if FALSE, returns score for individual observations. Otherwise for all observations
 # NOTE: Discrete, count level credible intervals are estimated based on the input estMat along with coverage and CRPS
 getScores = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL, estMat=NULL, 
                      significance=c(.8, .95), distances=NULL, breaks=30, aggScores=TRUE, aggFun=robustWeightedMean, aggFunArgs=NULL, 
