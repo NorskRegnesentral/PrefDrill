@@ -531,11 +531,11 @@ runSimStudyI = function(i, significance=c(.8, .95),
     obsMat = out$obsMat # doesn't include nugget
     
     # calculate scoring rules and metrics based on predictions
-    pwScoresMean = getScores(truth, estMat=predMat, significance=significance)
-    pwScoresWorst = getScores(truth, estMat=predMat, significance=significance, aggFun=getWorst)
-    aggScores = getScores(mean(truth), estMat=predAggMat, significance=significance)
-    pwScoresMax = getScores(max(truth), estMat=apply(predMat, 2, max), significance=significance)
-    pwScoresMin = getScores(min(truth), estMat=apply(predMat, 2, min), significance=significance)
+    pwScoresMean = getScores(truth[,3], estMat=predMat, significance=significance)
+    pwScoresWorst = getScores(truth[,3], estMat=predMat, significance=significance, aggFun=getWorst)
+    aggScores = getScores(mean(truth[,3]), estMat=predAggMat, significance=significance)
+    pwScoresMax = getScores(max(truth[,3]), estMat=apply(predMat, 2, max), significance=significance)
+    pwScoresMin = getScores(min(truth[,3]), estMat=apply(predMat, 2, min), significance=significance)
     
     # calculate informative summary statistics, first wrt wells, then over grid
     browser() # check wellDat variables
