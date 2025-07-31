@@ -319,7 +319,7 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
              cat(paste("Call stack:\n", paste(deparse(sys.calls()), collapse = "\n")), "\n")
              cat(conditionMessage(e), "\n")
              sink()
-             return(invisible(NULL))
+             stop("error")
            })
   
 }
