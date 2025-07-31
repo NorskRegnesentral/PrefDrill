@@ -101,9 +101,9 @@ mse <- function(truth, est, aggScores=TRUE, aggFun=robustWeightedMean, aggFunArg
   res = est - truth
   
   if(aggScores) {
-    MSE = do.call("aggFun", c(list(res^2), resFunArgs))
-    bias = do.call("aggFun", c(list(res), resFunArgs))
-    thisVar = do.call("aggFun", c(list((res - mean(res, na.rm=TRUE))^2), resFunArgs))
+    MSE = do.call("aggFun", c(list(res^2), aggFunArgs))
+    bias = do.call("aggFun", c(list(res), aggFunArgs))
+    thisVar = do.call("aggFun", c(list((res - mean(res, na.rm=TRUE))^2), aggFunArgs))
   } else {
     MSE = res^2
     bias = res

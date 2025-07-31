@@ -73,6 +73,7 @@ source('R/simStudy.R')
 source('R/getTestDat.R')
 source("R/readRMS.R")
 source("R/wellSampler.R")
+source("R/scores.R")
 
 # set up global variables ----
 
