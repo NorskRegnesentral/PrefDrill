@@ -519,7 +519,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   out = load(wellDatFile)
   
   # interpolate truth to well points
-  truthWells = bilinearInterp(wellDat[,1:2], truth[,3], transform=logit, invTransform=expit)
+  truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
   
   # Fit model and calculate scores if need be
   scoresFile = paste0("scores/scores_", adaptScen, "_", i, ".RData")
