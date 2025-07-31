@@ -1,7 +1,7 @@
 # script with functions for reading RMS surfaces
 
 
-readSurfaceRMS = function(filename) {
+readSurfaceRMS = function(filename, force01=FALSE) {
   # << "  -996" << " "
   # << std::setw(5)  << grid.GetNY()     << "  "
   # << std::setw(12) << grid.GetXInc()   << "  "
@@ -45,6 +45,21 @@ readSurfaceRMS = function(filename) {
   xgrid = seq(from=xstart, to=xend, l=nx)
   ygrid = seq(from=ystart, to=yend, l=ny)
   surfMat = matrix(vals, nrow=nx, ncol=ny)
+  
+  # force values to be less than 1 and greater than 0
+  if(force01) {
+    if(any(surfMat > 1) || any(surfMat < 0)) {
+      stop("some values outside of [0,1] range")
+    }
+    zeros = surfMat == 0
+    ones = surfMat == 1
+    if(any(zeros)) {
+      surfMat[zeros] = min(surfMat[!zeros])
+    }
+    if(any(ones)) {
+      surfMat[ones] = max(surfMat[!ones])
+    }
+  }
   
   # convert to long format
   surfFrame = data.frame(east = rep(xgrid, ny), north=rep(ygrid, each=nx), 

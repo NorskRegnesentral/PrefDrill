@@ -146,6 +146,7 @@ fnameTab$newI = newI
 
 fnameTab$goodL = !is.na(fnameTab$newI)
 
+# threshold corellations ----
 # Loop through files, move them to the new directory only if their correlation 
 # is above 0.5
 for (r in 1:nrow(fnameTab)) {
@@ -202,9 +203,3 @@ image(regSand)
 # -rw-rw-r-- 1 jpaige u_sand 18946 Jun 26 04:12 invseisLog_33.log
 # -rw-rw-r-- 1 jpaige u_sand 15451 Jun 26 01:32 invseisLog_28.log
 # -rw-rw-r-- 1 jpaige u_sand 15530 Jun 25 23:27 invseisLog_24.log
-
-
-
-
-
-

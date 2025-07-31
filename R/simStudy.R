@@ -363,11 +363,11 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   # get truth and data
   
   # seismic data
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"), force01=TRUE)
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truthDat = out$surfFrame
   
   # set repulsion parameters
@@ -410,7 +410,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     if(propVarCase == "realistic") {
       # indep
       otherRepI = ((repI + 1) %% 100) + 1
-      out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", otherRepI, ".txt"))
+      out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", otherRepI, ".txt"), force01=TRUE)
       indepDat = out$surfFrame
       
       # standardize seismic, truth, and indep data on logit scale
@@ -496,11 +496,11 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
   #      nx=nx, ny=ny, xstart=xstart, ystart=ystart, xend=xend, yend=yend)
   
   # seismic data
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"), force01=TRUE)
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"))
+  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truth = out$surfFrame
   
   # well data
