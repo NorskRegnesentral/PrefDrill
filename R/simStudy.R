@@ -313,7 +313,7 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
   
   tryCatch(simStudyWellSampler(i, adaptScen, regenData, verbose), 
            error = function(e) {
-             logfile <- paste0("well_", adaptScen, "_", i, "_err.txt")
+             logfile <- paste0("savedOutput/simStudy/well_", adaptScen, "_", i, "_err.txt")
              sink(logfile)
              cat("Error at i =", i, ":\n")
              cat(paste("Call stack:\n", paste(deparse(sys.calls()), collapse = "\n")), "\n")
@@ -355,7 +355,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   seed = thisPar$seed
   
   # if the well data already exists and we don't want to regenerate it, don't
-  wellDatFile = paste0("savedOutput/simStudy/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
+  wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
   if(file.exists(wellDatFile) && !regenData) {
     return(invisible(NULL))
   }
@@ -363,11 +363,11 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   # get truth and data
   
   # seismic data
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"), force01=TRUE)
+  out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", repI, ".txt"), force01=TRUE)
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"), force01=TRUE)
+  out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truthDat = out$surfFrame
   
   # set repulsion parameters
@@ -410,7 +410,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     if(propVarCase == "realistic") {
       # indep
       otherRepI = ((repI + 1) %% 100) + 1
-      out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", otherRepI, ".txt"), force01=TRUE)
+      out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", otherRepI, ".txt"), force01=TRUE)
       indepDat = out$surfFrame
       
       # standardize seismic, truth, and indep data on logit scale
@@ -456,9 +456,19 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   invisible(NULL)
 }
 
-runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
+runSimStudyI = function(i, significance=c(.8, .95), 
+                        adaptScen=c("batch", "adaptPref", "adaptVar"), 
+                        regenData=FALSE, verbose=FALSE) {
   
-  out = load("savedOutput/simStudy/simParList.RData")
+  adaptScen = match.arg(adaptScen)
+  
+  if(verbose) {
+    print(paste0("generating model predictions for i: ", i, ", adapt scenario: ", adaptScen))
+  }
+  
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  
   simPar = modelFitCombsList[[i]]
   
   sampleParI = simPar$sampleParI
@@ -473,22 +483,6 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
   repEffect = simPar$repEffect
   nuggetVar = simPar$nuggetVar
   seed = simPar$seed
-  
-  parString = paste(
-    "sampI", sampleParI,
-    "datI", wellDatI,
-    "mFitI", modelFitI, 
-    "mod", fitModFunI,
-    "n", n,
-    "scen", substr(propVarCase, 1, 3),
-    "pref", prefPar,
-    "repP", repelAreaProp,
-    "repE", repEffect,
-    "nugV", nuggetVar,
-    sep = "_"
-  )
-  
-  browser() # check length of string
   fitModFun = getFitModFuns()[fitModFunI]
   
   # get seismic + well data and truth
@@ -496,56 +490,54 @@ runSimStudyI = function(i, significance=c(.8, .95), rerunModel=FALSE) {
   #      nx=nx, ny=ny, xstart=xstart, ystart=ystart, xend=xend, yend=yend)
   
   # seismic data
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedPred_", repI, ".txt"), force01=TRUE)
+  out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", repI, ".txt"), force01=TRUE)
   seismicDat = out$surfFrame
   
   # truth
-  out = readSurfaceRMS(paste0("../../synthetic_model/RegularizedSand_", repI, ".txt"), force01=TRUE)
+  out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truth = out$surfFrame
   
   # well data
-  out = load(paste0("savedOutput/simStudy/wellDat_par", wellDatI, "_rep", repI, ".RData"))
+  wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
+  
+  out = load(paste0("savedOutput/simStudy/wellDat/wellDat_par", wellDatI, "_rep", repI, ".RData"))
   
   # interpolate truth to well points
   truthWells = bilinearInterp(seismicDat[,1:2], truth[,3], transform=logit, invTransform=expit)
   
   # Fit model if need be
-  if(!file.exists() || rerunModel) {
+  scoresFile = paste0("scores_", adaptScen, "_", i, ".RData")
+  if(!file.exists(scoresFile) || regenData) {
     out = fitModFun(wellDat, seismicDat)
     predMat = out$predMat # doesn't include nugget
     predAggMat = out$predAggMat # doesn't include nugget?
     obsMat = out$obsMat # doesn't include nugget
     
-    save(predMat, predAggMat, truthWells, obsMat, 
-         file=paste0("savedOutput/simStudy/modeRes_", resI, ".RData"))
-  } else {
-    out = load(paste0("savedOutput/simStudy/modeRes_", resI, ".RData"))
+    # calculate scoring rules and metrics based on predictions
+    pwScoresMean = getScores(truth, estMat=predMat, significance=significance, doFuzzyReject=FALSE)
+    pwScoresWorst = getScores(truth, estMat=predMat, significance=significance, doFuzzyReject=FALSE, aggFun=getWorst)
+    aggScores = getScores(mean(truth), estMat=predAggMat, significance=significance, doFuzzyReject=FALSE)
+    pwScoresMax = getScores(max(truth), estMat=apply(predMat, 2, max), significance=significance, doFuzzyReject=FALSE)
+    pwScoresMin = getScores(min(truth), estMat=apply(predMat, 2, min), significance=significance, doFuzzyReject=FALSE)
+    
+    # calculate informative summary statistics, first wrt wells, then over grid
+    browser() # check wellDat variables
+    corSeisTruthWells = cor(truthWells, wellDat$seismicEst)
+    corSeisTruthTrue = cor(seismicDat[,3], truth[,3])
+    varTruth = var(truth[,3])
+    varSeis = var(seismicDat[,3])
+    
+    ests = rowMeans(predMat)
+    estsWells = rowMeans(obsMat)
+    varEst = var(ests)
+    corEstTruthWells = cor(estsWells, truthWells)
+    corEstTruthTrue = cor(ests, truth[,3])
+    
+    # save results
+    save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
+         corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
+         varEst, corEstTruthWells, corEstTruthTrue, file=scoresFile)
   }
-  
-  # calculate scoring rules and metrics based on predictions
-  pwScoresMean = getScores(truth, estMat=predMat, significance=significance, doFuzzyReject=FALSE)
-  pwScoresWorst = getScores(truth, estMat=predMat, significance=significance, doFuzzyReject=FALSE, aggFun=getWorst)
-  aggScores = getScores(truth, estMat=predAggMat, significance=significance, doFuzzyReject=FALSE)
-  
-  # calculate informative summary statistics, first wrt wells, then over grid
-  browser() # check wellDat variables
-  corSeisTruthWells = cor(truthWells, wellDat$seismicEst)
-  corSeisTruthTrue = cor(seismicDat[,3], truth[,3])
-  varTruth = var(truth[,3])
-  varSeis = var(seismicDat[,3])
-  
-  ests = rowMeans(predMat)
-  estsWells = rowMeans(obsMat)
-  varEst = var(ests)
-  corEstTruthWells = cor(estsWells, truthWells)
-  corEstTruthTrue = cor(ests, truth[,3])
-  
-  # save results
-  
-  
-  save(pwScoresMean, pwScoresWorst, aggScores, 
-       corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-       varEst, corEstTruthWells, corEstTruthTrue, file=paste0("scores", parString, ".RData"))
   
   invisible(NULL)
 }
@@ -594,8 +586,19 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
 }
 
 # fits models based on generated well data for the simulation study
-fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100) {
+fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100, 
+                           doPar=TRUE, regenData=FALSE) {
   adaptScen = match.arg(adaptScen)
+  
+  # load simulation parameters
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  out = load(inputListFile)
+  
+  # figure out which parameter sets have repI <= maxRepI
+  is = 1:nrow(modelFitCombs)
+  is = is[-which(modelFitCombs$repI <= maxRepI)]
+  
   
 }
 
