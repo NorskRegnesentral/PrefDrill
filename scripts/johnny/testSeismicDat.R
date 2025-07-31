@@ -146,7 +146,7 @@ fnameTab$newI = newI
 
 fnameTab$goodL = !is.na(fnameTab$newI)
 
-# threshold corellations ----
+# threshold correllations ----
 # Loop through files, move them to the new directory only if their correlation 
 # is above 0.5
 for (r in 1:nrow(fnameTab)) {

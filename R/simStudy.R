@@ -456,6 +456,23 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   invisible(NULL)
 }
 
+runSimStudyIPar = function(i, significance=c(.8, .95), 
+                           adaptScen=c("batch", "adaptPref", "adaptVar"), 
+                           regenData=FALSE, verbose=FALSE) {
+  
+  tryCatch(runSimStudyI(i, significance, adaptScen, regenData, verbose), 
+           error = function(e) {
+             logfile <- paste0("savedOutput/simStudy/scores_", adaptScen, "_", i, "_err.txt")
+             sink(logfile)
+             cat("Error at i =", i, ":\n")
+             cat(paste("Call stack:\n", paste(deparse(sys.calls()), collapse = "\n")), "\n")
+             cat(conditionMessage(e), "\n")
+             sink()
+             stop("error")
+           })
+  
+}
+
 runSimStudyI = function(i, significance=c(.8, .95), 
                         adaptScen=c("batch", "adaptPref", "adaptVar"), 
                         regenData=FALSE, verbose=FALSE) {
@@ -503,10 +520,10 @@ runSimStudyI = function(i, significance=c(.8, .95),
   out = load(paste0("savedOutput/simStudy/wellDat/wellDat_par", wellDatI, "_rep", repI, ".RData"))
   
   # interpolate truth to well points
-  truthWells = bilinearInterp(seismicDat[,1:2], truth[,3], transform=logit, invTransform=expit)
+  truthWells = bilinearInterp(wellDat[,1:2], truth[,3], transform=logit, invTransform=expit)
   
-  # Fit model if need be
-  scoresFile = paste0("scores_", adaptScen, "_", i, ".RData")
+  # Fit model and calculate scores if need be
+  scoresFile = paste0("scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
     out = fitModFun(wellDat, seismicDat)
     predMat = out$predMat # doesn't include nugget
@@ -597,9 +614,23 @@ fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar
   
   # figure out which parameter sets have repI <= maxRepI
   is = 1:nrow(modelFitCombs)
-  is = is[-which(modelFitCombs$repI <= maxRepI)]
+  is = is[modelFitCombs$repI <= maxRepI]
   
-  
+  if(doPar) {
+    # start parallel cluster
+    cl = makeCluster(nCores)
+    clusterEvalQ(cl, source("R/setup.R"))
+    
+    # generate well data in parallel
+    tmp = parLapply(cl, is, runSimStudyIPar, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
+    
+    # remember to stop the cluster
+    stopCluster(cl)
+  } else {
+    for(i in is) {
+      runSimStudyI(i, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
+    }
+  }
 }
 
 
