@@ -522,7 +522,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
   
   # Fit model and calculate scores if need be
-  scoresFile = paste0("scores/scores_", adaptScen, "_", i, ".RData")
+  scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
     out = fitModFun(wellDat, seismicDat)
     out = do.call("fitModFun", list(wellDat, seismicDat))
@@ -533,13 +533,13 @@ runSimStudyI = function(i, significance=c(.8, .95),
     # calculate scoring rules and metrics based on predictions
     pwScoresMean = getScores(truth[,3], estMat=predMat, significance=significance)
     pwScoresWorst = getScores(truth[,3], estMat=predMat, significance=significance, aggFun=getWorst)
-    aggScores = getScores(mean(truth[,3]), estMat=predAggMat, significance=significance)
-    pwScoresMax = getScores(max(truth[,3]), estMat=apply(predMat, 2, max), significance=significance)
-    pwScoresMin = getScores(min(truth[,3]), estMat=apply(predMat, 2, min), significance=significance)
+    aggScores = getScores(mean(truth[,3]), estMat=matrix(predAggMat, nrow=1), significance=significance)
+    pwScoresMax = getScores(max(truth[,3]), estMat=matrix(apply(predMat, 2, max), nrow=1), significance=significance)
+    pwScoresMin = getScores(min(truth[,3]), estMat=matrix(apply(predMat, 2, min), nrow=1), significance=significance)
     
     # calculate informative summary statistics, first wrt wells, then over grid
     browser() # check wellDat variables
-    corSeisTruthWells = cor(truthWells, wellDat$seismicEst)
+    corSeisTruthWells = cor(truthWells, wellDat[,3])
     corSeisTruthTrue = cor(seismicDat[,3], truth[,3])
     varTruth = var(truth[,3])
     varSeis = var(seismicDat[,3])
