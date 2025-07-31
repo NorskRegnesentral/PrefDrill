@@ -500,7 +500,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   repEffect = simPar$repEffect
   nuggetVar = simPar$nuggetVar
   seed = simPar$seed
-  fitModFun = getFitModFuns()[fitModFunI]
+  fitModFun = getFitModFuns()[[fitModFunI]]
   
   # get seismic + well data and truth
   # list(xgrid=xgrid, ygrid=ygrid, surfMat=surfMat, 
@@ -525,6 +525,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   scoresFile = paste0("scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
     out = fitModFun(wellDat, seismicDat)
+    out = do.call("fitModFun", list(wellDat, seismicDat))
     predMat = out$predMat # doesn't include nugget
     predAggMat = out$predAggMat # doesn't include nugget?
     obsMat = out$obsMat # doesn't include nugget
