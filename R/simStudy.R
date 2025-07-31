@@ -485,7 +485,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   
   adaptScenCap = str_to_title(adaptScen)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
-  
+  out = load(inputListFile)
   simPar = modelFitCombsList[[i]]
   
   sampleParI = simPar$sampleParI
