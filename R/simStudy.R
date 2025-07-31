@@ -516,8 +516,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   
   # well data
   wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
-  
-  out = load(paste0("savedOutput/simStudy/wellDat/wellDat_par", wellDatI, "_rep", repI, ".RData"))
+  out = load(wellDatFile)
   
   # interpolate truth to well points
   truthWells = bilinearInterp(wellDat[,1:2], truth[,3], transform=logit, invTransform=expit)
