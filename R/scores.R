@@ -70,7 +70,7 @@ getScores = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL, estMat=N
   intScore = intervalScore(truth, est, var, lower, upper, estMat=estMat, 
                            significance=significance, returnIntervalWidth=TRUE, 
                            returnCoverage=TRUE, aggFun=aggFun, aggFunArgs=aggFunArgs, ns=ns, 
-                           doFuzzyReject=doFuzzyReject, aggScores=aggFunArgs, na.rm=na.rm)
+                           doFuzzyReject=FALSE, aggScores=aggFunArgs, na.rm=na.rm)
   if(aggScores) {
     thisIntScore = intScore[grepl("intScore", names(intScore))]
     thisCoverage = intScore[grepl("coverage", names(intScore))]
