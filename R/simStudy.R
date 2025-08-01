@@ -460,8 +460,8 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
                            adaptScen=c("batch", "adaptPref", "adaptVar"), 
                            regenData=FALSE, verbose=FALSE) {
   
-  logfile <- paste0("savedOutput/simStudy/scores_", adaptScen, "_", i, "_tmp.txt")
-  sink(logfile)
+  tmplogfile <- paste0("savedOutput/simStudy/scores_", adaptScen, "_", i, "_tmp.txt")
+  sink(tmplogfile)
   cat("Started scores job i =", i, ":\n")
   sink()
   
@@ -475,6 +475,9 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
              sink()
              stop("error")
            })
+  
+  # remove the tmp log file to indicate the job is complete
+  system(paste0("rm ", tmplogfile))
   
 }
 
