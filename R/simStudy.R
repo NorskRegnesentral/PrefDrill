@@ -460,6 +460,11 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
                            adaptScen=c("batch", "adaptPref", "adaptVar"), 
                            regenData=FALSE, verbose=FALSE) {
   
+  logfile <- paste0("savedOutput/simStudy/scores_", adaptScen, "_", i, "_tmp.txt")
+  sink(logfile)
+  cat("Started scores job i =", i, ":\n")
+  sink()
+  
   tryCatch(runSimStudyI(i, significance, adaptScen, regenData, verbose), 
            error = function(e) {
              logfile <- paste0("savedOutput/simStudy/scores_", adaptScen, "_", i, "_err.txt")
