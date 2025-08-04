@@ -526,6 +526,9 @@ runSimStudyI = function(i, significance=c(.8, .95),
   wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
   out = load(wellDatFile)
   
+  # subset well data based on n for this run
+  wellDat = wellDat[1:n,]
+  
   # interpolate truth to well points
   truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
   
@@ -534,9 +537,17 @@ runSimStudyI = function(i, significance=c(.8, .95),
   if(!file.exists(scoresFile) || regenData) {
     out = fitModFun(wellDat, seismicDat)
     out = do.call("fitModFun", list(wellDat, seismicDat))
-    predMat = out$predMat # doesn't include nugget
-    predAggMat = out$predAggMat # doesn't include nugget?
-    obsMat = out$obsMat # doesn't include nugget
+    
+    if(fitModFunI == 4) {
+      predMat = out$predMat.y # doesn't include nugget
+      predAggMat = out$pred.yAggMat # doesn't include nugget?
+      obsMat = out$obsMat.y # doesn't include nugget
+    } else {
+      predMat = out$predMat # doesn't include nugget
+      predAggMat = out$predAggMat # doesn't include nugget?
+      obsMat = out$obsMat # doesn't include nugget
+    }
+    
     
     # calculate scoring rules and metrics based on predictions
     pwScoresMean = getScores(truth[,3], estMat=predMat, significance=significance)

@@ -38,7 +38,7 @@
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
 fitWatsonSimDat = function(wellDat, seismicDat, 
                            predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
-                           pseudoCoords=predGrid, 
+                           pseudoCoords=getPseudoCoordsSimStudy(), 
                            control.fixed = list(prec=list(default=0, X.pp21=1/.5^2, X.y2=1/.5^2), mean=list(default=0, X.pp21=1, X.y2=1)), 
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
@@ -55,7 +55,12 @@ fitWatsonSimDat = function(wellDat, seismicDat,
   # family = match.arg(family)
   quadratureMethod = match.arg(quadratureMethod)
   
-  pseudoOnSeismicGrid = all.equal(c(pseudoCoords[,1], pseudoCoords[,2]), c(seismicDat[,1], seismicDat[,2]))
+  # check if pseudoCoords are the same as the seismicDat coordinates
+  if(all.equal(dim(pseudoCoords), dim(seismicDat[,1:2])) == TRUE) {
+    pseudoOnSeismicGrid = all.equal(c(pseudoCoords[,1], pseudoCoords[,2]), c(seismicDat[,1], seismicDat[,2]))
+  } else {
+    pseudoOnSeismicGrid = FALSE
+  }
   
   # construct prediction points and covariates
   predPts = matrix(unlist(seismicDat[,1:2]), ncol=2)
@@ -82,7 +87,6 @@ fitWatsonSimDat = function(wellDat, seismicDat,
   
   # construct covariates at pseudo site locations
   xPseudo = cbind(1, transform(pseudoSeismicEsts))
-  
   fitWatson(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, 
             pseudoCoords=pseudoCoords, xPseudo=xPseudo, 
             predCoords=predPts, xPred=xPred, fixedRepelAmt=fixedRepelAmt, 
@@ -194,11 +198,702 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     stop("mesh quadrature currently not supported")
   }
   
-  if(!all.equal(c(unlist(pseudoCoords)), c(unlist(predCoords)))) {
-    stop("must debug this case")
-    pseudoArePred = FALSE
+  # check if pseudoCoords are the same as the prediction coordinates
+  if(all.equal(dim(pseudoCoords), dim(predCoords)) == TRUE) {
+    # stop("must debug this case")
+    pseudoArePred = all.equal(c(pseudoCoords[,1], pseudoCoords[,2]), c(predCoords[,1], predCoords[,2]))
   } else {
-    pseudoArePred = TRUE
+    pseudoArePred = FALSE
+  }
+  
+  # begin defining the model
+  startTimeDefineModel = proc.time()[3]
+  
+  nObs = nrow(obsCoords)
+  nPseudoPerIter = nrow(pseudoCoords)
+  
+  # fix SPDE model parameters if necessary
+  if(!is.null(fixedParameters)) {
+    prior = getSPDEModelFixedPar(mesh, effRange=fixedParameters$spde$effRange, 
+                                 margVar=fixedParameters$spde$margVar)
+  }
+  
+  # set family prior
+  control.family.gaussian = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
+  
+  if(!is.null(fixedParameters$familyPrec)) {
+    # fix the family precision parameter on INLA's latent scale
+    control.family.gaussian = list(initial=log(fixedParameters$familyPrec), fixed=TRUE)
+  }
+  
+  # set preferentiality parameter prior
+  prefPrior = list(prior="gaussian", param=c(0, 4))
+  
+  # if there is an intercept, we need to remove it and instead include a 
+  # separate intercept for each iteration in the PProc model. Otherwise, no need 
+  # to change xObs.pp. Will later expand xObs.pp to account for pseudo-sites
+  if(hasInt && !sharedInt) {
+    xObs.pp = cbind(Diagonal(n=nObs, x = rep(1, nrow=nrow(xObs))), xObs[,-1])
+    xPseudoModInt = matrix(xPseudo[,-1], nrow=nrow(xPseudo))
+  } else {
+    xObs.pp = xObs
+    xPseudoModInt = xPseudo
+  }
+  
+  # make sure matrices are sparse
+  xObs.pp = Matrix(xObs.pp, sparse = TRUE)
+  xPseudoModInt = Matrix(xPseudoModInt, sparse = TRUE)
+  
+  # construct A matrix for observations (response)
+  AObs = inla.spde.make.A(mesh, loc = obsCoords)
+  
+  # construct A and design matrices for observations (Bernoulli regression)
+  for(i in 1:nObs) {
+    thisA.pp = inla.spde.make.A(mesh, loc = as.matrix(rbind(matrix(obsCoords[i,], nrow=1), 
+                                                            pseudoCoords)))
+    
+    # get repulsion covariate as a separate design matrix so it's easier to fix effect size
+    if(i == 1) {
+      thisRepelMat = Matrix(matrix(rep(0, 1+nPseudoPerIter), ncol=1), sparse=TRUE)
+    } else {
+      thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
+                                     repelDist=repelDist, returnSparse=TRUE)
+    }
+    
+    if(i == 1) {
+      A.pp = thisA.pp
+      X.pp.rep = thisRepelMat
+      
+      if(!is.null(xObs)) {
+        X.pp = rbind(matrix(xObs[i,], nrow=1), 
+                     xPseudo)
+      }
+      
+    } else {
+      A.pp = rbind(A.pp, thisA.pp)
+      X.pp.rep = rbind(X.pp.rep, thisRepelMat)
+      
+      if(!is.null(xObs)) {
+        X.pp = rbind(X.pp, 
+                     matrix(xObs[i,], nrow=1), 
+                     xPseudo)
+      }
+    }
+  }
+  
+  # make indices for intercepts
+  idxIter = rep(1:nObs, each=1+nPseudoPerIter)
+  
+  # calculate fixed PProc offset for repulsion if specified
+  if(!is.null(fixedRepelAmt)) {
+    repelOffset = as.numeric(fixedRepelAmt * X.pp.rep)
+  } else {
+    repelOffset = rep(0, nrow(X.pp.rep))
+  }
+  
+  # construct A matrix for predictions
+  APred = inla.spde.make.A(mesh, loc = predCoords)
+  
+  # make inla stack
+  ys = transform(obsValues)
+  rs = rep(c(1, rep(0, nrow(pseudoCoords))), nObs)
+  m = ncol(AObs) # number of basis elements
+  nR = length(rs)
+  nPreds = nrow(predCoords)
+  latticeInds = 1:m
+  cluster = 1:nObs
+  
+  # # NOTE: INLA doesn't support sparse design matrices for some reason???
+  # X.pp.inla = inla.as.sparse(X.pp)
+  # X.ppDense = as.matrix(X.pp)
+  
+  # browser() # separate seismic covariate from others for a separate prior
+  
+  # construct the observation stack 
+  if(!is.null(xObs)) {
+    Alist.y = list(AObs, 1)
+    effects.y = list(field.y=latticeInds, X.y=xObs)
+    Alist.pp = list(A.pp, 1, 1)
+    effects.pp = list(field.pp=latticeInds, idx=idxIter, X.pp=X.pp)
+  } else {
+    Alist.y = list(AObs)
+    effects.y = list(field.y=latticeInds)
+    Alist.pp = list(A.pp, 1)
+    effects.pp = list(field.pp=latticeInds, idx=idxIter)
+  }
+  stack.y = inla.stack(data = list(y=cbind(ys, NA), offset=rep(0, nObs)),
+                       A = Alist.y,
+                       effects = effects.y,
+                       tag = "y",
+                       remove.unused=FALSE)
+  
+  # stack.pp = inla.stack(data = list(y=cbind(NA, rs), offset=repelOffset), 
+  #                       A = list(A.pp, 1),
+  #                       effects = list(field.pp=latticeInds, X.pp=X.ppDense),
+  #                       tag = "pp", 
+  #                       remove.unused=FALSE)
+  stack.pp = inla.stack(data = list(y=cbind(NA, rs), offset=repelOffset), 
+                        A = Alist.pp,
+                        effects = effects.pp,
+                        tag = "pp", 
+                        remove.unused=FALSE)
+  
+  endTimeDefineModel = proc.time()[3]
+  totalTimeDefineModel = endTimeDefineModel - startTimeDefineModel
+  
+  # fit model
+  control.inla = list(strategy=strategy, int.strategy=int.strategy)
+  modeControl = inla.set.control.mode.default()
+  if(!is.null(previousFit)) {
+    # initialize the fitting process based on a previous optimum
+    
+    # modeControl$result = previousFit
+    modeControl$theta = previousFit$mode$theta
+    modeControl$x = previousFit$mode$x
+    modeControl$restart = TRUE
+  }
+  
+  # Set distributional quantiles we're interested in: median and based on significanceCI
+  allQuantiles = c(0.5, (1-significanceCI) / 2, 1 - (1-significanceCI) / 2)
+  
+  # fixed effect priors: are they improper or not?
+  controlFixed = c(list(quantiles=allQuantiles), control.fixed)
+  
+  # construct the stack
+  stack.full = inla.stack(stack.y, stack.pp)
+  stackDat = inla.stack.data(stack.full, spde=prior)
+  
+  
+  # make prior to convert iid effects to fixed effects. Fix the precision at 0
+  prec.prior <- list(prec = list(prior = "gaussian", param = c(0, 1)))
+  
+  # see: inla.doc("loggamma")
+  # shape=.1, scale=10 for unit mean, variance 100 prior
+  
+  # setup the formula
+  # thisFormula = paste0("y ~ -1 + f(field.y, model=prior)", 
+  #                      "+ f(field.pp, copy='field.y', fixed=FALSE, hyper=list(beta=prefPrior))")
+  # if(!is.null(xObs)) {
+  #   
+  #   thisFormula = paste0(thisFormula, " + X.y + X.pp")
+  # }
+  
+  thisFormula = paste0("y ~ -1 + f(field.y, model=prior)", 
+                       "+ f(field.pp, copy='field.y', fixed=FALSE, hyper=list(beta=prefPrior))", 
+                       "+ f(idx, model='iid', hyper=prec.prior, initial = 0, fixed = TRUE)")
+  if(!is.null(xObs)) {
+    thisFormula = paste0(thisFormula, " + X.y + X.pp")
+  }
+  
+  thisFormula = as.formula(thisFormula)
+  
+  startModelFitTime = proc.time()[3]
+  
+  mod = inla(
+    thisFormula, 
+    data = stackDat, offset=offset, 
+    control.predictor=list(A=inla.stack.A(stack.full), compute=TRUE, link=stackDat$link, quantiles=allQuantiles), 
+    family=c("gaussian", "poisson"), verbose=verbose, control.inla=control.inla, 
+    control.compute=list(config=TRUE, cpo=doModAssess, dic=doModAssess, waic=doModAssess), 
+    control.mode=modeControl, 
+    control.fixed=controlFixed, 
+    control.family=list(control.family.gaussian, list())
+  )
+  
+  endModelFitTime = proc.time()[3]
+  totalModelFitTime = endModelFitTime - startModelFitTime
+  
+  # get prediction covariates
+  predRepelMat = getRepulsionCov(predCoords, obsCoords, 
+                                 repelDist=repelDist, returnSparse=TRUE)
+  if(!is.null(fixedRepelAmt)) {
+    predOffset.pp = predRepelMat * fixedRepelAmt
+  } else {
+    predOffset.pp = rep(0, nrow(predCoords))
+  }
+  
+  # generate samples from posterior
+  startTimePosteriorSampling = proc.time()[3]
+  postSamples = inla.posterior.sample(nPostSamples, mod)
+  endTimePosteriorSampling = proc.time()[3]
+  totalTimePosteriorSampling = endTimePosteriorSampling - startTimePosteriorSampling
+  
+  latentMat = sapply(postSamples, function(x) {x$latent})
+  latentMatMatrix = Matrix(latentMat, sparse = FALSE)
+  
+  hyperparNames = names(postSamples[[1]]$hyperpar)
+  nuggetVars = sapply(postSamples, function(x) {1 / x$hyperpar[which(hyperparNames == "Precision for the Gaussian observations")]})
+  
+  latentVarNames = rownames(postSamples[[1]]$latent)
+  field.yIndices = which(grepl("field.y", latentVarNames))
+  fixed.yIndices = which(grepl("X.y", latentVarNames))
+  field.ppIndices = which(grepl("field.pp", latentVarNames))
+  fixed.ppIndices = which(grepl("X.pp", latentVarNames))
+  
+  # integrate intensity to calculate point process model intercept. 
+  # Approximate integral via sum over pseudosites
+  if(quadratureMethod == "mesh") {
+    stop("mesh quadrature not supported")
+  } else {
+    # fixed part
+    if(!is.null(xObs)) {
+      # fixedPseudoMat = matrix(X.ppDense[2:(1+nPseudoPerIter),-(1:nObs)], nrow=nPseudoPerIter) %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+      fixedPseudoMat = matrix(X.pp[2:(1+nPseudoPerIter),], nrow=nPseudoPerIter) %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+    } else {
+      # fixedPseudoMat = X.ppDense[2:(1+nPseudoPerIter),] %*% latentMat[fixed.ppIndices,]
+      fixedPseudoMat = 0
+    }
+    
+    # spatial part
+    APseudo = A.pp[2:(1+nPseudoPerIter),]
+    spatialPseudoMat = APseudo %*% latentMat[field.ppIndices,]
+    
+    # offset part
+    pseudoOffset = X.pp.rep[2:(1+nPseudoPerIter)]
+    
+    quadMat = sweep(fixedPseudoMat + spatialPseudoMat, 1, pseudoOffset, "+")
+  }
+  totals = colSums(exp(quadMat))
+  intercept.pp = -log(totals)
+  
+  # generate predictions: first without nugget then add the nugget in
+  if(hasInt) {
+    xPredNoInt = matrix(xPred[,-1], nrow=nrow(xPred))
+  } else {
+    xPredNoInt = xPred
+  }
+  
+  if(length(xPred) != 0) {
+    fixedPredMat.y = xPred  %*% latentMat[fixed.yIndices,]
+    fixedPredMat.pp = xPred %*% latentMat[fixed.ppIndices,]
+  } else {
+    fixedPredMat.y = 0
+    fixedPredMat.pp = 0
+  }
+  
+  spatialPredMat.y = APred %*% latentMatMatrix[field.yIndices,]
+  spatialPredMat.pp = APred %*% latentMatMatrix[field.ppIndices,]
+  
+  predMat.y = fixedPredMat.y + spatialPredMat.y
+  predMat.pp = fixedPredMat.pp + spatialPredMat.pp
+  
+  # fixed parameters (aside from repulsion) currently not supported
+  # if(!is.null(offsetPred)) {
+  #   predMat.y = sweep(predMat.y, 1, offsetPred.y, "+")
+  # }
+  
+  # now make custom predictions (for responses)
+  if(!is.null(customFixedI)) {
+    browser()
+    customFixedMat = diag(customFixedI)
+    customFixedPredMat = xPred  %*% customFixedMat %*% latentMat[fixed.yIndices,]
+    
+    customPredMat = customFixedPredMat + spatialPredMat.y
+    
+    if(!is.null(fixedParameters$beta)) {
+      stop("setting customFixedI and fixedParameters simultaneously not supported")
+    }
+  }
+  
+  # do the same for the observations
+  if(length(xObs) != 0) {
+    fixedObsMat.y = xObs  %*% matrix(latentMat[fixed.yIndices,], ncol=nPostSamples)
+    if(getPPres) {
+      fixedObsMat.pp = xObs %*% matrix(latentMat[fixed.ppIndices,], ncol=nPostSamples)
+    } else {
+      fixedObsMat.pp = NULL
+    }
+  } else {
+    fixedObsMat.y = 0
+    if(getPPres) {
+      fixedObsMat.pp = 0
+    } else {
+      fixedObsMat.pp = NULL
+    }
+  }
+  if(getPPres) {
+    # do nothing since intercept is included in fixed effects now
+    # fixedObsMat.pp = sweep(fixedObsMat.pp, 2, intercept.pp, "+")
+  } else {
+    fixedObsMat.pp = NULL
+  }
+  
+  # get repulsion design matrix at observations (at the time they were sampled). 
+  # Add effect to observation predictions (not necessary if repulsion isn't 
+  # fixed, since already included in fixedObsMat.pp)
+  obsRepelMat = getRepulsionCovAtObs(obsCoords=obsCoords, repelDist=repelDist, returnSparse=TRUE)
+  if(!is.null(fixedRepelAmt) && getPPres) {
+    offsetObs = obsRepelMat %*% fixedRepelAmt
+    fixedObsMat.pp = sweep(fixedObsMat.pp, 1, offsetObs, "+")
+  }
+  
+  spatialObsMat.y = AObs %*% latentMat[field.yIndices,]
+  if(getPPres) {
+    spatialObsMat.pp = AObs %*% latentMat[field.ppIndices,]
+  } else {
+    spatialObsMat.pp = NULL
+  }
+  
+  obsMat.y = fixedObsMat.y + spatialObsMat.y
+  if(getPPres) {
+    obsMat.pp = fixedObsMat.pp + spatialObsMat.pp
+  } else {
+    obsMat.pp = NULL
+  }
+  
+  # currently, fixed parameters aside from fixed repulsion not supported
+  # if(!is.null(offsetEst)) {
+  #   obsMat = sweep(obsMat, 1, offsetEst, "+")
+  # }
+  
+  # now make custom predictions
+  if(!is.null(customFixedI)) {
+    browser()
+    customFixedObsMat = xObs  %*% customFixedMat %*% latentMat[fixedIndices,]
+    
+    customObsMat = customFixedObsMat + spatialObsMat
+    
+    if(!is.null(fixedParameters$beta)) {
+      stop("setting customFixedI and fixedParameters simultaneously not supported")
+    }
+  }
+  
+  # add in nugget if necessary
+  
+  # get cluster effect variance
+  clusterVars = nuggetVars
+  
+  if(addNugToPredCoords) {
+    predMat.yNugget = predMat.y + matrix(rnorm(length(predMat.y), sd=rep(sqrt(clusterVars), each=nrow(predMat.y))), nrow=nrow(predMat.y))
+  } else {
+    predMat.yNugget = NULL
+  }
+  obsMat.yNugget = obsMat.y + matrix(rnorm(length(obsMat.y), sd=rep(sqrt(clusterVars), each=nrow(obsMat.y))), nrow=nrow(obsMat.y))
+  
+  # back transform predictions
+  obsMat.y = invTransform(obsMat.y)
+  obsMat.yNugget = invTransform(obsMat.yNugget)
+  predMat.y = invTransform(predMat.y)
+  if(addNugToPredCoords) {
+    predMat.yNugget = invTransform(predMat.yNugget)
+  } else {
+    predMat.yNugget = NULL
+  }
+  
+  if(!is.null(customFixedI)) {
+    browser()
+    customObsMat = invTransform(customObsMat)
+    customPredMat = invTransform(customPredMat)
+  }
+  
+  # get summary statistics
+  obs.yEst = rowMeans(obsMat.y)
+  obs.ySDs = apply(obsMat.y, 1, sd)
+  obs.yLower = apply(obsMat.y, 1, quantile, probs=(1-significanceCI)/2)
+  obs.yMedian = apply(obsMat.y, 1, median)
+  obs.yUpper = apply(obsMat.y, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  if(getPPres) {
+    obs.ppEst = rowMeans(obsMat.pp)
+    obs.ppSDs = apply(obsMat.pp, 1, sd)
+    obs.ppLower = apply(obsMat.pp, 1, quantile, probs=(1-significanceCI)/2)
+    obs.ppMedian = apply(obsMat.pp, 1, median)
+    obs.ppUpper = apply(obsMat.pp, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    obs.ppEst = NULL
+    obs.ppSDs = NULL
+    obs.ppLower = NULL
+    obs.ppMedian = NULL
+    obs.ppUpper = NULL
+  }
+  
+  obs.yNuggetEst = obs.yEst
+  obs.yNuggetSDs = apply(obsMat.yNugget, 1, sd)
+  obs.yNuggetLower = apply(obsMat.yNugget, 1, quantile, probs=(1-significanceCI)/2)
+  obs.yNuggetMedian = apply(obsMat.yNugget, 1, median)
+  obs.yNuggetUpper = apply(obsMat.yNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  pred.yEst = rowMeans(predMat.y)
+  pred.ySDs = apply(predMat.y, 1, sd)
+  pred.yLower = apply(predMat.y, 1, quantile, probs=(1-significanceCI)/2)
+  pred.yMedian = apply(predMat.y, 1, median)
+  pred.yUpper = apply(predMat.y, 1, quantile, probs=1-(1-significanceCI)/2)
+  
+  if(getPPres) {
+    pred.ppEst = rowMeans(predMat.pp)
+    pred.ppSDs = apply(predMat.pp, 1, sd)
+    pred.ppLower = apply(predMat.pp, 1, quantile, probs=(1-significanceCI)/2)
+    pred.ppMedian = apply(predMat.pp, 1, median)
+    pred.ppUpper = apply(predMat.pp, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    pred.ppEst = NULL
+    pred.ppSDs = NULL
+    pred.ppLower = NULL
+    pred.ppMedian = NULL
+    pred.ppUpper = NULL
+  }
+  
+  if(addNugToPredCoords) {
+    pred.yNuggetEst = pred.yEst
+    pred.yNuggetSDs = apply(predMat.yNugget, 1, sd)
+    pred.yNuggetLower = apply(predMat.yNugget, 1, quantile, probs=(1-significanceCI)/2)
+    pred.yNuggetMedian = apply(predMat.yNugget, 1, median)
+    pred.yNuggetUpper = apply(predMat.yNugget, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    pred.yNuggetEst = NULL
+    pred.yNuggetSDs = NULL
+    pred.yNuggetLower = NULL
+    pred.yNuggetMedian = NULL
+    pred.yNuggetUpper = NULL
+  }
+  
+  if(!is.null(customFixedI)) {
+    customObsEst = rowMeans(customObsMat)
+    customObsSDs = apply(customObsMat, 1, sd)
+    customObsLower = apply(customObsMat, 1, quantile, probs=(1-significanceCI)/2)
+    customObsMedian = apply(customObsMat, 1, median)
+    customObsUpper = apply(customObsMat, 1, quantile, probs=1-(1-significanceCI)/2)
+    
+    customPredEst = rowMeans(customPredMat)
+    customPredSDs = apply(customPredMat, 1, sd)
+    customPredLower = apply(customPredMat, 1, quantile, probs=(1-significanceCI)/2)
+    customPredMedian = apply(customPredMat, 1, median)
+    customPredUpper = apply(customPredMat, 1, quantile, probs=1-(1-significanceCI)/2)
+  } else {
+    customObsEst = NULL
+    customObsSDs = NULL
+    customObsLower = NULL
+    customObsMedian = NULL
+    customObsUpper = NULL
+    
+    customPredEst = NULL
+    customPredSDs = NULL
+    customPredLower = NULL
+    customPredMedian = NULL
+    customPredUpper = NULL
+  }
+  
+  
+  # get aggregate summary statistics over prediction domain (no need for the 
+  # aggregate summary statistics for the PProc model)
+  pred.yAggMat = colMeans(predMat.y)
+  pred.yAggEst = mean(pred.yAggMat)
+  pred.yAggSDs = sd(pred.yAggMat)
+  pred.yAggLower = quantile(pred.yAggMat, probs=(1-significanceCI)/2)
+  pred.yAggMedian = quantile(pred.yAggMat, probs=.5)
+  pred.yAggUpper = quantile(pred.yAggMat, probs=1-(1-significanceCI)/2)
+  
+  if(length(xPred) != 0) {
+    fixedEffectSummary=mod$summary.fixed[,1:5]
+    if(hasInt) {
+      interceptSummary = fixedEffectSummary[1,]
+    } else {
+      interceptSummary = matrix(rep(0, 5), nrow=1)
+    }
+  } 
+  else {
+    interceptSummary = matrix(rep(0, 5), nrow=1)
+    fixedEffectSummary = mod$summary.fixed
+  }
+  hyperNames = row.names(mod$summary.hyperpar)
+  
+  rangeSummary=mod$summary.hyperpar[which(hyperNames == "Range for field"),1:5]
+  spatialSDSummary = mod$summary.hyperpar[which(hyperNames == "Stdev for field"),1:5]
+  
+  # get posterior hyperparameter samples and transform them as necessary
+  hyperMat = sapply(postSamples, function(x) {x$hyperpar})
+  hyperNames = row.names(hyperMat)
+  
+  clusterVarI = which(hyperNames == "Precision for the Gaussian observations")
+  spatialRangeI = which(hyperNames == "Range for field.y" )
+  spatialSDI = which(hyperNames == "Stdev for field.y")
+  prefParI = which(hyperNames == "Beta for field.pp")
+  if(!is.matrix(hyperMat)) {
+    mat = NULL
+  } else {
+    mat = apply(hyperMat, 2, function(x) {c(totalVar=x[spatialSDI]^2+1/x[clusterVarI], spatialVar=x[spatialSDI]^2, errorVar=1/x[clusterVarI], 
+                                            totalSD=sqrt(x[spatialSDI]^2+1/x[clusterVarI]), spatialSD=x[spatialSDI], errorSD=sqrt(1/x[clusterVarI]), 
+                                            spatialRange=x[spatialRangeI], prefPar=x[prefParI])})
+  }
+  
+  hyperNames = c("totalVar", "spatialVar", "errorVar", "totalSD", "spatialSD", "errorSD", "spatialRange", "prefPar")
+  
+  getSummaryStatistics = function(draws) {
+    c(Est=mean(draws, na.rm=TRUE), SD=sd(draws, na.rm=TRUE), 
+      Qlower=quantile(probs=(1 - significanceCI) / 2, draws, na.rm=TRUE), 
+      Q50=quantile(probs=0.5, draws, na.rm=TRUE), 
+      Qupper=quantile(probs=1 - (1 - significanceCI) / 2, draws, na.rm=TRUE))
+  }
+  
+  if(is.matrix(hyperMat)) {
+    rownames(mat) = hyperNames
+    
+    summaryNames = c("Est", "SD", "Qlower", "Q50", "Qupper")
+    parameterSummaryTable = t(apply(mat, 1, getSummaryStatistics))
+    colnames(parameterSummaryTable) = summaryNames
+    
+    # separate out default parameter summaries
+    summaryHyperNames = row.names(parameterSummaryTable)
+    sdSummary=parameterSummaryTable[summaryHyperNames == "errorSD",]
+    varSummary=parameterSummaryTable[summaryHyperNames == "errorVar",]
+    rangeSummary=parameterSummaryTable[summaryHyperNames == "spatialRange",]
+    prefParSummary = parameterSummaryTable[summaryHyperNames == "prefPar",]
+  } else {
+    parameterSummaryTable = NULL
+    sdSummary = NULL
+    varSummary = NULL
+    rangeSummary = NULL
+    overdispersionSummary = NULL
+    prefParSummary = NULL
+  }
+  
+  interceptSummary.pp = getSummaryStatistics(intercept.pp)
+  
+  endTime = proc.time()[3]
+  totalTime = endTime - startTime
+  timings = data.frame(totalTime=totalTime, 
+                       modelDefineTime=totalTimeDefineModel, 
+                       modelFitTime=totalModelFitTime, 
+                       posteriorSamplingTime=totalTimePosteriorSampling, 
+                       otherTime=totalTime-(totalTimeDefineModel + totalModelFitTime + totalTimePosteriorSampling))
+  timings$modelDefinePct = timings$modelDefineTime / timings$totalTime
+  timings$modelFitTimePct = timings$modelFitTime / timings$totalTime
+  timings$posteriorSamplingTimePct = timings$posteriorSamplingTime / timings$totalTime
+  timings$otherTimePct = timings$otherTime / timings$totalTime
+  
+  list(mod=mod, 
+       obsCoords=obsCoords, xObs=xObs, obsValues=obsValues, predCoords=predCoords, xPred=xPred, 
+       obs.yEst=obs.yEst, obs.ySDs=obs.ySDs, obs.yLower=obs.yLower, obs.yMedian=obs.yMedian, obs.yUpper=obs.yUpper, 
+       pred.yEst=pred.yEst, pred.ySDs=pred.ySDs, pred.yLower=pred.yLower, pred.yMedian=pred.yMedian, pred.yUpper=pred.yUpper, pred.yAggMat=pred.yAggMat, 
+       pred.yAggEst=pred.yAggEst, pred.yAggSDs=pred.yAggSDs, pred.yAggLower=pred.yAggLower, pred.yAggMedian=pred.yAggMedian, pred.yAggUpper=pred.yAggUpper, 
+       obs.ppEst=obs.ppEst, obs.ppSDs=obs.ppSDs, obs.ppLower=obs.ppLower, obs.ppMedian=obs.ppMedian, obs.ppUpper=obs.ppUpper, 
+       pred.ppEst=pred.ppEst, pred.ppSDs=pred.ppSDs, pred.ppLower=pred.ppLower, pred.ppMedian=pred.ppMedian, pred.ppUpper=pred.ppUpper, 
+       mesh=mesh, prior=prior, stack=stack.full, 
+       interceptSummary=interceptSummary, interceptSummary.pp=interceptSummary.pp, 
+       fixedEffectSummary=fixedEffectSummary, rangeSummary=rangeSummary, 
+       sdSummary=sdSummary, varSummary=varSummary, prefParSummary=prefParSummary, 
+       parameterSummaryTable=parameterSummaryTable, 
+       fixedEffect.yDraws=latentMat[fixed.yIndices,], 
+       spatialPredMat.y=spatialPredMat.y, fixedPredMat.y=fixedPredMat.y, 
+       spatialObsMat.y=spatialObsMat.y, fixedObsMat.y=fixedObsMat.y, 
+       obsMat.y=obsMat.y, obsMat.yNugget=obsMat.yNugget, 
+       predMat.y=predMat.y, predMat.yNugget=predMat.yNugget, 
+       fixedEffect.ppDraws=latentMat[fixed.ppIndices,], 
+       spatialPredMat.pp=spatialPredMat.pp, fixedPredMat.pp=fixedPredMat.pp, 
+       spatialObsMat.pp=spatialObsMat.pp, fixedObsMat.pp=fixedObsMat.pp, 
+       obsMat.pp=obsMat.pp, predMat.pp=predMat.pp, 
+       customObsEst=customObsEst, customObsSDs=customObsSDs, customObsLower=customObsLower, 
+       customObsMedian=customObsMedian, customObsUpper=customObsUpper, 
+       customPredEst=customPredEst, customPredSDs=customPredSDs, 
+       customPredLower=customPredLower, customPredMedian=customPredMedian, 
+       customPredUpper=customPredUpper, 
+       hyperMat=hyperMat, timings=timings, sigmaEpsilonDraws=sqrt(clusterVars))
+}
+
+# function for fitting the Watson et al. model to data (with sparse covariate effects)
+# 
+# Inputs:
+# obsCoords: matrix with easting and northing columns for observations
+# xObs: matrix with intercept and covariate information for observations (NOT 
+#       INCLUDING REPULSION COVARIATES!)
+# predCoords: data.frame with easting and northing columns for prediction grid
+# xPred: matrix with intercept and covariate information for prediction grid 
+#        (NOT INCLUDING REPULSION COVARIATES!)
+# pseudoCoords: matrix with easting and northing columns for pseudo site coords
+# xPseudo: matrix with intercept and covariate information for pseudo sites (NOT 
+#          INCLUDING REPULSION COVARIATES!)
+# covPriors: list of lists. Contains priors for the non-intercept covariates. If 
+#            length 1, repeats priors for all non-intercept covariates.
+# transform: how to transform obsValues prior to modeling
+# invTransform: inverse of transform. Used to backtransform predictions prior to 
+#               aggregation over domain
+# repelDist: radial bandwidth for cylindrical radial basis function controling 
+#            repel distance
+# sharedInt: if TRUE, includes just 1 shared intercept per iteration in the 
+#            point process model. Otherwise, includes separate intercepts, 1 for 
+#            each iteration, in the point process model
+# mesh: SPDE mesh
+# prior: SPDE prior
+# significanceCI: the credible level of the CIs (e.g., .8 means 80% CI)
+# int.strategy: inla integration strategy
+# strategy: inla strategy
+# nPostSamples: number posterior draws
+# verbose: verbose argument to inla
+# link: link=1 is the canonical link in inla
+# seed: random seed. Not set if NULL
+# doModAssess: whether or not to calculate CPO, DIC, and WAIC
+# customFixedI: if not NULL, a vector of length ncol(xObs) determining a custom 
+#               linear combination of fixed effects to add to SPDE effect in 
+#               order to make a custom set of predictions
+# previousFit: a previous INLA model fit used to initialize optimization
+# improperCovariatePrior: if TRUE, N(0, infty) prior on covariates (aside from 
+#                         intercept, which already has this prior)
+# fixedParameters: A list of parameters to fix in the model rather than infer. 
+#                  Contains some of all of the elements: spde$effRange, 
+#                  spde$margVar, familyPrec, clusterPrec, beta (NOT TESTED)
+# experimentalMode: Whether to use INLA variational inference tools (NOT TESTED)
+# addNugToPredCoords: whether or not to compute results regarding adding nugget 
+#                     at predictive coords
+# getPPres: Whether or not to compute information on point process estimation
+# 
+# Outputs:
+# INLA model, predictions, summary statistics, input data, posterior draws, etc.
+fitWatsonOld = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), ncol=1), 
+                     pseudoCoords=makePseudositesRect(), xPseudo=matrix(rep(1, nrow(pseudoCoords)), nrow=1), 
+                     predCoords, xPred = matrix(rep(1, nrow(predCoords)), ncol=1), 
+                     control.fixed = list(prec=list(default=0), mean=list(default=0)), 
+                     transform=I, invTransform=I, repelDist=10, sharedInt=FALSE, 
+                     mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
+                     significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
+                     nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
+                     doModAssess=FALSE, customFixedI=NULL, quadratureMethod=c("pseudoSites", "mesh"), 
+                     previousFit=NULL, fixedRepelAmt=NULL, addNugToPredCoords=TRUE, 
+                     getPPres=TRUE, 
+                     fixedParameters=NULL, experimentalMode=FALSE) {
+  
+  startTime = proc.time()[3]
+  if(!is.null(seed))
+    set.seed(seed)
+  
+  quadratureMethod = match.arg(quadratureMethod)
+  
+  if(experimentalMode) {
+    if(strategy != "gaussian") {
+      stop("only gaussian integration is possible if experimentalMode is TRUE")
+    }
+  }
+  
+  if(!is.null(fixedParameters)) {
+    stop("fixedParameters not currently supported for Watson et al. model")
+  }
+  
+  # check if an intercept is included as a parameter
+  if(!is.null(xObs)) {
+    if(all(xObs[,1] == 1)) {
+      hasInt = TRUE
+    } else {
+      hasInt = FALSE
+    }
+  }
+  
+  if(!hasInt) {
+    stop("currently, model must include an intercept")
+  }
+  
+  if(!is.null(customFixedI)) {
+    stop("customFixedI not currently supported")
+  }
+  
+  if(quadratureMethod == "mesh") {
+    stop("mesh quadrature currently not supported")
+  }
+  
+  # check if pseudoCoords are the same as the prediction coordinates
+  if(all.equal(dim(pseudoCoords), dim(predCoords)) == TRUE) {
+    # stop("must debug this case")
+    pseudoArePred = all.equal(c(pseudoCoords[,1], pseudoCoords[,2]), c(predCoords[,1], predCoords[,2]))
+  } else {
+    pseudoArePred = FALSE
   }
   
   # begin defining the model
@@ -301,6 +996,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   cluster = 1:nObs
   
   # NOTE: INLA doesn't support sparse design matrices for some reason???
+  X.pp.inla = inla.as.sparse(X.pp)
   X.ppDense = as.matrix(X.pp)
   
   # browser() # separate seismic covariate from others for a separate prior
@@ -312,9 +1008,14 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                        tag = "y",
                        remove.unused=FALSE)
   
+  # stack.pp = inla.stack(data = list(y=cbind(NA, rs), offset=repelOffset), 
+  #                       A = list(A.pp, 1),
+  #                       effects = list(field.pp=latticeInds, X.pp=X.ppDense),
+  #                       tag = "pp", 
+  #                       remove.unused=FALSE)
   stack.pp = inla.stack(data = list(y=cbind(NA, rs), offset=repelOffset), 
                         A = list(A.pp, 1),
-                        effects = list(field.pp=latticeInds, X.pp=X.ppDense),
+                        effects = list(field.pp=latticeInds, X.pp=X.pp.inla),
                         tag = "pp", 
                         remove.unused=FALSE)
   
@@ -355,7 +1056,6 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   thisFormula = as.formula(thisFormula)
-  
   startModelFitTime = proc.time()[3]
   
   mod = inla(
@@ -899,7 +1599,45 @@ getRepulsionCovAtObs = function(obsCoords, repelDist=10, returnSparse=FALSE) {
   }
 }
 
-
+# function for subsetting prediction grid to get a different regular grid of 
+# pseudo sites for the Watson model for the simulation study
+getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL) {
+  
+  if(is.null(predGrid)) {
+    out = readSurfaceRMS("data/seisTruthReplicates/RegularizedPred_1.txt")
+    predGrid = out$surfFrame
+  }
+  
+  xs = sort(unique(predGrid[,1]))
+  ys = sort(unique(predGrid[,2]))
+  # xlim = c(12.5, 5008.344)
+  # ylim = c(0, 15012.5)
+  xlim = range(xs)
+  ylim = range(ys)
+  xwid = diff(xlim)
+  ywid = diff(ylim)
+  
+  # xwid / delt + 1 = newnx
+  # ywid / delt + 1 = newny
+  # maxPts = newnx * newny
+  # (xwid / delt + 1) * (ywid / delt + 1) = maxPts
+  
+  solve_delt <- function(xwid, ywid, maxPts) {
+    f <- function(delt) {
+      (xwid / delt + 1) * (ywid / delt + 1) - maxPts
+    }
+    uniroot(f, lower = 1e-6, upper = max(xwid, ywid))$root
+  }
+  delt = solve_delt(xwid=xwid, ywid=ywid, maxPts=maxPts)
+  
+  newnx = floor(xwid/delt)
+  newny = floor(ywid/delt)
+  
+  newxs = seq(xlim[1], xlim[2], l=newnx)
+  newys = seq(ylim[1], ylim[2], l=newny)
+  
+  make.surface.grid(list(east=newxs, north=newys))
+}
 
 
 
