@@ -38,7 +38,7 @@
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
 fitWatsonSimDat = function(wellDat, seismicDat, 
                            predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
-                           pseudoCoords=getPseudoCoordsSimStudy(), 
+                           pseudoCoords=getPseudoCoordsSimStudy(predGrid=predGrid), 
                            control.fixed = list(prec=list(default=0, X.pp21=1/.5^2, X.y2=1/.5^2), mean=list(default=0, X.pp21=1, X.y2=1)), 
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
@@ -49,7 +49,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
                            quadratureMethod=c("pseudoSites", "mesh"), 
                            fixedParameters=NULL, fixedRepelAmt=500, 
                            addNugToPredCoords=FALSE, getPPres=FALSE, 
-                           experimentalMode=FALSE) {
+                           experimentalMode=FALSE, bernApprox=FALSE, controlvb=control.vb()) {
   
   # set defaults
   # family = match.arg(family)
@@ -97,7 +97,8 @@ fitWatsonSimDat = function(wellDat, seismicDat,
             verbose=verbose, link=link, seed=seed, doModAssess=doModAssess, 
             customFixedI=customFixedI, quadratureMethod=quadratureMethod, 
             previousFit=previousFit, addNugToPredCoords=addNugToPredCoords, getPPres=getPPres, 
-            fixedParameters=fixedParameters, experimentalMode=experimentalMode)
+            fixedParameters=fixedParameters, experimentalMode=experimentalMode, bernApprox=bernApprox, 
+            controlvb=controlvb)
 }
 
 # function for fitting the Watson et al. model to data
@@ -159,7 +160,8 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      doModAssess=FALSE, customFixedI=NULL, quadratureMethod=c("pseudoSites", "mesh"), 
                      previousFit=NULL, fixedRepelAmt=NULL, addNugToPredCoords=TRUE, 
                      getPPres=TRUE, 
-                     fixedParameters=NULL, experimentalMode=FALSE) {
+                     fixedParameters=NULL, experimentalMode=FALSE, bernApprox=FALSE, 
+                     controlvb=control.vb()) {
   
   startTime = proc.time()[3]
   if(!is.null(seed))
@@ -342,7 +344,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   totalTimeDefineModel = endTimeDefineModel - startTimeDefineModel
   
   # fit model
-  control.inla = list(strategy=strategy, int.strategy=int.strategy)
+  control.inla = list(strategy=strategy, int.strategy=int.strategy, control.vb=controlvb)
   modeControl = inla.set.control.mode.default()
   if(!is.null(previousFit)) {
     # initialize the fitting process based on a previous optimum
@@ -387,13 +389,15 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   thisFormula = as.formula(thisFormula)
   
+  fam.pp = ifelse(bernApprox, "binomial", "poisson")
+  
   startModelFitTime = proc.time()[3]
   
   mod = inla(
     thisFormula, 
     data = stackDat, offset=offset, 
     control.predictor=list(A=inla.stack.A(stack.full), compute=TRUE, link=stackDat$link, quantiles=allQuantiles), 
-    family=c("gaussian", "poisson"), verbose=verbose, control.inla=control.inla, 
+    family=c("gaussian", fam.pp), verbose=verbose, control.inla=control.inla, 
     control.compute=list(config=TRUE, cpo=doModAssess, dic=doModAssess, waic=doModAssess), 
     control.mode=modeControl, 
     control.fixed=controlFixed, 

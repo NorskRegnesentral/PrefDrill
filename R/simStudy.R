@@ -154,7 +154,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   
   if(adaptScen == "batch") {
-    n = c(20, 100, 500)
+    n = c(20, 40, 60)
     propVarCase = c("realistic", "uniform")
     prefPar = c(1.5, 3)
     repelAreaProp = c(0, 0.001, 0.01)

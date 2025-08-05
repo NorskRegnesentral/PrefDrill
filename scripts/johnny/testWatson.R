@@ -803,3 +803,118 @@ pdf(file=paste0(figDir, "testing/testPseudo_Watson.pdf"), width=5, height=5)
 plot(gEast, gNorth, main="Pseudosites", 
      xlab="Easting", ylab="Northing", xlim=c(0, 10000), ylim=c(0, 10000), pch=19, col="black", cex=.1)
 dev.off()
+
+# _ ----
+# Test computation ----
+# _ ----
+out = load("savedOutput/simStudy/wellDat/wellDat_batch_par9_rep1.RData")
+n=50
+wellDat = wellDat[1:n,]
+
+out = readSurfaceRMS("data/seisTruthReplicates/RegularizedPred_1.txt")
+seisDat = out$surfFrame
+
+out = readSurfaceRMS("data/seisTruthReplicates/RegularizedSand_1.txt")
+truthDat = out$surfFrame
+
+out = fitWatsonSimDat(wellDat, seisDat)
+out2 = fitWatsonSimDat(wellDat, seisDat, bernApprox = TRUE)
+out3 = fitWatsonSimDat(wellDat, seisDat, strategy="gaussian")
+out4 = fitWatsonSimDat(wellDat, seisDat, controlvb=control.vb(enable=TRUE))
+
+summary(out$mod)
+out$fixedEffectSummary
+out2$fixedEffectSummary
+out3$fixedEffectSummary
+out4$fixedEffectSummary
+
+# n = 50, bernApprox = FALSE:
+#             mean        sd  0.5quant   0.1quant  0.9quant
+# X.y1   0.8129159 0.1476911  0.813016  0.6235915  1.002114
+# X.y2   1.6405326 0.2087706  1.640927  1.3727415  1.907814
+# X.pp1 -4.8158205 0.5550642 -4.815758 -5.5275383 -4.104183
+# X.pp2  4.2610396 0.8129347  4.261048  3.2187241  5.303345
+
+# n = 50, bernApprox = TRUE:
+#             mean        sd   0.5quant   0.1quant  0.9quant
+# X.y1   0.8129712 0.1477993  0.8130723  0.6235077  1.002307
+# X.y2   1.6406513 0.2088078  1.6410486  1.3728107  1.907979
+# X.pp1 -4.8073620 0.5552146 -4.8073015 -5.5192714 -4.095530
+# X.pp2  4.2675254 0.8131753  4.2675336  3.2249011  5.310139
+
+# n = 50, bernApprox = FALSE, strategy=gaussian, vb=auto:
+#             mean        sd   0.5quant   0.1quant  0.9quant
+# X.y1   0.8129277 0.1476923  0.8130278  0.6236017  1.002127
+# X.y2   1.6405373 0.2087703  1.6409319  1.3727466  1.907819
+# X.pp1 -4.8158229 0.5550641 -4.8157601 -5.5275406 -4.104186
+# X.pp2  4.2610421 0.8129344  4.2610503  3.2187269  5.303347
+
+# n = 50, bernApprox = FALSE, vb = enabled:
+
+out$parameterSummaryTable
+out2$parameterSummaryTable
+out3$parameterSummaryTable
+out4$parameterSummaryTable
+# n = 50, bernApprox = FALSE:
+#                        Est           SD       Qlower           Q50        Qupper
+# totalVar        0.11927233 1.472679e-02   0.10213377    0.11846715    0.13781931
+# spatialVar      0.10895850 1.472220e-02   0.09165595    0.10816190    0.12767206
+# errorVar        0.01031384 1.528638e-04   0.01014428    0.01030525    0.01048446
+# totalSD         0.34470276 2.127898e-02   0.31958374    0.34419057    0.37124023
+# spatialSD       0.32933776 2.226280e-02   0.30274734    0.32887977    0.35731228
+# errorSD         0.10155428 7.523957e-04   0.10071880    0.10151476    0.10239363
+# spatialRange 1233.06481774 2.449861e+02 905.14901112 1220.47031628 1612.66736850
+# prefPar        -0.49040648 2.110631e-01  -0.79953329   -0.50323207   -0.19307248
+
+# n = 50, bernApprox = TRUE:
+#                        Est           SD       Qlower           Q50        Qupper
+# totalVar        0.11991849 1.486713e-02   0.10161441    0.11885053    0.13903743
+# spatialVar      0.10959941 1.487064e-02   0.09112581    0.10852888    0.12887973
+# errorVar        0.01031908 1.549708e-04   0.01015108    0.01032166    0.01049544
+# totalSD         0.34562875 2.144103e-02   0.31877016    0.34474706    0.37287723
+# spatialSD       0.33029738 2.244010e-02   0.30187052    0.32943721    0.35899823
+# errorSD         0.10158001 7.624453e-04   0.10075257    0.10159555    0.10244726
+# spatialRange 1235.67967326 2.393101e+02 917.28068144 1232.84239918 1637.03646364
+# prefPar        -0.46235849 2.234160e-01  -0.76361758   -0.44912499   -0.15770505
+
+# n = 50, bernApprox = FALSE, strategy=gaussian, vb=auto:
+#                        Est           SD       Qlower           Q50        Qupper
+# totalVar        0.11965293 1.489694e-02   0.10212665    0.11847564    0.13784112
+# spatialVar      0.10934354 1.490173e-02   0.09164892    0.10817051    0.12769394
+# errorVar        0.01030939 1.555328e-04   0.01014075    0.01030513    0.01048438
+# totalSD         0.34524222 2.147549e-02   0.31957261    0.34420291    0.37126960
+# spatialSD       0.32990720 2.247856e-02   0.30273572    0.32889286    0.35734289
+# errorSD         0.10153227 7.659767e-04   0.10070129    0.10151419    0.10239326
+# spatialRange 1227.93717197 2.436488e+02 905.53209272 1216.02070934 1613.06811654
+# prefPar        -0.49151978 2.171063e-01  -0.79944781   -0.50313536   -0.19301948
+
+# n = 50, bernApprox = FALSE, vb = enabled:
+
+
+out$timings
+out2$timings
+out3$timings
+out4$timings
+# n = 50, bernApprox = FALSE:
+#         totalTime modelDefineTime modelFitTime posteriorSamplingTime otherTime modelDefinePct modelFitTimePct
+# elapsed    278.81            4.81        85.71                 66.47    121.82     0.01725189       0.3074137
+#         posteriorSamplingTimePct otherTimePct
+# elapsed                0.2384061    0.4369284
+
+# n = 50, bernApprox = TRUE:
+#         totalTime modelDefineTime modelFitTime posteriorSamplingTime otherTime modelDefinePct modelFitTimePct
+# elapsed    337.12            5.57       116.86                 68.11    146.58     0.01652231       0.3466421
+#         posteriorSamplingTimePct otherTimePct
+# elapsed                0.2020349    0.4348007
+
+# n = 50, bernApprox = FALSE, strategy=gaussian, vb=auto:
+#         totalTime modelDefineTime modelFitTime posteriorSamplingTime otherTime modelDefinePct modelFitTimePct
+# elapsed    312.61            4.94        91.03                 71.77    144.87     0.01580244       0.2911935
+#         posteriorSamplingTimePct otherTimePct
+# elapsed                0.2295832    0.4634209
+
+# n = 50, bernApprox = FALSE, vb = enabled:
+
+
+
+
