@@ -850,6 +850,11 @@ out4$fixedEffectSummary
 # X.pp2  4.2610421 0.8129344  4.2610503  3.2187269  5.303347
 
 # n = 50, bernApprox = FALSE, vb = enabled:
+# mean        sd  0.5quant   0.1quant  0.9quant
+# X.y1   0.8128296 0.1478683  0.812930  0.6232778  1.002255
+# X.y2   1.6401293 0.2090077  1.640524  1.3720331  1.907715
+# X.pp1 -4.8158837 0.5550942 -4.815819 -5.5276408 -4.104209
+# X.pp2  4.2611031 0.8129587  4.261111  3.2187569  5.303439
 
 out$parameterSummaryTable
 out2$parameterSummaryTable
@@ -889,7 +894,15 @@ out4$parameterSummaryTable
 # prefPar        -0.49151978 2.171063e-01  -0.79944781   -0.50313536   -0.19301948
 
 # n = 50, bernApprox = FALSE, vb = enabled:
-
+# Est           SD       Qlower           Q50        Qupper
+# totalVar        0.12001506 1.455098e-02   0.10259723    0.11941899    0.13862434
+# spatialVar      0.10969489 1.455923e-02   0.09210936    0.10909812    0.12846697
+# errorVar        0.01032017 1.578811e-04   0.01015073    0.01032087    0.01049474
+# totalSD         0.34579465 2.101327e-02   0.32030803    0.34557052    0.37232290
+# spatialSD       0.33047116 2.200425e-02   0.30349525    0.33030004    0.35842289
+# errorSD         0.10158525 7.769590e-04   0.10075083    0.10159167    0.10244382
+# spatialRange 1222.41898499 2.378442e+02 900.95850217 1218.47605764 1618.22746006
+# prefPar        -0.49873198 2.202252e-01  -0.80437794   -0.50511905   -0.19068120
 
 out$timings
 out2$timings
@@ -914,6 +927,10 @@ out4$timings
 # elapsed                0.2295832    0.4634209
 
 # n = 50, bernApprox = FALSE, vb = enabled:
+# totalTime modelDefineTime modelFitTime posteriorSamplingTime otherTime modelDefinePct modelFitTimePct
+# elapsed    531.03            7.09        90.72                 77.28    355.94     0.01335141       0.1708378
+# posteriorSamplingTimePct otherTimePct
+# elapsed                0.1455285    0.6702823
 
 
 

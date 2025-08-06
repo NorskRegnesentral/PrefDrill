@@ -557,7 +557,6 @@ runSimStudyI = function(i, significance=c(.8, .95),
     pwScoresMin = getScores(min(truth[,3]), estMat=matrix(apply(predMat, 2, min), nrow=1), significance=significance)
     
     # calculate informative summary statistics, first wrt wells, then over grid
-    browser() # check wellDat variables
     corSeisTruthWells = cor(truthWells, wellDat[,3])
     corSeisTruthTrue = cor(seismicDat[,3], truth[,3])
     varTruth = var(truth[,3])
