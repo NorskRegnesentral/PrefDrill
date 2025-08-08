@@ -56,6 +56,7 @@ library(stringr)
 library(parallel)
 library(matrixStats)
 library(Rcpp)
+library(scoringRules)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising
