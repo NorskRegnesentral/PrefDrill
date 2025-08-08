@@ -3,13 +3,55 @@
 # construct a rectangular prediction grid over a domain
 # # xLims: a 2-vector with the min and max x value
 # # yLims: a 2-vector with the min and max y value
-getSimStudyPredGrid = function() {
-  out = readSurfaceRMS("data/seisTruthReplicates/RegularizedPred_1.txt")
-  regPred = out$surfFrame
-  # xlims = c(-12.5, 15012.5)
-  # ylims = c(-8.3335, 5008.4336)
+# upScaleFac: upscale factor (new number of pred pts = normal / 2^upScaleFac)
+getSimStudyPredGrid = function(upScaleFac=2, getGoodCoords=FALSE) {
   
-  as.matrix(regPred[,1:2])
+  predGridFile = paste0("savedOutput/global/simPredGrid_", upScaleFac, ".RData")
+  
+  if(!file.exists(predGridFile)) {
+    out = readSurfaceRMS("data/seisTruthReplicates/RegularizedPred_1.txt")
+    regPred = out$surfFrame
+    # xlims = c(-12.5, 15012.5)
+    # ylims = c(-8.3335, 5008.4336)
+    
+    allXs = sort(unique(regPred[,1]))
+    allYs = sort(unique(regPred[,2]))
+    
+    newXs = allXs[seq(from=1, to=length(allXs), by=upScaleFac)]
+    newYs = allYs[seq(from=1, to=length(allYs), by=upScaleFac)]
+    
+    goodXs = regPred[,1] %in% newXs
+    goodYs = regPred[,2] %in% newYs
+    goodCoords = goodXs & goodYs
+    
+    predGrid = as.matrix(regPred[goodCoords, 1:2])
+    
+    save(predGrid, goodCoords, file=predGridFile)
+  } else {
+    out = load(predGridFile)
+  }
+  
+  if(getGoodCoords) {
+    list(predGrid=predGrid, goodCoords=goodCoords)
+  } else {
+    predGrid
+  }
+}
+
+subsampleSimStudyGrid = function(gridDat, upScaleFac=3) {
+  
+  allXs = sort(unique(gridDat[,1]))
+  allYs = sort(unique(gridDat[,2]))
+  
+  newXs = allXs[seq(from=1, to=length(allXs), by=upScaleFac)]
+  newYs = allYs[seq(from=1, to=length(allYs), by=upScaleFac)]
+  
+  goodXs = gridDat[,1] %in% newXs
+  goodYs = gridDat[,2] %in% newYs
+  goodCoords = goodXs & goodYs
+  
+  goodCoords
+  
 }
 
 getFitModFuns = function() {
@@ -370,6 +412,11 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truthDat = out$surfFrame
   
+  # subsample
+  goodCoords = subsampleSimStudyGrid(seismicDat)
+  seismicDat = seismicDat[goodCoords,]
+  truth = truth[goodCoords,]
+  
   # set repulsion parameters
   repelType = ifelse(repelDist == 0, "none", "rbf")
   if(repelDist != 0) {
@@ -412,6 +459,9 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       otherRepI = ((repI + 1) %% 100) + 1
       out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", otherRepI, ".txt"), force01=TRUE)
       indepDat = out$surfFrame
+      
+      # subsample
+      indepDat = indepDat[goodCoords,]
       
       # standardize seismic, truth, and indep data on logit scale
       seismicDatStd = seismicDat
@@ -522,6 +572,11 @@ runSimStudyI = function(i, significance=c(.8, .95),
   out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truth = out$surfFrame
   
+  # subsample
+  goodCoords = subsampleSimStudyGrid(seismicDat)
+  seismicDat = seismicDat[goodCoords,]
+  truth = truth[goodCoords,]
+  
   # well data
   wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
   out = load(wellDatFile)
@@ -596,6 +651,11 @@ getSeismicEsts = function(i, regenData=FALSE, significance=c(.8, .95)) {
     # truth
     out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", i, ".txt"), force01=TRUE)
     truth = out$surfFrame
+    
+    # subsample
+    goodCoords = subsampleSimStudyGrid(seismicDat)
+    seismicDat = seismicDat[goodCoords,]
+    truth = truth[goodCoords,]
     
     # generate prediction "distribution"
     predMat = cbind(seismicDat[,3], seismicDat[,3])
