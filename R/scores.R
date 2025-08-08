@@ -16,7 +16,7 @@
 # NOTE: Discrete, count level credible intervals are estimated based on the input estMat along with coverage and CRPS
 getScores = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL, estMat=NULL, 
                      significance=c(.8, .95), distances=NULL, breaks=30, aggScores=TRUE, aggFun=robustWeightedMean, aggFunArgs=NULL, 
-                     ns=NULL, anyNAisNA=FALSE, returnNAs=FALSE, na.rm=FALSE, setInfToNA=FALSE, throwOutAllNAs=FALSE) {
+                     ns=NULL, anyNAisNA=FALSE, returnNAs=FALSE, na.rm=FALSE, setInfToNA=FALSE, throwOutAllNAs=FALSE, forceDense=TRUE) {
   
   if(setInfToNA) {
     naRows = !is.finite(truth)
@@ -57,6 +57,11 @@ getScores = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL, estMat=N
   
   # compute central estimates if estMat is not null
   if(!is.null(estMat)) {
+    if(forceDense) {
+      if(!("matrix" %in% class(estMat))) {
+        estMat = as.matrix(estMat)
+      }
+    }
     if(is.null(est))
       est = rowMeans2(estMat, na.rm=na.rm)
   }
