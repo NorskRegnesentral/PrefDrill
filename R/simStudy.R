@@ -580,7 +580,57 @@ runSimStudyI = function(i, significance=c(.8, .95),
   invisible(NULL)
 }
 
-
+# get scores from seismic data
+getSeismicEsts = function(i, regenData=FALSE, significance=c(.8, .95)) {
+  
+  startT = proc.time()[3]
+  
+  # Fit model and calculate scores if need be
+  scoresFile = paste0("savedOutput/simStudy/scores/scores_seismic_rep", i, ".RData")
+  if(!file.exists(scoresFile) || regenData) {
+    
+    # get seismic data
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", i, ".txt"), force01=TRUE)
+    seismicDat = out$surfFrame
+    
+    # truth
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", i, ".txt"), force01=TRUE)
+    truth = out$surfFrame
+    
+    # generate prediction "distribution"
+    predMat = cbind(seismicDat[,3], seismicDat[,3])
+    meanSeis = mean(seismicDat[,3])
+    predAggMat = matrix(c(meanSeis, meanSeis), nrow=1)
+    
+    # calculate scoring rules and metrics based on predictions
+    system.time(pwScoresMean <- getScores(truth[,3], estMat=predMat, significance=significance))[3] # 33 seconds?!
+    pwScoresMean = getScores(truth[,3], estMat=predMat, significance=significance)
+    pwScoresWorst = getScores(truth[,3], estMat=predMat, significance=significance, aggFun=getWorst)
+    aggScores = getScores(mean(truth[,3]), estMat=matrix(predAggMat, nrow=1), significance=significance)
+    pwScoresMax = getScores(max(truth[,3]), estMat=matrix(apply(predMat, 2, max), nrow=1), significance=significance)
+    pwScoresMin = getScores(min(truth[,3]), estMat=matrix(apply(predMat, 2, min), nrow=1), significance=significance)
+    
+    # calculate informative summary statistics, first wrt wells, then over grid
+    corSeisTruthWells = NA
+    corSeisTruthTrue = cor(seismicDat[,3], truth[,3])
+    varTruth = var(truth[,3])
+    varSeis = var(seismicDat[,3])
+    
+    ests = seismicDat[,3]
+    estsWells = NA
+    varEst = var(ests)
+    corEstTruthWells = NA
+    corEstTruthTrue = cor(ests, truth[,3])
+    
+    endT = proc.time()[3]
+    totT = endT - startT
+    
+    # save results
+    save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
+         corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
+         varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+  }
+}
 
 # Final sim study funs ----
 
@@ -654,7 +704,123 @@ fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar
   }
 }
 
+getAllSeisEstsSimStudy = function(regenData=FALSE, significance=c(.8, .95)) {
+  
+  for(i in 1:100) {
+    print(paste0("generating seismic estimates for iteration ", i, "/100"))
+    getSeismicEsts(i, regenData=regenData, significance=significance)
+  }
+  
+  invisible(NULL)
+}
 
+showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100) {
+  
+  adaptScen = match.arg(adaptScen)
+  
+  # load simulation parameters and module run parameters
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  out = load(inputListFile)
+  
+  # figure out which parameter sets have repI <= maxRepI
+  is = 1:nrow(modelFitCombs)
+  is = is[modelFitCombs$repI <= maxRepI]
+  subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI]
+  
+  # 
+  # for(i in is) {
+  #   # check the parameters for this run
+  #   runInfo = modelFitCombs[i,]
+  #   parI = runInfo$sampleParI
+  #   
+  #   
+  #   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
+  #   # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
+  #   #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
+  #   #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+  #   
+  #   out = load(scoresFile)
+  # }
+  
+  # modI: the type of model being fit (0 = seismic only)
+  # thisParI: the parameter scenario we will aggregate results for
+  getModScores = function(modI, thisParI) {
+    
+    if(modI == 0) {
+      # get the seismic only estimate. This doesn't depend on well data at all
+      # get the maximum number of reps
+      
+    }
+    
+    # indices of the scores files we'll need to load and the corresponding 
+    # rows of modelFitCombs
+    thisIs = (subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI)
+    thisModelCombs = modelFitCombs[thisIs,]
+    
+    pwScoresMeanAll = c()
+    pwScoresWorstAll = c()
+    aggScoresAll = c()
+    pwScoresMaxAll = c()
+    pwScoresMinAll = c()
+    corSeisTruthWellsAll = c()
+    corSeisTruthTrueAll = c()
+    varTruthAll = c()
+    varSeisAll = c()
+    varEstAll = c()
+    corEstTruthWellsAll = c()
+    corEstTruthTrueAll = c()
+    totTAll = c()
+    repIAll = c()
+    nAll = c()
+    for(i in thisIs) {
+      thesePar = modelFitCombs[i,]
+      
+      scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
+      # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
+      #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
+      #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+      
+      out = load(scoresFile)
+      
+      pwScoresMeanAll = rbind(pwScoresMeanAll, pwScoresMean)
+      pwScoresWorstAll = rbind(pwScoresWorstAll, pwScoresWorst)
+      aggScoresAll = rbind(aggScoresAll, aggScores)
+      pwScoresMaxAll = rbind(pwScoresMaxAll, pwScoresMax)
+      pwScoresMinAll = rbind(pwScoresMinAll, pwScoresMin)
+      corSeisTruthWellsAll = c(corSeisTruthWellsAll, corSeisTruthWells)
+      corSeisTruthTrueAll = c(corSeisTruthTrueAll, corSeisTruthTrue)
+      varTruthAll = c(varTruthAll, varTruth)
+      varSeisAll = c(varSeisAll, varSeis)
+      varEstAll = c(varEstAll, varEst)
+      corEstTruthWellsAll = c(corEstTruthWellsAll, corEstTruthWells)
+      corEstTruthTrueAll = c(corEstTruthTrueAll, corEstTruthTrue)
+      totTAll = c(totTAll, totT)
+      repIAll = c(repIAll, thesePar$repI)
+      nAll = c(nAll, thesePar$n)
+    }
+    
+    list(pwScoresMeanAll=pwScoresMeanAll, pwScoresWorstAll=pwScoresWorstAll, 
+         aggScoresAll=aggScoresAll, pwScoresMaxAll=pwScoresMaxAll, 
+         pwScoresMinAll=pwScoresMinAll, corSeisTruthWellsAll=corSeisTruthWellsAll, 
+         corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
+         varSeisAll=varSeisAll, varEstAll=varEstAll, 
+         corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
+         totTAll=totTAll, repIAll=repIAll, nAll=nAll)
+  }
+  
+  # for each set of sampling parameters, show results
+  allParI = sampleParCombs$sampleParI
+  for(i in 1:length(allParI)) {
+    thisParI = allParI[i]
+    
+    
+    
+    
+    
+  }
+  
+}
 
 
 

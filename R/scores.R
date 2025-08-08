@@ -58,7 +58,7 @@ getScores = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL, estMat=N
   # compute central estimates if estMat is not null
   if(!is.null(estMat)) {
     if(is.null(est))
-      est = rowMeans(estMat, na.rm=na.rm)
+      est = rowMeans2(estMat, na.rm=na.rm)
   }
   
   # first calculate bias, variance, and MSE
@@ -83,7 +83,33 @@ getScores = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL, estMat=N
   }
   
   # calculate CRPS
-  thisCRPS = crps(truth, est, var, estMat=estMat, aggScores=aggScores, aggFun=aggFun, aggFunArgs=aggFunArgs, na.rm=na.rm)
+  # browser()
+  # thisCRPS = crps(truth, est, var, estMat=estMat, aggScores=aggScores, aggFun=aggFun, aggFunArgs=aggFunArgs, na.rm=na.rm)
+  # if(FALSE) {
+  #   system.time(thisCRPS <- crps(truth, est, var, estMat=estMat, aggScores=aggScores, aggFun=aggFun, aggFunArgs=aggFunArgs, na.rm=na.rm)) # 33.17 
+  #   head(thisCRPS)
+  #   # 
+  #   system.time(thisCRPS2 <- crps_sample(truth, estMat)) # 14.97 
+  #   head(thisCRPS2)
+  #   # [1] 0.0408 0.0363 0.0399 0.0363 0.0336 0.0339
+  # }
+  if(!is.null(est) && !is.null(var) && is.null(estMat)) {
+    # in this case var is logit scale???
+    thisCRPS = crps(truth, est, var, estMat=estMat, aggScores=aggScores, aggFun=aggFun, aggFunArgs=aggFunArgs, na.rm=na.rm)
+  } else {
+    if(is.null(estMat)) {
+      stop("must include either or both est and my.var, or estMat")
+    }
+    
+    tempCRPS = crps_sample(truth, estMat)
+    if(aggScores) {
+      thisCRPS = do.call("aggFun", c(list(tempCRPS), aggFunArgs))
+    } else {
+      thisCRPS = tempCRPS
+    }
+    
+  }
+  
   
   # collect the results in a data frame
   results = matrix(c(thisBias, thisVar, thisMSE, sqrt(thisMSE), thisCRPS, thisIntScore, thisCoverage, 
@@ -158,9 +184,15 @@ coverage = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL,
       # Instead, use the user supplied to probability matrix estMat
       
       # take the quantiles of the probability draws
-      CIs = apply(estMat, 1, function(ps) {quantile(ps, probs=c((1 - significance) / 2, 1 - (1 - significance) / 2))})
-      lower = CIs[1,]
-      upper = CIs[2,]
+      # CIs = apply(estMat, 1, function(ps) {quantile(ps, probs=c((1 - significance) / 2, 1 - (1 - significance) / 2))})
+      # lower = CIs[,1]
+      # upper = CIs[,2]
+      
+      # take the quantiles of the probability draws
+      probs = c((1 - significance) / 2, 1 - (1 - significance) / 2)
+      CIs = rowQuantiles(estMat, probs = probs, na.rm=na.rm, drop=FALSE)
+      lower = CIs[,1]
+      upper = CIs[,2]
     }
   }
   
@@ -303,14 +335,114 @@ crps <- function(truth, est=NULL, my.var=NULL, estMat=NULL, aggScores=TRUE, na.r
         return(left+mid+right)
       }
       
-      # intFun = function(ws) {
-      #   (thisCdf(ws) - (ws >= thisTruth))^2
-      # }
     }
     
-    if(!is.null(estMat))
-      estMat = t(apply(estMat, 1, sortWithNAs))
+    crpsRow2 = function(rowI) {
+      thisTruth = truth[rowI]
+      
+      # build the predictive cdf assuming from the empirical distribution given by 
+      # estMat
+      
+      # thisCdf = ecdf(estMat[rowI,])
+      sorted = estMat[rowI,] # already sorted
+      
+      if(na.rm) {
+        sorted = sorted[!is.na(sorted)]
+        deltas = deltas[!is.na(deltas)]
+      }
+      
+      # since we are using the empirical distribution, there is a closed form for the integral
+      # allPoints = sort(c(sorted, thisTruth))
+      # deltas = diff(allPoints)
+      deltas = allDiffs[rowI,]
+      firstGreater = match(TRUE, sorted >= thisTruth)
+      vals = (1:length(sorted))*(1/length(sorted))
+      if(is.na(firstGreater))
+        return(sum((vals)^2 * deltas, na.rm=na.rm))
+      else if(firstGreater == 1)
+        return(deltas[1] + sum((1-vals[1:(length(sorted)-1)])^2 * deltas[2:length(deltas)], na.rm=na.rm))
+      else {
+        left = sum(vals[1:(firstGreater-1)]^2 * deltas[1:(firstGreater-1)], na.rm=na.rm)
+        mid = sum((1 - vals[firstGreater-1])^2 * deltas[firstGreater], na.rm=na.rm)
+        right = ifelse(firstGreater == length(vals), 0, sum((1 - vals[firstGreater:(length(vals)-1)])^2 * deltas[(firstGreater+1):length(deltas)], na.rm=na.rm))
+        return(left+mid+right)
+      }
+      
+    }
+    
+    sortRows = function(mat) {
+      # estMat = t(apply(estMat, 1, sortWithNAs))
+      # order each row of estMat
+      
+      anynas = FALSE
+      if(na.rm && any(is.na(mat))) {
+        anynas = TRUE
+        nas = is.na(mat)
+        naVal = 9999999999 + pi
+        mat[nas] = naVal
+      }
+      temp = rowRanks(mat, ties.method="first")
+      
+      if(anynas) {
+        mat[nas] = NA
+      }
+      
+      # now sort the rows
+      t(sapply(1:nrow(temp), function(i) {
+        mat[i,][temp[i,]]
+      }))
+    }
+    
+    getSortDiffs = function(mat) {
+      anynas = FALSE
+      if(na.rm && any(is.na(mat))) {
+        anynas = TRUE
+        nas = is.na(mat)
+        naVal = 9999999999 + pi
+        mat[nas] = naVal
+      }
+      temp = rowRanks(mat, ties.method="first")
+      
+      if(anynas) {
+        naMat = matrix(nas, ncol=ncol(mat))
+        newnas = c(matrix(sapply(1:nrow(temp), function(i) {
+          naMat[i,][temp[i,]]
+        }), by.row=TRUE))
+      }
+      
+      # now sort the rows
+      mat = t(sapply(1:nrow(temp), function(i) {
+        mat[i,][temp[i,]]
+      }))
+      
+      # get the rowwise differences
+      diffs = rowDiffs(mat)
+      
+      if(anynas) {
+        # add back in NAs
+        diffs[newnas] = NA
+      }
+      
+      # return results
+      diffs
+    }
+    
+    # estMat = t(apply(estMat, 1, sortWithNAs))
+    # # order each row of estMat
+    # temp = rowRanks(estMat)
+    # 
+    # # now sort the rows
+    # estMat = t(sapply(1:nrow(temp), function(i) {
+    #   estMat[i,][temp[i,]]
+    # }))
+    
+    estMat = sortRows(estMat)
+    
     res = sapply(1:length(truth), crpsRow)
+    
+    # # allDiffs = rowDiffs(sortRows(cbind(estMat, truth)))
+    # allDiffs = getSortDiffs(cbind(estMat, truth))
+    # res = sapply(1:length(truth), crpsRow2)
   }
   
   if(aggScores) {
@@ -318,6 +450,104 @@ crps <- function(truth, est=NULL, my.var=NULL, estMat=NULL, aggScores=TRUE, na.r
   } else {
     res
   }
+}
+
+# 
+crpsMat = function(estMat, truth, na.rm=FALSE) {
+  if(na.rm) {
+    stop("na.rm must be FALSE currently")
+  }
+  
+  sortRows = function(mat) {
+    # estMat = t(apply(estMat, 1, sortWithNAs))
+    # order each row of estMat
+    
+    # anynas = FALSE
+    # if(na.rm && any(is.na(mat))) {
+    #   anynas = TRUE
+    #   nas = is.na(mat)
+    #   naVal = 9999999999 + pi
+    #   mat[nas] = naVal
+    # }
+    temp = rowRanks(mat, ties.method="first")
+    
+    # if(anynas) {
+    #   mat[nas] = NA
+    # }
+    
+    # now sort the rows
+    t(sapply(1:nrow(temp), function(i) {
+      mat[i,][temp[i,]]
+    }))
+  }
+  
+  getSortDiffs = function(mat) {
+    # anynas = FALSE
+    # if(na.rm && any(is.na(mat))) {
+    #   anynas = TRUE
+    #   nas = is.na(mat)
+    #   naVal = 9999999999 + pi
+    #   mat[nas] = naVal
+    # }
+    temp = rowRanks(mat, ties.method="first")
+    
+    # if(anynas) {
+    #   naMat = matrix(nas, ncol=ncol(mat))
+    #   newnas = c(matrix(sapply(1:nrow(temp), function(i) {
+    #     naMat[i,][temp[i,]]
+    #   }), by.row=TRUE))
+    # }
+    
+    # now sort the rows
+    mat = t(sapply(1:nrow(temp), function(i) {
+      mat[i,][temp[i,]]
+    }))
+    
+    # get the rowwise differences
+    diffs = rowDiffs(mat)
+    
+    # if(anynas) {
+    #   # add back in NAs
+    #   diffs[newnas] = NA
+    # }
+    
+    # return results
+    diffs
+  }
+  
+  estMat = sortRows(estMat)
+  out = insertSortedColumnWithIndices(estMat, truth)
+  fullMat = out$newMat
+  tIs = out$insertIndices
+  deltas = rowDiffs(fullMat)
+  
+  vals = (1:length(sorted))*(1/length(sorted))
+  valsSq = vals^2
+  oneMValsSq = (1 - vals)^2
+  
+  res = numeric(length(truth))
+  lastLs = tIs == (ncol(estMat) + 1)
+  firstLs = tIs == 1
+  restLs = !lastLs & !firstLs
+  # res[lastLs] = rowSums2(sweep_col_mult(deltas[lastLs,], valsSq))
+  # res[firstLs] = sweep_col_mult(deltas[firstLs, 2:ncol(deltas)], valsSq)
+  
+  res[lastLs] = deltas[lastLs,] %*% valsSq
+  res[firstLs] = deltas[,1] + deltas[firstLs, 2:ncol(deltas)] %*% oneMValsSq
+  
+  left = deltas[1:tIs[rest]]
+  
+  if(is.na(firstGreater))
+    return(sum((vals)^2 * deltas, na.rm=na.rm))
+  else if(firstGreater == 1)
+    return(deltas[1] + sum((1-vals[1:(length(sorted)-1)])^2 * deltas[2:length(deltas)], na.rm=na.rm))
+  else {
+    left = sum(vals[1:(firstGreater-1)]^2 * deltas[1:(firstGreater-1)], na.rm=na.rm)
+    mid = sum((1 - vals[firstGreater-1])^2 * deltas[firstGreater], na.rm=na.rm)
+    right = ifelse(firstGreater == length(vals), 0, sum((1 - vals[firstGreater:(length(vals)-1)])^2 * deltas[(firstGreater+1):length(deltas)], na.rm=na.rm))
+    return(left+mid+right)
+  }
+  
 }
 
 # either include both lower and upper, or include either: 
@@ -369,9 +599,14 @@ intervalScore = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL,
       # Instead, use the user supplied to probability matrix estMat
       
       # take the quantiles of the probability draws
-      CIs = apply(estMat, 1, function(ps) {quantile(ps, probs=c((1 - significance) / 2, 1 - (1 - significance) / 2), na.rm=na.rm)})
-      lower = CIs[1,]
-      upper = CIs[2,]
+      probs = c((1 - significance) / 2, 1 - (1 - significance) / 2)
+      CIs = rowQuantiles(estMat, probs = probs, na.rm=na.rm, drop=FALSE)
+      lower = CIs[,1]
+      upper = CIs[,2]
+      
+      # CIs = apply(estMat, 1, function(ps) {quantile(ps, probs=c((1 - significance) / 2, 1 - (1 - significance) / 2))})
+      # lower = CIs[1,]
+      # upper = CIs[2,]
     }
   }
   
@@ -453,6 +688,7 @@ intervalScore = function(truth, est=NULL, var=NULL, lower=NULL, upper=NULL,
   }
   
   # calculate interval score
+  
   alpha = 1 - significance
   theseScores = upper - lower + 
     2/alpha * (lower - truth) * as.numeric(!greaterThanLower) + 

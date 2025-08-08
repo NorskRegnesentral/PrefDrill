@@ -195,4 +195,77 @@ dfToListOfLists = function(df) {
   lapply(list_of_lists, as.list)
 }
 
+cppFunction('
+NumericMatrix removeOnePerRow(NumericMatrix mat, IntegerVector tIs) {
+  int nr = mat.nrow();
+  int nc = mat.ncol();
+  NumericMatrix out(nr, nc - 1);
 
+  for (int i = 0; i < nr; ++i) {
+    int skip_col = tIs[i] - 1; // R is 1-based, C++ is 0-based
+    int out_col = 0;
+
+    for (int j = 0; j < nc; ++j) {
+      if (j != skip_col) {
+        out(i, out_col) = mat(i, j);
+        out_col++;
+      }
+    }
+  }
+
+  return out;
+}
+')
+
+cppFunction('
+List insertSortedColumnWithIndices(NumericMatrix mat, NumericVector colvec) {
+  int nr = mat.nrow();
+  int nc = mat.ncol();
+  NumericMatrix out(nr, nc + 1);
+  IntegerVector insert_pos(nr);
+
+  for (int i = 0; i < nr; ++i) {
+    double new_val = colvec[i];
+    int j = 0;
+
+    // Find insert position in sorted row
+    while (j < nc && mat(i, j) < new_val) {
+      out(i, j) = mat(i, j);
+      j++;
+    }
+
+    out(i, j) = new_val;
+    insert_pos[i] = j + 1; // R is 1-based
+
+    // Copy the rest of the row
+    for (int k = j; k < nc; ++k) {
+      out(i, k + 1) = mat(i, k);
+    }
+  }
+
+  return List::create(Named("newMat") = out,
+                      Named("insertIndices") = insert_pos);
+}
+')
+
+cppFunction('
+NumericMatrix sweep_col_mult(const NumericMatrix& mat, const NumericVector& vec) {
+  int nrow = mat.nrow();
+  int ncol = mat.ncol();
+  
+  if (vec.size() != ncol) {
+    stop("Length of vec must be equal to number of columns in mat");
+  }
+  
+  NumericMatrix out(nrow, ncol);
+  
+  for (int j = 0; j < ncol; j++) {
+    double multiplier = vec[j];
+    for (int i = 0; i < nrow; i++) {
+      out(i, j) = mat(i, j) * multiplier;
+    }
+  }
+  
+  return out;
+}
+')

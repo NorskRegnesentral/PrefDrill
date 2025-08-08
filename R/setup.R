@@ -54,6 +54,8 @@ library(Matrix)
 library(terra)
 library(stringr)
 library(parallel)
+library(matrixStats)
+library(Rcpp)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising
