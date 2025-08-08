@@ -786,7 +786,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # figure out which parameter sets have repI <= maxRepI
   is = 1:nrow(modelFitCombs)
   is = is[modelFitCombs$repI <= maxRepI]
-  subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI]
+  subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
   
   # 
   # for(i in is) {
