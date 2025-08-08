@@ -810,7 +810,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
     if(modI != 0) {
-      thisIs = which((subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI))
+      thisIs = which((subModelCombs$sampleParI == thisParI) & (subModelCombs$fitModFunI == modI))
     } else {
       thisIs = 1:maxRepI
     }
@@ -905,6 +905,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # varSeisAll, varEstAll, corEstTruthWellsAll, corEstTruthTrueAll, 
     # totTAll, repIAll, nAll
     
+    modCols = c("black", "lightblue", "blue", "purple", "orange", "green")
+    pch = c(5, 15:19)
     
     browser()
     seisScores$aggScoresAll
