@@ -807,12 +807,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # thisParI: the parameter scenario we will aggregate results for
   getModScores = function(modI, thisParI) {
     
-    if(modI == 0) {
-      # get the seismic only estimate. This doesn't depend on well data at all
-      # get the maximum number of reps
-      
-    }
-    
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
     thisIs = (subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI)
@@ -836,7 +830,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     for(i in thisIs) {
       thesePar = modelFitCombs[i,]
       
-      scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
+      if(modI == 0) {
+        # get the seismic only estimate. This doesn't depend on well data at all
+        # get the maximum number of reps
+        scoresFile = paste0("savedOutput/simStudy/scores/scores_seismic_rep", i, ".RData")
+        
+      } else {
+        scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
+      }
       # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
       #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
       #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
@@ -870,11 +871,40 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   }
   
   # for each set of sampling parameters, show results
-  allParI = sampleParCombs$sampleParI
-  for(i in 1:length(allParI)) {
-    thisParI = allParI[i]
+  for(i in 1:nrow((sampleParCombs))) {
+    
+    thesePar = sampleParCombs[i,]
+    
+    dirName = paste0("figures/simStudy/")
+    
+    sampleParI = thesePar$sampleParI # same as i
+    fitModFunI = thesePar$fitModFunI
+    repelAreaProp = thesePar$repelAreaProp
+    propVarCase = thesePar$propVarCase
+    prefPar = thesePar$prefPar
+    repEffect = thesePar$repEffect
+    fileRoot = paste0("_i", sampleParI, 
+                      "_case", propVarCase, 
+                      "_modI", fitModFunI, 
+                      "_repA", repelAreaProp, 
+                      "_pref", prefPar)
+    
+    # get scores for each model
+    seisScores = getModScores(0, i)
+    spdeNoSeisScores = getModScores(1, i)
+    spdeScores = getModScores(2, i)
+    spdeKernScores = getModScores(3, i)
+    diggleScores = getModScores(4, i)
+    watsonScores = getModScores(5, i)
+    # score names:
+    # pwScoresMeanAll, pwScoresWorstAll, aggScoresAll, pwScoresMaxAll, 
+    # pwScoresMinAll, corSeisTruthWellsAll, corSeisTruthTrueAll, varTruthAll, 
+    # varSeisAll, varEstAll, corEstTruthWellsAll, corEstTruthTrueAll, 
+    # totTAll, repIAll, nAll
     
     
+    browser()
+    seisScores$aggScoresAll
     
     
     
