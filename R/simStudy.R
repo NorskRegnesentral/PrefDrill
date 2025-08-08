@@ -809,8 +809,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
-    thisIs = (subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI)
-    thisModelCombs = subModelCombs[thisIs,]
+    if(modI != 0) {
+      thisIs = (subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI)
+    } else {
+      thisIs = 1:maxRepI
+    }
     
     pwScoresMeanAll = c()
     pwScoresWorstAll = c()
