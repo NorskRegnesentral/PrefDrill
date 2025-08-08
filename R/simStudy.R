@@ -810,7 +810,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
     thisIs = (subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI)
-    thisModelCombs = modelFitCombs[thisIs,]
+    thisModelCombs = subModelCombs[thisIs,]
     
     pwScoresMeanAll = c()
     pwScoresWorstAll = c()
@@ -827,8 +827,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     totTAll = c()
     repIAll = c()
     nAll = c()
-    for(i in thisIs) {
-      thesePar = modelFitCombs[i,]
+    for(i in which(thisIs)) {
+      thesePar = subModelCombs[i,]
       
       if(modI == 0) {
         # get the seismic only estimate. This doesn't depend on well data at all
