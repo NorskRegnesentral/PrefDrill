@@ -590,7 +590,13 @@ runSimStudyI = function(i, significance=c(.8, .95),
   # Fit model and calculate scores if need be
   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
-    out = fitModFun(wellDat, seismicDat)
+    if(i != 4) {
+      inputList = list(wellDat, seismicDat)
+    } else {
+      repDist = repAreaToDist(repelAreaProp)
+      inputList = list(wellDat, seismicDat, repelDist=repDist)
+    }
+    
     out = do.call("fitModFun", list(wellDat, seismicDat))
     
     if(fitModFunI == 4) {
@@ -900,11 +906,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     # get scores for each model
     seisScores = getModScores(0, i)
-    spdeNoSeisScores = getModScores(1, i)
-    spdeScores = getModScores(2, i)
-    spdeKernScores = getModScores(3, i)
-    diggleScores = getModScores(4, i)
-    watsonScores = getModScores(5, i)
+    spdeScores = getModScores(1, i)
+    spdeKernScores = getModScores(2, i)
+    diggleScores = getModScores(3, i)
+    watsonScores = getModScores(4, i)
     # score names:
     # pwScoresMeanAll, pwScoresWorstAll, aggScoresAll, pwScoresMaxAll, 
     # pwScoresMinAll, corSeisTruthWellsAll, corSeisTruthTrueAll, varTruthAll, 
