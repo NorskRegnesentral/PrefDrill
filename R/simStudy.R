@@ -811,6 +811,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # rows of modelFitCombs
     if(modI != 0) {
       thisIs = which((subModelCombs$sampleParI == thisParI) & (subModelCombs$fitModFunI == modI))
+      
+      # make cases go from small n to large n
+      thisNs = subModelCombs$n[thisIs]
+      ordI = order(thisNs)
+      thisIs = thisIs[ordI]
     } else {
       thisIs = 1:maxRepI
     }
@@ -832,6 +837,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     nAll = c()
     for(i in thisIs) {
       thesePar = subModelCombs[i,]
+      thisModelI = thesePar$modelFitI
       
       if(modI == 0) {
         # get the seismic only estimate. This doesn't depend on well data at all
@@ -839,7 +845,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         scoresFile = paste0("savedOutput/simStudy/scores/scores_seismic_rep", i, ".RData")
         
       } else {
-        scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
+        scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", thisModelI, ".RData")
       }
       # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
       #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
@@ -874,7 +880,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   }
   
   # for each set of sampling parameters, show results
-  for(i in 1:nrow((sampleParCombs))) {
+  for(i in 1:nrow(sampleParCombs)) {
     
     thesePar = sampleParCombs[i,]
     
