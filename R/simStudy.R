@@ -810,7 +810,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
     if(modI != 0) {
-      thisIs = (subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI)
+      thisIs = which((subModelCombs$sampleParI == thisParI) & (subModelCombs$modelFitI == modI))
     } else {
       thisIs = 1:maxRepI
     }
@@ -830,7 +830,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     totTAll = c()
     repIAll = c()
     nAll = c()
-    for(i in which(thisIs)) {
+    for(i in thisIs) {
       thesePar = subModelCombs[i,]
       
       if(modI == 0) {
