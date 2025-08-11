@@ -40,6 +40,10 @@ if(FALSE) {
   install.packages("terra")
   install.packages("stringr")
   install.packages("parallel")
+  install.packages("matrixStats")
+  install.packages("Rcpp")
+  install.packages("scoringRules")
+  install.packages("ggplot2")
 }
 
 library(splott)
@@ -57,6 +61,7 @@ library(parallel)
 library(matrixStats)
 library(Rcpp)
 library(scoringRules)
+library(ggplot2)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising

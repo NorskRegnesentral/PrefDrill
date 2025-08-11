@@ -885,6 +885,35 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
          totTAll=totTAll, repIAll=repIAll, nAll=nAll)
   }
   
+  collectScoreTab = function(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+                             type=c("agg", "max", "min", "mean", "worst")) {
+    
+    type = match.arg(type)
+    
+    # collect aggregate scores for each model (repeat seismic estimates for each  
+    # value of n we are considering)
+    thisSeis = seisScores$aggScoresAll
+    thisSeis = matrix(rep(as.matrix(thisSeis), length(spdeScores$nAll)/length(seisScores$nAll)), ncol=ncol(thisSeis), byrow = TRUE)
+    thisSeis = as.data.frame(thisSeis)
+    names(thisSeis) = names(seisScores$aggScoresAll)
+    
+    thisSPDE = spdeScores$aggScoresAll
+    thisKern = spdeKernScores$aggScoresAll
+    thisDiggle = diggleScores$aggScoresAll
+    thisWatson = watsonScores$aggScoresAll
+    
+    # add in info on n, model
+    ns = spdeScores$nAll
+    thisSeis = cbind(Model="Siesmic", n=ns, thisSeis)
+    thisSPDE = cbind(Model="SPDE", n=ns, thisSPDE)
+    thisKern = cbind(Model="SPDE + kernel", n=ns, thisKern)
+    thisDiggle = cbind(Model="Diggle et al.", n=ns, thisDiggle)
+    thisWatson = cbind(Model="Watson et al.", n=ns, thisWatson)
+    
+    # combine into a single table
+    rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson)
+  }
+  
   # for each set of sampling parameters, show results
   for(i in 1:nrow(sampleParCombs)) {
     
@@ -920,7 +949,42 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     pch = c(5, 15:19)
     
     browser()
-    seisScores$aggScoresAll
+    
+    # aggregate scores ----
+    tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+                          type="agg")
+    
+    # Ensure the number of colors matches the number of unique models
+    unique_models <- unique(tab$Model)
+    
+    # plot each score
+    scoreNames = names(spdeScores$aggScoresAll)
+    for(j in 1:length(scoreNames)) {
+      thisScore = scoreNames[j]
+      
+      if(grepl("Coverage", thisScore)) {
+        # for aggregate scores, coverage will just be 0 or 1, not very interesting
+        next
+      }
+      
+      pdf(paste0("figures/simStudy/agg", fileRoot, ".RData"))
+      
+      # Create the plot
+      ggplot(tab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
+        geom_boxplot() +
+        stat_summary(fun = mean, geom = "point", shape = 20, size = 3, color = "black", position = position_dodge(width = 0.75)) +
+        scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
+        labs(
+          title = paste0(thisScore, " vs. n"),
+          x = "n",
+          y = thisScore,
+          fill = "Model"
+        ) +
+        theme_minimal()
+      
+      dev.off()
+    }
+    
     
     
     
