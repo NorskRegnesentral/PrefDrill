@@ -959,13 +959,13 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     if(type == "agg") {
       typeName = "aggScoresAll"
     } else if(type == "max") {
-      typeName = "pwScoresMax"
+      typeName = "pwScoresMaxAll"
     } else if(type == "min") {
-      typeName = "pwScoresMin"
+      typeName = "pwScoresMinAll"
     } else if(type == "mean") {
-      typeName = "pwScoresMean"
+      typeName = "pwScoresMeanAll"
     } else if(type == "worst") {
-      typeName = "pwScoresWorst"
+      typeName = "pwScoresWorstAll"
     }
     
     # collect aggregate scores for each model (repeat seismic estimates for each  
