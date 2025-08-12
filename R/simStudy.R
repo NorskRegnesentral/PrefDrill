@@ -1185,7 +1185,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   # make plots and tables ----
   
+  # basic setup
   thisDirRoot = paste0(adaptScen, "/")
+  modCols = c("grey", "cyan", "blue", "purple", "seagreen")
+  pch = c(5, 15:19)
   
   # boxplots vs n ----
   browser()
@@ -1218,14 +1221,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # varSeisAll, varEstAll, corEstTruthWellsAll, corEstTruthTrueAll, 
     # totTAll, repIAll, nAll
     
-    modCols = c("grey", "cyan", "blue", "purple", "seagreen")
-    pch = c(5, 15:19)
-    
-    browser()
-    
     allTypes = c("agg", "max", "min", "mean", "worst")
     for(j in 1:length(allTypes)) {
-      makeBoxplots(allTypes[j])
+      makeBoxplotsVsN(allTypes[j])
     }
     
   }
