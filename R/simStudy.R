@@ -1092,8 +1092,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       stop("wont happen")
     }
     
-    if(parName != "prefPar" && is.null(propVarCase)) {
-      stop("must provide propVarCase if parName == 'repelAreaProp'")
+    if(adaptScen != "batch" && is.null(propVarCase)) {
+      stop("must provide propVarCase if adaptScen != 'batch'")
     }
     
     fixedParName = ifelse(parName == "prefPar", "repelAreaProp", "prefPar")
