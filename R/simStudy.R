@@ -1002,6 +1002,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson)
   }
   
+  mean_se <- function(x) {
+    m <- mean(x)
+    se <- sd(x) / sqrt(length(x))
+    return(c(y = m, ymin = m - se, ymax = m + se))
+  }
+  
   makeBoxplotsVsN = function(type=c("agg", "max", "min", "mean", "worst")) {
     type = match.arg(type)
     if(type == "agg") {
@@ -1035,17 +1041,19 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         next
       }
       
-      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot))) {
-        dir.create(paste0("figures/simStudy/", thisDirRoot))
+      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot))) {
+        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot))
       }
       
       # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisScore, "_", fileRoot, ".pdf"), width=5, height=5)
-      pdf(paste0("figures/simStudy/", thisDirRoot, "/", type, "_", fileRoot, "_", thisScore, ".pdf"), width=5, height=5)
+      pdf(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", type, "_", fileRoot, "_", thisScore, ".pdf"), width=5, height=5)
       
       # Create the plot
       p = ggplot(tab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
         geom_boxplot() +
         stat_summary(fun = mean, geom = "point", shape = 20, size = 3, color = "black", 
+                     position = position_dodge(width = 0.75)) +
+        stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
         scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
         labs(
@@ -1125,11 +1133,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         next
       }
       
-      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot))) {
-        dir.create(paste0("figures/simStudy/", thisDirRoot))
+      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))) {
+        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))
       }
       
-      pdf(paste0("figures/simStudy/", thisDirRoot, "/", type, "_", thisFileRoot, "_", thisScore, ".pdf"), width=5, height=5)
+      pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", type, "_", thisFileRoot, "_", thisScore, ".pdf"), width=5, height=5)
       
       # Create the plot
       if(parName == "prefPar") {
@@ -1140,6 +1148,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       p = p +
         geom_boxplot() +
         stat_summary(fun = mean, geom = "point", shape = 20, size = 3, color = "black", 
+                     position = position_dodge(width = 0.75)) +
+        stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
         scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
         labs(
@@ -1204,7 +1214,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   seisScores = getModScores(0, thisParI=1) # seismic scores don't depend on thisParI
   
   # boxplots vs n ----
-  browser()
+  
   # for each set of sampling parameters, show results
   for(i in 1:nrow(sampleParCombs)) {
     
@@ -1240,7 +1250,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   }
   
   # boxplots vs other parameters ----
-  browser()
   
   # wrt prefPar (fix repelAreaProp)
   repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
@@ -1263,8 +1272,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
     }
   }
-  
-  browser()
   
   # wrt repelAreaProp (fix prefPar)
   prefParUnique = sort(unique(sampleParCombs$prefPar))
