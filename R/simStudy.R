@@ -916,7 +916,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
       # make cases go from small to large value of parName
       thisParVals = subModelCombs[[parName]][thisIs]
-      ordI = order(thisNs)
+      ordI = order(thisParVals)
       thisIs = thisIs[ordI]
     } else {
       thisIs = 1:maxRepI
