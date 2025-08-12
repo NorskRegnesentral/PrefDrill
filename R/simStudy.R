@@ -783,37 +783,7 @@ getAllSeisEstsSimStudy = function(regenData=FALSE, significance=c(.8, .95)) {
 # NOTE: currently only handles batch case
 showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100) {
   
-  adaptScen = match.arg(adaptScen)
-  
-  # load simulation parameters and model run parameters
-  adaptScenCap = str_to_title(adaptScen)
-  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
-  out = load(inputListFile)
-  
-  # figure out which parameter sets have repI <= maxRepI
-  is = 1:nrow(modelFitCombs)
-  is = is[modelFitCombs$repI <= maxRepI]
-  
-  if(adaptScen != "batch") {
-    stop("adaptive scenarios not yet implemented")
-    # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
-  }
-  subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
-  
-  # 
-  # for(i in is) {
-  #   # check the parameters for this run
-  #   runInfo = modelFitCombs[i,]
-  #   parI = runInfo$sampleParI
-  #   
-  #   
-  #   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
-  #   # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
-  #   #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-  #   #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
-  #   
-  #   out = load(scoresFile)
-  # }
+  # helper functions ----
   
   # modI: the type of model being fit (0 = seismic only)
   # thisParI: the parameter scenario we will aggregate results for
@@ -990,7 +960,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # collect aggregate scores for each model (repeat seismic estimates for each  
     # value of n we are considering)
     thisSeis = seisScores$aggScoresAll
-    thisSeis = matrix(rep(as.matrix(t(thisSeis)), length(spdeScores$nAll)/length(seisScores$nAll)), ncol=ncol(thisSeis), byrow = TRUE)
+    thisSeis = matrix(rep(as.matrix(t(thisSeis)), length(spdeScores$totTAll)/length(seisScores$totTAll)), ncol=ncol(thisSeis), byrow = TRUE)
     thisSeis = as.data.frame(thisSeis)
     names(thisSeis) = names(seisScores$aggScoresAll)
     
@@ -1023,6 +993,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     names(thisDiggle)[2] = varyParName
     thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
     names(thisWatson)[2] = varyParName
+    
+    if(varyParName == "prefPar") {
+      
+    }
     
     # combine into a single table
     rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson)
@@ -1190,6 +1164,26 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   # plots and tables setup ----
   
+  adaptScen = match.arg(adaptScen)
+  
+  # load simulation parameters and model run parameters
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  out = load(inputListFile)
+  
+  # make sure computer knows uniform case has no preferentiality
+  modelFitCombs$prefPar[modelFitCombs$propVarCase == "uniform"] = 0
+  
+  # figure out which parameter sets have repI <= maxRepI
+  is = 1:nrow(modelFitCombs)
+  is = is[modelFitCombs$repI <= maxRepI]
+  
+  if(adaptScen != "batch") {
+    stop("adaptive scenarios not yet implemented")
+    # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
+  }
+  subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
+  
   thisDirRoot = paste0(adaptScen, "/")
   modCols = c("grey", "cyan", "blue", "purple", "seagreen")
   pch = c(5, 15:19)
@@ -1206,6 +1200,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   } else {
     stop("adaptive scenarios not yet supported")
   }
+  
+  seisScores = getModScores(0, thisParI=1) # seismic scores don't depend on thisParI
   
   # boxplots vs n ----
   browser()
@@ -1227,7 +1223,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                       "_", adaptScen)
     
     # get scores for each model
-    seisScores = getModScores(0, i)
     spdeScores = getModScores(1, i)
     spdeKernScores = getModScores(2, i)
     diggleScores = getModScores(3, i)
@@ -1249,8 +1244,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   # wrt prefPar (fix repelAreaProp)
   repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
-  for(i in 1:length(repelAreaProp)) {
-    thisRepelAreaProp = repelAreaProp[i]
+  for(i in 1:length(repelAreaPropUnique)) {
+    thisRepelAreaProp = repelAreaPropUnique[i]
     
     thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
     
