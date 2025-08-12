@@ -1187,6 +1187,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   thisDirRoot = paste0(adaptScen, "/")
   
+  # boxplots vs n ----
+  browser()
   # for each set of sampling parameters, show results
   for(i in 1:nrow(sampleParCombs)) {
     
@@ -1221,7 +1223,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     browser()
     
-    # boxplots vs n ----
     allTypes = c("agg", "max", "min", "mean", "worst")
     for(j in 1:length(allTypes)) {
       makeBoxplots(allTypes[j])
@@ -1229,16 +1230,17 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
   }
   
-  sampleParCombs
-  repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
-  
-  # boxplots vs prefPar (fix repelAreaProp) ----
+  # boxplots vs other parameters ----
   if(adaptScen == "batch") {
     propVarCases = c("uniform", "realistic")
   } else {
     stop("adaptive scenarios not yet supported")
   }
   
+  browser()
+  
+  # wrt prefPar (fix repelAreaProp)
+  repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
   for(i in 1:length(repelAreaProp)) {
     thisRepelAreaProp = repelAreaProp[i]
     
@@ -1247,6 +1249,24 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(adaptScen == "batch") {
         makeBoxplotsAcrossPar(allTypes[j], parName="prefPar", 
                               fixedParVal=thisRepelAreaProp, propVarCase=NULL)
+      } else {
+        stop("still need to work out adaptive case")
+      }
+    }
+  }
+  
+  browser()
+  
+  # wrt repelAreaProp (fix prefPar)
+  prefParUnique = sort(unique(sampleParCombs$prefPar))
+  for(i in 1:length(prefParUnique)) {
+    thisPrefPar = prefParUnique[i]
+    
+    allTypes = c("agg", "max", "min", "mean", "worst")
+    for(j in 1:length(allTypes)) {
+      if(adaptScen == "batch") {
+        makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", 
+                              fixedParVal=thisPrefPar, propVarCase=NULL)
       } else {
         stop("still need to work out adaptive case")
       }
