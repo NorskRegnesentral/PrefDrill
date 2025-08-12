@@ -956,18 +956,29 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                              varyParName=NULL) {
     
     type = match.arg(type)
+    if(type == "agg") {
+      typeName = "aggScoresAll"
+    } else if(type == "max") {
+      typeName = "pwScoresMax"
+    } else if(type == "min") {
+      typeName = "pwScoresMin"
+    } else if(type == "mean") {
+      typeName = "pwScoresMean"
+    } else if(type == "worst") {
+      typeName = "pwScoresWorst"
+    }
     
     # collect aggregate scores for each model (repeat seismic estimates for each  
     # value of n we are considering)
-    thisSeis = seisScores$aggScoresAll
+    thisSeis = seisScores[[typeName]]
     thisSeis = matrix(rep(as.matrix(t(thisSeis)), length(spdeScores$totTAll)/length(seisScores$totTAll)), ncol=ncol(thisSeis), byrow = TRUE)
     thisSeis = as.data.frame(thisSeis)
-    names(thisSeis) = names(seisScores$aggScoresAll)
+    names(thisSeis) = names(seisScores[[typeName]])
     
-    thisSPDE = spdeScores$aggScoresAll
-    thisKern = spdeKernScores$aggScoresAll
-    thisDiggle = diggleScores$aggScoresAll
-    thisWatson = watsonScores$aggScoresAll
+    thisSPDE = spdeScores[[typeName]]
+    thisKern = spdeKernScores[[typeName]]
+    thisDiggle = diggleScores[[typeName]]
+    thisWatson = watsonScores[[typeName]]
     
     # add in info on n (or the other parameter), model
     if(varyN) {
@@ -993,10 +1004,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     names(thisDiggle)[2] = varyParName
     thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
     names(thisWatson)[2] = varyParName
-    
-    if(varyParName == "prefPar") {
-      
-    }
     
     # combine into a single table
     rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson)
