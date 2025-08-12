@@ -1288,7 +1288,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     for(j in 1:length(allTypes)) {
       
       for(k in 1:length(nUnique)) {
-        thisN = thisUniqueNs[k]
+        thisN = nUnique[k]
         
         if(adaptScen == "batch") {
           makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
