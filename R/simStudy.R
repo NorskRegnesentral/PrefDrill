@@ -785,7 +785,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   adaptScen = match.arg(adaptScen)
   
-  # load simulation parameters and module run parameters
+  # load simulation parameters and model run parameters
   adaptScenCap = str_to_title(adaptScen)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   out = load(inputListFile)
