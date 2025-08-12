@@ -793,6 +793,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # figure out which parameter sets have repI <= maxRepI
   is = 1:nrow(modelFitCombs)
   is = is[modelFitCombs$repI <= maxRepI]
+  
+  if(adaptScen != "batch") {
+    stop("adaptive scenarios not yet implemented")
+    # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
+  }
   subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
   
   # 
@@ -896,7 +901,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     fixedParName = ifelse(parName == "prefPar", "repelAreaProp", "prefPar")
     
     # get indices of the corresponding parI
-    thisSampleParI = sampleParCombs$sampleParI[sampleParCombs[[fixedParName]] == fixed]
+    thisSampleParI = sampleParCombs$sampleParI[sampleParCombs[[fixedParName]] == fixedParVal]
     
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
@@ -1112,9 +1117,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     fixedParName = ifelse(parName == "prefPar", "repelAreaProp", "prefPar")
     
     if(parName == "prefPar") {
-      thisFileRoot = paste0("prefParAll_repelAreaProp", fixedParVal, "_", adaptScen)
+      thisFileRoot = paste0("prefParAll_repelAreaProp", fixedParVal, "_n", thisN, "_", adaptScen)
     } else {
-      thisFileRoot = paste0("repelAreaPropAll_prefPar", fixedParVal, "_", adaptScen)
+      thisFileRoot = paste0("repelAreaPropAll_prefPar", fixedParVal, "_n", thisN, "_", adaptScen)
     }
     
     # unlike makeBoxPlotsVsN, need to make most of the model score tables here. 
@@ -1183,12 +1188,24 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
   }
   
-  # make plots and tables ----
+  # plots and tables setup ----
   
-  # basic setup
   thisDirRoot = paste0(adaptScen, "/")
   modCols = c("grey", "cyan", "blue", "purple", "seagreen")
   pch = c(5, 15:19)
+  allTypes = c("agg", "max", "min", "mean", "worst")
+  
+  if(adaptScen == "batch") {
+    nUnique = c(20, 40, 60)
+  } else {
+    nUnique = c(10, 20, 30)
+  }
+  
+  if(adaptScen == "batch") {
+    propVarCases = c("uniform", "realistic")
+  } else {
+    stop("adaptive scenarios not yet supported")
+  }
   
   # boxplots vs n ----
   browser()
@@ -1221,7 +1238,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # varSeisAll, varEstAll, corEstTruthWellsAll, corEstTruthTrueAll, 
     # totTAll, repIAll, nAll
     
-    allTypes = c("agg", "max", "min", "mean", "worst")
     for(j in 1:length(allTypes)) {
       makeBoxplotsVsN(allTypes[j])
     }
@@ -1229,12 +1245,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   }
   
   # boxplots vs other parameters ----
-  if(adaptScen == "batch") {
-    propVarCases = c("uniform", "realistic")
-  } else {
-    stop("adaptive scenarios not yet supported")
-  }
-  
   browser()
   
   # wrt prefPar (fix repelAreaProp)
@@ -1242,13 +1252,19 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   for(i in 1:length(repelAreaProp)) {
     thisRepelAreaProp = repelAreaProp[i]
     
-    allTypes = c("agg", "max", "min", "mean", "worst")
+    thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+    
     for(j in 1:length(allTypes)) {
-      if(adaptScen == "batch") {
-        makeBoxplotsAcrossPar(allTypes[j], parName="prefPar", 
-                              fixedParVal=thisRepelAreaProp, propVarCase=NULL)
-      } else {
-        stop("still need to work out adaptive case")
+      
+      for(k in 1:length(thisUniqueNs)) {
+        thisN = thisUniqueNs[k]
+        
+        if(adaptScen == "batch") {
+          makeBoxplotsAcrossPar(allTypes[j], parName="prefPar", thisN=thisN, 
+                                fixedParVal=thisRepelAreaProp, propVarCase=NULL)
+        } else {
+          stop("still need to work out adaptive case")
+        }
       }
     }
   }
@@ -1260,13 +1276,17 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   for(i in 1:length(prefParUnique)) {
     thisPrefPar = prefParUnique[i]
     
-    allTypes = c("agg", "max", "min", "mean", "worst")
     for(j in 1:length(allTypes)) {
-      if(adaptScen == "batch") {
-        makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", 
-                              fixedParVal=thisPrefPar, propVarCase=NULL)
-      } else {
-        stop("still need to work out adaptive case")
+      
+      for(k in 1:length(nUnique)) {
+        thisN = thisUniqueNs[k]
+        
+        if(adaptScen == "batch") {
+          makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
+                                fixedParVal=thisPrefPar, propVarCase=NULL)
+        } else {
+          stop("still need to work out adaptive case")
+        }
       }
     }
   }
