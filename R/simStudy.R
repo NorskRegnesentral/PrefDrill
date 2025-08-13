@@ -533,7 +533,7 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
 
 runSimStudyI = function(i, significance=c(.8, .95), 
                         adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                        regenData=FALSE, verbose=FALSE) {
+                        regenData=FALSE, verbose=FALSE, doPlot=FALSE) {
   startT = proc.time()[3]
   adaptScen = match.arg(adaptScen)
   
@@ -597,7 +597,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
       inputList = list(wellDat, seismicDat, repelDist=repDist)
     }
     
-    out = do.call("fitModFun", list(wellDat, seismicDat))
+    out = do.call("fitModFun", inputList)
     
     if(fitModFunI == 4) {
       predMat = out$predMat.y # doesn't include nugget
@@ -631,6 +631,110 @@ runSimStudyI = function(i, significance=c(.8, .95),
     
     endT = proc.time()[3]
     totT = endT - startT
+    
+    if(doPlot) {
+      # plot some figures for testing purposes
+      
+      gEast = seismicDat$east
+      gNorth = seismicDat$north
+      gSeismic = seismicDat$seismicEst
+      gTruth = truth[,3]
+      pEast = wellDat$east
+      pNorth = wellDat$north
+      pVolFrac = wellDat$volFrac
+      
+      preds = ests
+      sds = predSDs
+      predQuants = sapply(1:length(preds), function(i) {
+        ecdf(predMat[i,])(gTruth[i])
+      })
+      
+      eastGrid = sort(unique(gEast))
+      northGrid = sort(unique(gNorth))
+      
+      ticks = seq(0, 1, by=.2)
+      tickLabs = as.character(ticks)
+      
+      seqCols = function(n) {purpleYellowSeqCols(n)}
+      
+      pdf(file=paste0("figures/testSimStudy/testPreds_simStudy_", adaptScen, "_par", 
+                      sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
+      par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+      squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      
+      squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      
+      splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+            resetGraphics=FALSE, 
+            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+            asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      
+      squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+             colScale=seqCols, 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      dev.off()
+      
+      pdf(file=paste0("figures/testSimStudy/testQuants_simStudy_", adaptScen, "_par", 
+                      sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
+      par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+      squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      
+      squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      
+      splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+            resetGraphics=FALSE, 
+            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+            asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
+      
+      squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
+             colScale=seqCols, 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Truth Quantiles", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      dev.off()
+      
+      pdf(file=paste0("figures/testSimStudy/testLogitSDs_simStudy_", adaptScen, "_par", 
+                      sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
+      par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+      squilt(gEast, gNorth, logit(gTruth), grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      
+      squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      
+      splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+            resetGraphics=FALSE, 
+            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+            asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
+      
+      squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
+             colScale=seqCols, 
+             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Truth Quantiles", 
+             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+      points(pEast, pNorth, cex=.5)
+      dev.off()
+      
+      browser()
+      
+    }
     
     # save results
     save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 

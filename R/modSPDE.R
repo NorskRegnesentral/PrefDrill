@@ -110,6 +110,9 @@ getSPDEmeshRect = function(lowerLeft=c(0,0), width=1, height=1, n=3500, max.n=50
 # mesh to give to INLA
 getSPDEmeshSimStudy = function(n=1500, max.n=2500, doPlot=FALSE) {
   
+  simStudyXlims = c(-12.5, 15012.5)
+  simStudyYlims = c(-8.3335, 5008.4336)
+  
   getSPDEmeshRect(width=diff(simStudyXlims), 
                   height=diff(simStudyYlims), 
                   n=n, max.n=max.n, 
@@ -118,6 +121,9 @@ getSPDEmeshSimStudy = function(n=1500, max.n=2500, doPlot=FALSE) {
 
 getDomainSimStudy = function(returnClass=c("sf", "matrix")) {
   returnClass = match.arg(returnClass)
+  
+  simStudyXlims = c(-12.5, 15012.5)
+  simStudyYlims = c(-8.3335, 5008.4336)
   
   locs = cbind(c(simStudyXlims[1], simStudyXlims[2], simStudyXlims[2], simStudyXlims[1], simStudyXlims[1]), 
                c(simStudyYlims[1], simStudyYlims[1], simStudyYlims[2], simStudyYlims[2], simStudyYlims[1]))
