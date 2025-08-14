@@ -415,7 +415,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   # subsample
   goodCoords = subsampleSimStudyGrid(seismicDat)
   seismicDat = seismicDat[goodCoords,]
-  truth = truth[goodCoords,]
+  truthDat = truthDat[goodCoords,]
   
   # set repulsion parameters
   repelType = ifelse(repelDist == 0, "none", "rbf")
