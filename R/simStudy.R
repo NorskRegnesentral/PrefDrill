@@ -590,7 +590,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   # Fit model and calculate scores if need be
   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
-    if(i != 4) {
+    if(fitModFunI != 4) {
       inputList = list(wellDat, seismicDat)
     } else {
       repDist = repAreaToDist(repelAreaProp)
@@ -644,7 +644,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
       pVolFrac = wellDat$volFrac
       
       preds = ests
-      sds = predSDs
+      sds = out$predSDs
       predQuants = sapply(1:length(preds), function(i) {
         ecdf(predMat[i,])(gTruth[i])
       })
