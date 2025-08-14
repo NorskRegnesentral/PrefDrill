@@ -648,6 +648,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
       predQuants = sapply(1:length(preds), function(i) {
         ecdf(predMat[i,])(gTruth[i])
       })
+      predQuants[predQuants > .975] = 1
+      predQuants[predQuants < .025] = 0
       
       eastGrid = sort(unique(gEast))
       northGrid = sort(unique(gNorth))
@@ -656,6 +658,12 @@ runSimStudyI = function(i, significance=c(.8, .95),
       tickLabs = as.character(ticks)
       
       seqCols = function(n) {purpleYellowSeqCols(n)}
+      quantCols = function(n) {
+        tmp = seqCols(n)
+        tmp[n] = "red"
+        tmp[1] = "blue"
+        tmp
+      }
       
       pdf(file=paste0("figures/testSimStudy/testPreds_simStudy_", adaptScen, "_par", 
                       sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
@@ -701,7 +709,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
             asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
       
       squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
-             colScale=seqCols, 
+             colScale=quantCols, 
              zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Truth Quantiles", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
@@ -1178,6 +1186,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }
+      if(grepl("Coverage", thisScore)) {
+        cvg <- as.numeric(substr(thisScore, nchar(thisScore)-1, nchar(thisScore))) / 100
+        p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
+      }
       
       print(p)
       
@@ -1275,6 +1287,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(!(thisScore %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
+      }
+      if(grepl("Coverage", thisScore)) {
+        cvg <- as.numeric(substr(thisScore, nchar(thisScore)-1, nchar(thisScore))) / 100
+        p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
       }
       
       print(p)
