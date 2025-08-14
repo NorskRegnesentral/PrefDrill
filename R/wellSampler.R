@@ -79,7 +79,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
                             samplingModel=c("ipp"), sigmaSqErr=.1^2, 
                             repelType=c("none", "rbf"), bwRepel=NULL, 
                             rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
-                            seed=NULL, ...) {
+                            seed=NULL, isWatson=FALSE, ...) {
   
   if(!is.null(seed)) {
     set.seed(seed)
@@ -104,7 +104,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
                                   samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                                   repelType=repelType, bwRepel=bwRepel, 
                                   rbf=rbf, repelAmount=repelAmount, 
-                                  seed=seed, ...)$wellDat
+                                  seed=seed, isWatson=isWatson, ...)$wellDat
       
       if(i == 1) {
         allWells = thisWell
@@ -126,8 +126,14 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   # first fit the model and get predictions over the grid (or just take seismic estimates)
   if(is.null(preds)) {
     if(!is.null(wellDat) && !is.null(modelFitter)) {
-      fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
-                        transform=transform, invTransform=invTransform, ...)
+      if(!isWatson) {
+        fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
+                          transform=transform, invTransform=invTransform, ...)
+      } else {
+        fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
+                          transform=transform, invTransform=invTransform, repelDist=bwRepel, ...)
+      }
+      
       preds = fit$predEst
       predAggMat = fit$predAggMat
     } else if(!is.null(seismicDat)) {
@@ -223,7 +229,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                        samplingModel=c("ipp"), sigmaSqErr=.1^2, 
                        repelType=c("none", "rbf"), bwRepel=NULL, 
                        rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
-                       seed=NULL, batchSize=1, minN=4, ...) {
+                       seed=NULL, batchSize=1, minN=4, isWatson=FALSE, ...) {
   
   # set up defaults
   if(!is.null(seed)) {
@@ -251,7 +257,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                             transform=transform, invTransform=invTransform, prefPar=prefPar, 
                             samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                             repelType=repelType, bwRepel=bwRepel, 
-                            rbf=rbf, repelAmount=repelAmount, 
+                            rbf=rbf, repelAmount=repelAmount, isWatson=isWatson, 
                             seed=seed, ...))
   }
   
@@ -327,9 +333,16 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       if(!is.null(wellDat) && !is.null(modelFitter)) {
         
         # base sampling intensity on model predictions
-        fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
-                          transform=transform, invTransform=invTransform, previousFit=prevFit, 
-                          ...)
+        if(!isWatson) {
+          fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
+                            transform=transform, invTransform=invTransform, previousFit=prevFit, 
+                            ...)
+        } else {
+          fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, repelDist=bwRepel, 
+                            transform=transform, invTransform=invTransform, previousFit=prevFit, 
+                            ...)
+        }
+        
         preds = fit$predEst
         predAggMat = fit$predAggMat
         

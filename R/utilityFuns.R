@@ -23,7 +23,7 @@ expit <- function(x) {
 # invTransform: inverse of transform (i.e. back transformation)
 # 
 # outputs: vector of interpolated values at input pts
-bilinearInterp = function(pts, gridDat, transform=I, invTransform=I) {
+bilinearInterp = function(pts, gridDat, transform=I, invTransform=I, safeExtrap=FALSE) {
   require(akima)
   
   # use bilinear interpolation to get seismic estimate at that point
@@ -36,6 +36,27 @@ bilinearInterp = function(pts, gridDat, transform=I, invTransform=I) {
   gridDat = gridDat[sortI2,]
   
   z = matrix(transform(gridDat[,3]), nrow=length(eastGrid), ncol=length(northGrid))
+  
+  if(safeExtrap) {
+    # if necessary, make sure extrapolated pts get closest value
+    lowEastL = pts[,1] < eastGrid[1]
+    highEastL = pts[,1] > eastGrid[length(eastGrid)]
+    lowNorthL = pts[,2] < northGrid[1]
+    highNorthL = pts[,2] > northGrid[length(northGrid)]
+    
+    if(any(lowEastL)) {
+      
+    }
+    if(any(highEastL)) {
+      
+    }
+    if(any(lowNorthL)) {
+      
+    }
+    if(any(highNorthL)) {
+      
+    }
+  }
   
   seismicEst = invTransform(akima::bilinear(x=eastGrid, y=northGrid, z=z, x0 = pts[,1], y0=pts[,2])$z)
   seismicEst
