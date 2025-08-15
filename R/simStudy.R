@@ -368,7 +368,7 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
 
 # generates sequentially-sampled well data for the simulation study
 simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                               regenData=FALSE, verbose=FALSE) {
+                               regenData=FALSE, verbose=FALSE, batchSize=5) {
   adaptScen = match.arg(adaptScen)
   
   if(verbose) {
@@ -442,7 +442,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                           predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
                           transform=logit, invTransform=expit, prefPar=prefPar,
                           samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
-                          repelType=repelType, bwRepel=bwRepel,
+                          repelType=repelType, bwRepel=bwRepel, batchSize=batchSize, 
                           repelAmount=repelAmount, seed=seed, isWatson=isWatson, 
                           int.strategy="eb", strategy="gaussian")
     
@@ -495,7 +495,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      transform=logit, invTransform=expit, prefPar=prefPar, 
                      samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                      repelType=repelType, bwRepel=bwRepel, 
-                     rbf="uniform", repelAmount=Inf, 
+                     rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
                      seed=seed, int.strategy="eb", strategy="gaussian")$wellDat
     
     
