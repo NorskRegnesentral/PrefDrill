@@ -80,7 +80,7 @@ getSuccessiveTestDat = function(n=20, truthDat=NULL, seismicDat=NULL,
                                 samplingModel=c("ipp"), 
                                 repelType=c("rbf", "none"), bwRepel=NULL, 
                                 rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
-                                seed=1, saveDat=TRUE, minN=4, ...) {
+                                seed=1, saveDat=TRUE, minN=4, batchSize=1, ...) {
   
   require(fields)
   set.seed(seed)
@@ -129,7 +129,7 @@ getSuccessiveTestDat = function(n=20, truthDat=NULL, seismicDat=NULL,
                             transform=transform, invTransform=invTransform, 
                             samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                             repelType=repelType, bwRepel=bwRepel, rbf=rbf, 
-                            repelAmount=repelAmount, seed=NULL, ...)
+                            repelAmount=repelAmount, seed=NULL, batchSize=batchSize, ...)
   
   # save datasets if need be
   if(saveDat) {
@@ -138,7 +138,11 @@ getSuccessiveTestDat = function(n=20, truthDat=NULL, seismicDat=NULL,
     } else {
       repelStr = paste0("_", rbf)
     }
-    save(truthTestDat, seismicTestDat, wellTestDat, file=paste0(globalDir, "/testSuccessiveDat_", samplingModel, repelStr, ".RData"))
+    batchStr = ""
+    if(batchSize != 1) {
+      batchStr = paste0("batch", batchSize)
+    }
+    save(truthTestDat, seismicTestDat, wellTestDat, file=paste0(globalDir, "/testSuccessiveDat_", samplingModel, repelStr, batchStr, ".RData"))
   }
   
   invisible(list(wellDat=wellTestDat, seismicDat=seismicTestDat, truthDat=truthTestDat))

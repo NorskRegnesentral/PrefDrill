@@ -258,7 +258,10 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     if(i == 1) {
       thisRepelMat = Matrix(matrix(rep(0, 1+nPseudoPerIter), ncol=1), sparse=TRUE)
     } else {
-      thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
+      # thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
+      #                                repelDist=repelDist, returnSparse=TRUE)
+      obsGridCoords = predCoords[wellDat$gridI,]
+      thisRepelMat = getRepulsionCov(rbind(obsGridCoords[i,], pseudoCoords), obsGridCoords[1:(i-1),], 
                                      repelDist=repelDist, returnSparse=TRUE)
     }
     

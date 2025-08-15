@@ -392,6 +392,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   nWells = thisPar$n
   if(adaptScen != "batch") {
     modelFitter = getFitModFuns()[[thisPar$sampModFunI]]
+    isWatson = thisPar$sampModFunI == 4
   }
   repelDist = repAreaToDist(thisPar$repelAreaProp)
   seed = thisPar$seed
@@ -437,12 +438,12 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     
     # for testing purposes:
     wellDat = wellSampler(truthDat=truthDat, seismicDat=seismicDat, 
-                          modelFitter=modelFitter, nWells=5, minN=4,
+                          modelFitter=modelFitter, nWells=nWells, minN=4,
                           predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
                           transform=logit, invTransform=expit, prefPar=prefPar,
                           samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
                           repelType=repelType, bwRepel=bwRepel,
-                          repelAmount=repelAmount, seed=seed,
+                          repelAmount=repelAmount, seed=seed, isWatson=isWatson, 
                           int.strategy="eb", strategy="gaussian")
     
     # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
