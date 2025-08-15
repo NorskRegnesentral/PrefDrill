@@ -201,7 +201,8 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     prefPar = c(1.5, 3)
     repelAreaProp = c(0, 0.001, 0.01)
   } else {
-    n = c(10, 20, 30)
+    # n = c(10, 20, 30)
+    n = c(20, 40, 60)
     propVarCase = c("spde", "self")
     prefPar = c(3)
     repelAreaProp = c(0, 0.01)
@@ -1330,7 +1331,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   if(adaptScen == "batch") {
     nUnique = c(20, 40, 60)
   } else {
-    nUnique = c(10, 20, 30)
+    # nUnique = c(10, 20, 30)
+    nUnique = c(20, 40, 60)
   }
   
   if(adaptScen == "batch") {
