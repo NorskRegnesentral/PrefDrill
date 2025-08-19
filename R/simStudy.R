@@ -496,7 +496,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      transform=logit, invTransform=expit, prefPar=prefPar, 
                      samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                      repelType=repelType, bwRepel=bwRepel, 
-                     rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
+                     rbf="uniform", repelAmount=Inf, batchSize=batchSize, isWatson=isWatson, 
                      seed=seed, int.strategy="eb", strategy="gaussian")$wellDat
     
     

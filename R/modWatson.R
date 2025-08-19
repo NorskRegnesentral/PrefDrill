@@ -90,7 +90,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
   fitWatson(obsCoords=obsCoords, obsValues=obsValues, xObs=xObs, 
             pseudoCoords=pseudoCoords, xPseudo=xPseudo, 
             predCoords=predPts, xPred=xPred, fixedRepelAmt=fixedRepelAmt, 
-            control.fixed=control.fixed, 
+            control.fixed=control.fixed, obsGridI=wellDat$gridI, 
             transform=transform, invTransform=invTransform, repelDist=repelDist, 
             sharedInt=sharedInt, mesh=mesh, prior=prior, significanceCI=significanceCI, 
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
@@ -150,7 +150,8 @@ fitWatsonSimDat = function(wellDat, seismicDat,
 # Outputs:
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
 fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues)), ncol=1), 
-                     pseudoCoords=makePseudositesRect(), xPseudo=matrix(rep(1, nrow(pseudoCoords)), nrow=1), 
+                     pseudoCoords=makePseudositesRect(), obsGridI, 
+                     xPseudo=matrix(rep(1, nrow(pseudoCoords)), nrow=1), 
                      predCoords, xPred = matrix(rep(1, nrow(predCoords)), ncol=1), 
                      control.fixed = list(prec=list(default=0), mean=list(default=0)), 
                      transform=I, invTransform=I, repelDist=10, sharedInt=FALSE, 
@@ -260,7 +261,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     } else {
       # thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
       #                                repelDist=repelDist, returnSparse=TRUE)
-      obsGridCoords = predCoords[wellDat$gridI,]
+      obsGridCoords = predCoords[obsGridI,]
       thisRepelMat = getRepulsionCov(rbind(obsGridCoords[i,], pseudoCoords), obsGridCoords[1:(i-1),], 
                                      repelDist=repelDist, returnSparse=TRUE)
     }
