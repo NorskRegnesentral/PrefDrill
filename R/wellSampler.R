@@ -504,11 +504,12 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
   endT = proc.time()[3]
   print(paste0("total time: ", (endT - startT)/60, " minutes"))
   
+  names(preds) = NULL # remove names to save space
   if(saveAllPredsProbs) {
-    list(wellDat = as.data.frame(wellDat), preds=preds, predAggMat=predAggMat, fit=fit, 
+    list(wellDat = as.data.frame(wellDat), preds=preds, predAggMat=predAggMat, 
          allPreds=allPreds, allProbs=allProbs)
   } else {
-    list(wellDat = as.data.frame(wellDat), preds=preds, predAggMat=predAggMat, fit=fit)
+    list(wellDat = as.data.frame(wellDat), preds=preds, predAggMat=predAggMat, )
   }
 }
 
