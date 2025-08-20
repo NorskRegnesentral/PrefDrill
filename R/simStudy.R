@@ -73,6 +73,7 @@ getFitModFuns = function() {
   funs = c(funs, list(fitWatsonSimDat))
   
   # known design probs
+  funs = c(funs, list(function(...) {fitSPDEsimDat(addLogitProbs=TRUE, ...)}))
   
   funs
 }
