@@ -1126,7 +1126,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   mean_se <- function(x) {
     m <- mean(x)
     se <- sd(x) / sqrt(length(x))
-    return(c(y = m, ymin = m - se, ymax = m + se))
+    return(c(y = m, ymin = m - qnorm(.975)*se, ymax = m + qnorm(.975)*se))
   }
   
   makeBoxplotsVsN = function(type=c("agg", "max", "min", "mean", "worst")) {

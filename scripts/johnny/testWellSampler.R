@@ -239,6 +239,7 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
     squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
            asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+    points()
     for(i in 1:nBatches) {
       iStart = (i-1)*batchSize + 1
       iEnd = min(c(iStart + batchSize - 1, nrow(wellDat)))
