@@ -584,7 +584,11 @@ runSimStudyI = function(i, significance=c(.8, .95),
   out = load(wellDatFile)
   
   # subset well data based on n for this run
-  wellDat = wellDat[1:n,]
+  if("wellDat" %in% names(wellDat)) {
+    wellDat = wellDat$wellDat[1:n,]
+  } else {
+    wellDat = wellDat[1:n,]
+  }
   
   # interpolate truth to well points
   truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
