@@ -81,7 +81,8 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
                       samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
                       repelType=repelType, bwRepel=bwRepel, isWatson=isWatson, 
                       repelAmount=repelAmount, seed=seed, verbose=verbose, 
-                      int.strategy="eb", strategy="gaussian", batchSize=batchSize)
+                      int.strategy="eb", strategy="gaussian", 
+                      batchSize=batchSize, getProbsNoRepOnly=FALSE)
     
     # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
     #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
@@ -133,7 +134,8 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
                       samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                       repelType=repelType, bwRepel=bwRepel, 
                       rbf="uniform", repelAmount=Inf, verbose=verbose, 
-                      seed=seed, int.strategy="eb", strategy="gaussian", batchSize=batchSize)
+                      seed=seed, int.strategy="eb", strategy="gaussian", 
+                      batchSize=batchSize, getProbsNoRepOnly=FALSE)
     
     nBatches=3
     out$allPreds = matrix(rep(sampleDat[,3], nBatches), ncol=nBatches)
@@ -142,6 +144,7 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
   
   wellDat = out$wellDat
   allProbs = out$allProbs
+  allLogitProbsNoRep = out$allLogitProbsNoRep
   allPreds = out$allPreds
   nBatches = ncol(allPreds)
   
@@ -167,6 +170,9 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
   seqCols = function(n) {purpleYellowSeqCols(n)}
   
   thisFigDir = paste0("figures/testSimStudy/")
+  
+  ticks = seq(0, 1, by=.2)
+  tickLabs = as.character(ticks)
   
   # naive estimators ----
   pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicDat, 
@@ -239,7 +245,6 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
     squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
            asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-    points()
     for(i in 1:nBatches) {
       iStart = (i-1)*batchSize + 1
       iEnd = min(c(iStart + batchSize - 1, nrow(wellDat)))
@@ -252,6 +257,37 @@ testSuccessiveWellDat = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVa
     for(i in 1:nBatches) {
       squilt(gEast, gNorth, allProbs[,i], grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
              xlab="Easting", ylab="Northing", main=paste0("Draw probs batch ", i), 
+             asp=1, smallplot=c(.83,.87,.25,.8))
+      
+      iStart = (i-1)*batchSize + 1
+      iEnd = min(c(iStart + batchSize - 1, nrow(wellDat)))
+      thisBatchIs = iStart:iEnd
+      
+      text(pEast[thisBatchIs], pNorth[thisBatchIs], labels=1:length(thisBatchIs), cex=.5)
+    }
+    
+    dev.off()
+    
+    # plot preds/probs
+    pdf(file=paste0(thisFigDir, "simWellLogitProbsNoRep_par", parI, "_rep", repI, ".pdf"), width=8, height=8)
+    par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+    
+    # truth
+    squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+           zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+           asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+    for(i in 1:nBatches) {
+      iStart = (i-1)*batchSize + 1
+      iEnd = min(c(iStart + batchSize - 1, nrow(wellDat)))
+      thisBatchIs = iStart:iEnd
+      
+      text(pEast[thisBatchIs], pNorth[thisBatchIs], labels=i, cex=.5)
+    }
+    
+    # plot each batch against probs for that batch (noting that repulsion updates)
+    for(i in 1:nBatches) {
+      squilt(gEast, gNorth, allLogitProbsNoRep[,i], grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+             xlab="Easting", ylab="Northing", main=paste0("Logit probs no rep batch ", i), 
              asp=1, smallplot=c(.83,.87,.25,.8))
       
       iStart = (i-1)*batchSize + 1

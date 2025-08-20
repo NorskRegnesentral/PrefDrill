@@ -72,6 +72,8 @@ getFitModFuns = function() {
   # Watson et al. model
   funs = c(funs, list(fitWatsonSimDat))
   
+  # known design probs
+  
   funs
 }
 
@@ -197,7 +199,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   
   if(adaptScen == "batch") {
     n = c(20, 40, 60)
-    propVarCase = c("realistic", "uniform")
+    propVarCase = c("realistic", "diggle", "cluster", "realNoClust", "seismic", "uniform")
     prefPar = c(1.5, 3)
     repelAreaProp = c(0, 0.001, 0.01)
   } else {
@@ -352,9 +354,9 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
 }
 
 simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                                  regenData=FALSE, verbose=FALSE) {
+                                  regenData=FALSE, verbose=FALSE, batchSize=5) {
   
-  tryCatch(simStudyWellSampler(i, adaptScen, regenData, verbose), 
+  tryCatch(simStudyWellSampler(i, adaptScen, regenData, verbose, batchSize), 
            error = function(e) {
              logfile <- paste0("savedOutput/simStudy/well_", adaptScen, "_", i, "_err.txt")
              sink(logfile)
@@ -445,7 +447,8 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                           samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
                           repelType=repelType, bwRepel=bwRepel, batchSize=batchSize, 
                           repelAmount=repelAmount, seed=seed, isWatson=isWatson, 
-                          int.strategy="eb", strategy="gaussian")
+                          int.strategy="eb", strategy="gaussian", 
+                          getProbsNoRepOnly=TRUE)
     
     # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
     #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
@@ -456,7 +459,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     #                                int.strategy="eb", strategy="gaussian"))
   } else {
     
-    if(propVarCase == "realistic") {
+    if(propVarCase %in% c("realistic", "diggle", "cluster", "realNoClust", "seismic")) {
       # indep
       otherRepI = ((repI + 1) %% 100) + 1
       out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", otherRepI, ".txt"), force01=TRUE)
@@ -478,7 +481,29 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       
       # combine them into a realistic mix and convert back to [0,1] scale
       sampleDat = seismicDat
-      sampleDat[,3] = 0.5 * seismicDatStd[,3] + 0.25 * truthDatStd[,3] + 0.25 * indepDatStd[,3]
+      
+      if(propVarCase == "realistic") {
+        seisProp = 0.5
+        truthProp = 0.25
+        indProp = 0.25
+      } else if(propVarCase == "diggle") {
+        seisProp = 0
+        truthProp = 1
+        indProp = 0
+      } else if(propVarCase == "cluster") {
+        seisProp = 0
+        truthProp = 0
+        indProp = 1
+      } else if(propVarCase == "realNoClust") {
+        seisProp = 0.5
+        truthProp = 0.5
+        indProp = 0
+      } else if(propVarCase == "seismic") {
+        seisProp = 1
+        truthProp = 0
+        indProp = 0
+      }
+      sampleDat[,3] = seisProp * seismicDatStd[,3] + truthProp * truthDatStd[,3] + indProp * indepDatStd[,3]
     } else if(propVarCase == "uniform") {
       # in this case, seismic data doesn't matter that much
       sampleDat = seismicDat
@@ -497,8 +522,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                      repelType=repelType, bwRepel=bwRepel, 
                      rbf="uniform", repelAmount=Inf, batchSize=batchSize, isWatson=isWatson, 
-                     seed=seed, int.strategy="eb", strategy="gaussian")$wellDat
-    
+                     seed=seed, int.strategy="eb", strategy="gaussian", getProbsNoRepOnly=TRUE)
     
   }
   
