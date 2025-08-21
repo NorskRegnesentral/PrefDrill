@@ -72,7 +72,7 @@ getFitModFuns = function() {
   # Watson et al. model
   funs = c(funs, list(fitWatsonSimDat))
   
-  # known design probs
+  # SPDE with design sampling probabilities accounted for
   funs = c(funs, list(function(...) {fitSPDEsimDat(addLogitProbs=TRUE, ...)}))
   
   funs
@@ -199,7 +199,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   
   if(adaptScen == "batch") {
-    n = c(20, 40, 60)
+    n = c(20, 40, 60, 400)
     propVarCase = c("realistic", "diggle", "cluster", "realNoClust", "seismic", "uniform")
     prefPar = c(1.5, 3)
     repelAreaProp = c(0, 0.001, 0.01)
@@ -275,10 +275,13 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   removeBadRows = function(tab, modelTab=FALSE) {
     # first remove extra beta value for uniform case
     badBetas = (tab$propVarCase == "uniform") & (tab$prefPar == 3)
+    if(!is.null(tab$n) && (400 %in% n) && ("n" %in% names(tab))) {
+      badBetas = badBetas | ((tab$n == 400) & ((tab$propVarCase != "uniform") & (tab$prefPar != 3)))
+    }
     
     # then remove bad values of repelAreaProp
     if(!is.null(tab$n)) {
-      badRepArea = tab$repelAreaProp * tab$n > 0.5
+      badRepArea = (tab$repelAreaProp * tab$n > 0.5) | ((tab$repelAreaProp != 0) & tab$n > 200)
     } else {
       badRepArea = rep(FALSE, nrow(tab))
     }
@@ -316,6 +319,10 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
           tab$sampModFunI[tab$propVarCase == "spde"] == 1
         goodSampMod[tab$propVarCase == "self"] = 
           tab$sampModFunI[tab$propVarCase == "self"] == tab$fitModFunI[tab$propVarCase == "self"]
+      } else {
+        # in uniform case, logit probabilities are all identical, so 
+        goodSampMod[tab$propVarCase == "uniform"] = 
+          tab$fitModFunI[tab$propVarCase == "uniform"] != 5
       }
       
       badRows = !goodSampMod
@@ -339,8 +346,28 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   wellDatCombs = wellDatCombs[order(wellDatCombs$wellDatI),]
   modelFitCombs = merge(modelFitCombs, wellDatCombs)
   modelFitCombs = modelFitCombs[order(modelFitCombs$modelFitI),]
+  
+  # for well sampling, sample the max n necessary. We can subset later
   wellDatCombs$n = max(n)
-  wellDatCombs$n[wellDatCombs$repelAreaProp * wellDatCombs$n > 0.5] = n[length(n)-1]
+  getMaxN = function(i, tab) {
+    repAreaProp = tab$repelAreaProp[i]
+    prefPar = tab$prefPar[i]
+    propVarCase = tab$propVarCase[i]
+    
+    # sample max number of wells below repulsion limit. Also in big n case use no repulsion
+    out = max(n[n * repAreaProp <= 0.5])
+    if((out == 400) && (repAreaProp != 0)) {
+      out = n[length(n)-1]
+    }
+    
+    # sample max number of wells below prefPar limit
+    if((out == 400) && (prefPar != 3) && (propVarCase != "uniform")) {
+      out = n[length(n)-1]
+    }
+    out
+  }
+  # wellDatCombs$n[wellDatCombs$repelAreaProp * wellDatCombs$n > 0.5] = n[length(n)-1]
+  wellDatCombs$n = sapply(1:nrow(wellDatCombs), getMaxN, tab=wellDatCombs)
   
   # Generate unique seeds for each replicated simulation and simulated dataset
   nDatasets = nrow(wellDatCombs)
@@ -1370,7 +1397,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   allTypes = c("agg", "max", "min", "mean", "worst")
   
   if(adaptScen == "batch") {
-    nUnique = c(20, 40, 60)
+    nUnique = c(20, 40, 60, 400)
   } else {
     # nUnique = c(10, 20, 30)
     nUnique = c(20, 40, 60)
