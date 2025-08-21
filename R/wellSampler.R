@@ -187,6 +187,8 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
     
     # update sampling probabilities
     logitProbs = logitProbsNoRep - repelEffectsGrid
+  } else {
+    logitProbs = logitProbsNoRep
   }
   
   # transform probabilities back to probability scale, ensure sum to 1 over grid
