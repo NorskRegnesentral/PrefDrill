@@ -212,6 +212,10 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   }
   fitModFunI = 1:length(getFitModFuns())
   
+  if(adaptScen != "batch") {
+    fitModFunI = fitModFunI[-5]
+  }
+  
   
   repEffect = Inf
   nuggetVar = 0.1^2
