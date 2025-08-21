@@ -612,6 +612,10 @@ runSimStudyI = function(i, significance=c(.8, .95),
   wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
   out = load(wellDatFile)
   
+  if(fitModFunI == 5) {
+    logitProbsNoRep = wellDat$logitProbsNoRep
+  }
+  
   # subset well data based on n for this run
   if("wellDat" %in% names(wellDat)) {
     wellDat = wellDat$wellDat[1:n,]
@@ -625,11 +629,15 @@ runSimStudyI = function(i, significance=c(.8, .95),
   # Fit model and calculate scores if need be
   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
-    if(fitModFunI != 4) {
+    if(fitModFunI < 4) {
       inputList = list(wellDat, seismicDat)
-    } else {
+    } else if (fitModFunI == 4) {
       repDist = repAreaToDist(repelAreaProp)
       inputList = list(wellDat, seismicDat, repelDist=repDist)
+    }
+    else if (fitModFunI == 5) {
+      repDist = repAreaToDist(repelAreaProp)
+      inputList = list(wellDat, seismicDat, logitProbsNoRep=logitProbsNoRep)
     }
     
     out = do.call("fitModFun", inputList)
