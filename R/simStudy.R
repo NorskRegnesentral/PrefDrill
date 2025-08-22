@@ -1294,13 +1294,13 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     if(adaptScen != "batch") {
       # in this case, get scores with SPDE model sampling, self sampling, and all together
-      # remember to remove overlap between the two cases for the SPDE model
+      # remember to remove overlap between the two cases for the SPDE and Seismic models
       tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
                             type=type, adaptType="spde")
-      tabSelf = collectScoreTab(seisScoresSelf, spdeScoresSelf, spdeKernScoresSelf, diggleScoresSelf, watsonScoresSelf, 
+      tabSelf = collectScoreTab(seisScores, spdeScoresSelf, spdeKernScoresSelf, diggleScoresSelf, watsonScoresSelf, 
                             type=type, adaptType="self")
       tempTab = tabSelf
-      tempTab[tempTab$Model == "spde",] = NULL
+      tempTab[tempTab$Model %in% c("SPDE->SPDE", "Seismic"),] = NULL
       tabComb = rbind(tab, tempTab)
     } else {
       tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores, 
