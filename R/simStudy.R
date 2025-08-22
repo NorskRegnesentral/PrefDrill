@@ -1316,6 +1316,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       unique_models <- unique(thisTab$Model)
       thisTab$Model <- factor(thisTab$Model, levels = unique_models)
       
+      if(adaptType == "spde") {
+        thisModCols = modCols
+      } else if(adaptType == "self") {
+        thisModCols = modColsSelf
+      } else {
+        thisModCols = modColsComb
+      }
+      
       # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisScore, "_", fileRoot, ".pdf"), width=5, height=5)
       adaptFRoot = ""
       if(adaptScen != "batch") {
@@ -1327,11 +1335,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       # Create the plot
       p = ggplot(tab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
         geom_boxplot() +
-        stat_summary(fun = mean, geom = "point", shape = 20, size = 3, color = "black", 
+        stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
                      position = position_dodge(width = 0.75)) +
         stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
-        scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
+        scale_fill_manual(values = setNames(thisModCols[1:length(unique_models)], unique_models)) +
         labs(
           title = paste0(thisScore, " vs. n (", typeName, ")"),
           x = "n",
@@ -1467,7 +1475,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       p = p +
         geom_boxplot() +
-        stat_summary(fun = mean, geom = "point", shape = 20, size = 3, color = "black", 
+        stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
                      position = position_dodge(width = 0.75)) +
         stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
@@ -1513,9 +1521,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   thisDirRoot = paste0(adaptScen, "/")
   if(adaptScen == "batch") {
-    modCols = c("grey", "cyan", "blue", "purple", "maroon2", "seagreen")
+    modCols = c("grey", "turquoise1", "blue", "purple", "maroon2", "seagreen")
   } else {
-    modCols = c("grey", "cyan", "blue", "purple", "maroon2")
+    modCols = c("grey", "turquoise1", "blue", "purple", "maroon2")
+    modColsSelf = c("grey", "turquoise1", "steelblue1", "violet", "palevioletred1")
+    modColsComb = c("grey", "turquoise1", "blue", "purple", "maroon2", "steelblue1", "violet", "palevioletred1")
+    # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
   }
   
   pch = c(5, 15:19)
