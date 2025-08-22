@@ -1330,7 +1330,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         adaptFRoot = paste0("_", adaptType)
       }
       fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisScore, ".pdf")
-      pdf(, width=5, height=5)
+      pdf(fname, width=5, height=5)
       
       # Create the plot
       p = ggplot(tab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
