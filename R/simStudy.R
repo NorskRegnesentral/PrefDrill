@@ -965,16 +965,29 @@ getAllSeisEstsSimStudy = function(regenData=FALSE, significance=c(.8, .95)) {
 # NOTE: currently only handles batch case
 showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100) {
   
+  # set arg defaults ----
+  adaptScen = match.arg(adaptScen)
+  
+  # load simulation parameters and model run parameters
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  out = load(inputListFile)
+  
   # helper functions ----
   
   # modI: the type of model being fit (0 = seismic only)
   # thisParI: the parameter scenario we will aggregate results for
-  getModScores = function(modI, thisParI) {
+  getModScores = function(modI, thisParI, sampModI=NULL) {
     
     # indices of the scores files we'll need to load and the corresponding 
     # rows of modelFitCombs
     if(modI != 0) {
-      thisIs = which((subModelCombs$sampleParI == thisParI) & (subModelCombs$fitModFunI == modI))
+      if(!is.null(sampModI)) {
+        thisIs = which((subModelCombs$sampleParI %in% thisParI) & (subModelCombs$fitModFunI == modI) & 
+                         (subModelCombs$sampModFunI == sampModI))
+      } else {
+        thisIs = which((subModelCombs$sampleParI %in% thisParI) & (subModelCombs$fitModFunI == modI))
+      }
       
       # make cases go from small n to large n
       thisNs = subModelCombs$n[thisIs]
@@ -1043,6 +1056,33 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
          totTAll=totTAll, repIAll=repIAll, nAll=nAll)
   }
   
+  # combine scores output from getModScores
+  bindModScores = function(modScores1, modScores2) {
+    pwScoresMeanAll = rbind(modScores1$pwScoresMeanAll, modScores2$pwScoresMeanAll)
+    pwScoresWorstAll = rbind(modScores1$pwScoresWorstAll, modScores2$pwScoresWorstAll)
+    aggScoresAll = rbind(modScores1$aggScoresAll, modScores2$aggScoresAll)
+    pwScoresMaxAll = rbind(modScores1$pwScoresMaxAll, modScores2$pwScoresMaxAll)
+    pwScoresMinAll = rbind(modScores1$pwScoresMinAll, modScores2$pwScoresMinAll)
+    corSeisTruthWellsAll = c(modScores1$corSeisTruthWellsAll, modScores2$corSeisTruthWellsAll)
+    corSeisTruthTrueAll = c(modScores1$corSeisTruthTrueAll, modScores2$corSeisTruthTrueAll)
+    varTruthAll = c(modScores1$varTruthAll, modScores2$varTruthAll)
+    varSeisAll = c(modScores1$varSeisAll, modScores2$varSeisAll)
+    varEstAll = c(modScores1$varEstAll, modScores2$varEstAll)
+    corEstTruthWellsAll = c(modScores1$corEstTruthWellsAll, modScores2$corEstTruthWellsAll)
+    corEstTruthTrueAll = c(modScores1$corEstTruthTrueAll, modScores2$corEstTruthTrueAll)
+    totTAll = c(modScores1$totTAll, modScores2$totTAll)
+    repIAll = c(modScores1$repIAll, modScores2$repIAll)
+    nAll = c(modScores1$nAll, modScores2$nAll)
+    
+    list(pwScoresMeanAll=pwScoresMeanAll, pwScoresWorstAll=pwScoresWorstAll, 
+         aggScoresAll=aggScoresAll, pwScoresMaxAll=pwScoresMaxAll, 
+         pwScoresMinAll=pwScoresMinAll, corSeisTruthWellsAll=corSeisTruthWellsAll, 
+         corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
+         varSeisAll=varSeisAll, varEstAll=varEstAll, 
+         corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
+         totTAll=totTAll, repIAll=repIAll, nAll=nAll)
+  }
+  
   # modI: the type of model being fit (0 = seismic only)
   # thisParI: the parameter scenario we will aggregate results for
   # otherParVal: fixed value of the other parameter, other than parName
@@ -1062,7 +1102,13 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         (subModelCombs$fitModFunI == modI) & 
         (subModelCombs$n == thisN)
       if(!is.null(propVarCase)) {
-        thisLs = thisLs & subModelCombs&propVarCase == propVarCase
+        
+        if(parName == "prefPar") {
+          # uniform is equivalent to prefPar == 0 regardless of the prepVarCase
+          thisLs = thisLs & (subModelCombs$propVarCase %in% c("uniform", propVarCase))
+        } else {
+          thisLs = thisLs & (subModelCombs$propVarCase == propVarCase)
+        }
       }
       thisIs = which(thisLs)
       
@@ -1133,11 +1179,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
          totTAll=totTAll, repIAll=repIAll, otherParAll=otherParAll)
   }
   
-  collectScoreTab = function(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+  collectScoreTab = function(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores=NULL, 
                              type=c("agg", "max", "min", "mean", "worst"), varyN=TRUE, 
-                             varyParName=NULL) {
+                             varyParName=NULL, adaptType=c("spde", "self", "both")) {
     
     type = match.arg(type)
+    adaptType = match.arg(adaptType)
     if(type == "agg") {
       typeName = "aggScoresAll"
     } else if(type == "max") {
@@ -1161,10 +1208,13 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     thisKern = spdeKernScores[[typeName]]
     thisDiggle = diggleScores[[typeName]]
     thisWatson = watsonScores[[typeName]]
+    if(!is.null(designScores)) {
+      thisDesign = designScores[[typeName]]
+    }
     
     # add in info on n (or the other parameter), model
     if(varyN) {
-      addedVar = spdeScores[["nAll"]]
+      addedVar = spdeScores[["nAll"]] # doesn't matter which model, just pick one
       varyParName = "n"
     } else {
       
@@ -1175,20 +1225,43 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       addedVar = spdeScores[["otherParAll"]]
     }
     
+    if(adaptScen == "batch") {
+      thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
+      thisSPDE = cbind(Model="SPDE", n=addedVar, thisSPDE)
+      thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
+      thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
+      thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
+      thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
+    } else {
+      
+      if(adaptType == "spde") {
+        
+      } else if("")
+      thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
+      thisSPDE = cbind(Model="SPDE", n=addedVar, thisSPDE)
+      thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
+      thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
+      thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
+    }
     
-    thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
     names(thisSeis)[2] = varyParName
-    thisSPDE = cbind(Model="SPDE", n=addedVar, thisSPDE)
+    
     names(thisSPDE)[2] = varyParName
-    thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
+    
     names(thisKern)[2] = varyParName
-    thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
+    
     names(thisDiggle)[2] = varyParName
-    thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
+    
     names(thisWatson)[2] = varyParName
+    if(!is.null(designScores)) {
+      thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
+      names(thisDesign)[2] = varyParName
+    } else {
+      thisDesign = NULL
+    }
     
     # combine into a single table
-    rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson)
+    rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign)
   }
   
   mean_se <- function(x) {
@@ -1197,8 +1270,13 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     return(c(y = m, ymin = m - qnorm(.975)*se, ymax = m + qnorm(.975)*se))
   }
   
-  makeBoxplotsVsN = function(type=c("agg", "max", "min", "mean", "worst")) {
+  makeBoxplotsVsN = function(type=c("agg", "max", "min", "mean", "worst"), 
+                             seisScores, spdeScores, spdeKernScores, diggleScores, 
+                             watsonScores, designScores=NULL, 
+                             spdeKernScoresSelf=NULL, diggleScoresSelf=NULL, 
+                             watsonScoresSelf=NULL) {
     type = match.arg(type)
+    adaptType = match.arg(adaptType)
     if(type == "agg") {
       typeName = "Aggregate"
     } else if(type == "max") {
@@ -1213,29 +1291,33 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       stop("wont happen")
     }
     
-    tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
-                          type=type)
+    if(adaptScen != "batch") {
+      tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+                            type=type, adaptType="spde")
+      tabSelf = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+                            type=type, adaptType="self")
+      tabComb = rbind(tab, tabSelf)
+    } else {
+      tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores, 
+                            type=type)
+    }
+    
     
     # Ensure the number of colors matches the number of unique models
     unique_models <- unique(tab$Model)
     tab$Model <- factor(tab$Model, levels = unique_models)
     
     # plot each score
-    scoreNames = names(spdeScores$aggScoresAll)
-    for(j in 1:length(scoreNames)) {
-      thisScore = scoreNames[j]
-      
-      if(grepl("Coverage", thisScore) && type != "mean") {
-        # for aggregate scores, coverage will just be 0 or 1, not very interesting
-        next
-      }
-      
-      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot))) {
-        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot))
-      }
+    makeThisBoxplot = function(thisTab, adaptType=c("spde", "self", "comb")) {
+      adaptType = match.arg(adaptType)
       
       # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisScore, "_", fileRoot, ".pdf"), width=5, height=5)
-      pdf(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", type, "_", fileRoot, "_", thisScore, ".pdf"), width=5, height=5)
+      adaptFRoot = ""
+      if(adaptScen != "batch") {
+        adaptFRoot = paste0("_", adaptType)
+      }
+      fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisScore, ".pdf")
+      pdf(, width=5, height=5)
       
       # Create the plot
       p = ggplot(tab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
@@ -1264,6 +1346,32 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       print(p)
       
       dev.off()
+      
+    }
+    
+    scoreNames = names(spdeScores$aggScoresAll)
+    for(j in 1:length(scoreNames)) {
+      thisScore = scoreNames[j]
+      
+      if(grepl("Coverage", thisScore) && type != "mean") {
+        # for aggregate scores, coverage will just be 0 or 1, not very interesting
+        next
+      }
+      
+      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))) {
+        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))
+      }
+      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))) {
+        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))
+      }
+      
+      makeThisBoxplot(tab)
+      
+      if(adaptScen != "batch") {
+        makeThisBoxplot(tabSelf, adaptType="self")
+        makeThisBoxplot(tabComb, adaptType="comb")
+      }
+      
     }
   }
   
@@ -1297,6 +1405,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisFileRoot = paste0("repelAreaPropAll_prefPar", fixedParVal, "_n", thisN, "_", adaptScen)
     }
     
+    
+    # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))) {
+    #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))
+    # }
+    # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))) {
+    #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))
+    # }
+    
     # unlike makeBoxPlotsVsN, need to make most of the model score tables here. 
     # Don't need to mess with seisScores, since they don't depend on anything
     
@@ -1308,6 +1424,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                                          fixedParVal=fixedParVal, propVarCase=propVarCase)
     watsonScores = getModScoresAcrossPar(4, thisN=thisN, parName=parName, 
                                          fixedParVal=fixedParVal, propVarCase=propVarCase)
+    if(adaptScen == "batch") {
+      designScores = getModScoresAcrossPar(5, thisN=thisN, parName=parName, 
+                                           fixedParVal=fixedParVal, propVarCase=propVarCase)
+    } else {
+      designScores = NULL
+    }
     
     tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
                           type=type, varyN=FALSE, varyParName=parName)
@@ -1371,13 +1493,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   # plots and tables setup ----
   
-  adaptScen = match.arg(adaptScen)
-  
-  # load simulation parameters and model run parameters
-  adaptScenCap = str_to_title(adaptScen)
-  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
-  out = load(inputListFile)
-  
   # make sure computer knows uniform case has no preferentiality
   modelFitCombs$prefPar[modelFitCombs$propVarCase == "uniform"] = 0
   
@@ -1388,11 +1503,17 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   if(adaptScen != "batch") {
     stop("adaptive scenarios not yet implemented")
     # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
+    # JP: I don'tt think the above TODO is necessary?
   }
   subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
   
   thisDirRoot = paste0(adaptScen, "/")
-  modCols = c("grey", "cyan", "blue", "purple", "seagreen")
+  if(adaptScen == "batch") {
+    modCols = c("grey", "cyan", "blue", "purple", "maroon2", "seagreen")
+  } else {
+    modCols = c("grey", "cyan", "blue", "purple", "maroon2")
+  }
+  
   pch = c(5, 15:19)
   allTypes = c("agg", "max", "min", "mean", "worst")
   
@@ -1414,83 +1535,141 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # boxplots vs n ----
   
   # for each set of sampling parameters, show results
-  for(i in 1:nrow(sampleParCombs)) {
-    
-    thesePar = sampleParCombs[i,]
-    
-    sampleParI = thesePar$sampleParI # same as i
-    repelAreaProp = thesePar$repelAreaProp
-    propVarCase = thesePar$propVarCase
-    prefPar = thesePar$prefPar
-    repEffect = thesePar$repEffect
-    
-    fileRoot = paste0("i", sampleParI, 
-                      "_", propVarCase, 
-                      "_repA", repelAreaProp, 
-                      "_pref", prefPar, 
-                      "_", adaptScen)
-    
-    # get scores for each model
-    spdeScores = getModScores(1, i)
-    spdeKernScores = getModScores(2, i)
-    diggleScores = getModScores(3, i)
-    watsonScores = getModScores(4, i)
-    # score names:
-    # pwScoresMeanAll, pwScoresWorstAll, aggScoresAll, pwScoresMaxAll, 
-    # pwScoresMinAll, corSeisTruthWellsAll, corSeisTruthTrueAll, varTruthAll, 
-    # varSeisAll, varEstAll, corEstTruthWellsAll, corEstTruthTrueAll, 
-    # totTAll, repIAll, nAll
-    
-    for(j in 1:length(allTypes)) {
-      makeBoxplotsVsN(allTypes[j])
+  if(adaptScen == "batch") {
+    for(i in 1:nrow(sampleParCombs)) {
+      
+      thesePar = sampleParCombs[i,]
+      
+      sampleParI = thesePar$sampleParI # same as i
+      repelAreaProp = thesePar$repelAreaProp
+      propVarCase = thesePar$propVarCase
+      prefPar = thesePar$prefPar
+      repEffect = thesePar$repEffect
+      
+      fileSubRoot = paste0("i", sampleParI, 
+                           "_", propVarCase)
+      fileRoot = paste0("i", sampleParI, 
+                        "_", propVarCase, 
+                        "_repA", repelAreaProp, 
+                        "_pref", prefPar, 
+                        "_", adaptScen)
+      
+      # get scores for each model
+      spdeScores = getModScores(1, i)
+      spdeKernScores = getModScores(2, i)
+      diggleScores = getModScores(3, i)
+      watsonScores = getModScores(4, i)
+      designScores = getModScores(5, i)
+      
+      # score names:
+      # pwScoresMeanAll, pwScoresWorstAll, aggScoresAll, pwScoresMaxAll, 
+      # pwScoresMinAll, corSeisTruthWellsAll, corSeisTruthTrueAll, varTruthAll, 
+      # varSeisAll, varEstAll, corEstTruthWellsAll, corEstTruthTrueAll, 
+      # totTAll, repIAll, nAll
+      
+      for(j in 1:length(allTypes)) {
+        
+        makeBoxplotsVsN(allTypes[j], seisScores, spdeScores, spdeKernScores, diggleScores, 
+                        watsonScores, designScores)
+      }
+      
     }
+  } else {
+    # adaptive case
     
+    repPars = sort(unique(sampleParCombs$repelAreaProp))
+    for(i in 1:length(repPars)) {
+      thisRepPar = repPars[i]
+      
+      fileSubRoot = ""
+      fileRoot = paste0("i", sampleParI, 
+                        "_", propVarCase, 
+                        "_repA", repelAreaProp, 
+                        "_pref", prefPar, 
+                        "_", adaptScen)
+      
+      # SPDE sampling case
+      
+      # get sampleParI's corresponding to thisRepPar
+      thisIs = sampleParCombs$sampleParI[(sampleParCombs$sampModFunI == 1) & 
+                                           (sampleParCombs$repelAreaProp == thisRepPar)]
+      
+      # get scores for each model
+      spdeScores = getModScores(1, thisIs)
+      spdeKernScores = getModScores(2, thisIs)
+      diggleScores = getModScores(3, thisIs)
+      watsonScores = getModScores(4, thisIs)
+      
+      thisIs = sampleParCombs$sampleParI[sampleParCombs$repelAreaProp == thisRepPar]
+      
+      spdeScoresSelf = spdeScores
+      spdeKernScoresSelf = getModScores(2, thisIs, 2)
+      diggleScoresSelf = getModScores(3, thisIs, 3)
+      watsonScoresSelf = getModScores(4, thisIs, 4)
+      
+      # spdeScoresComb = bindModScores(spdeScores, spdeScoresSelf)
+      # spdeKernScoresComb = bindModScores(spdeKernScores, spdeKernScoresSelf)
+      # diggleScoresComb = bindModScores(diggleScores, diggleScoresSelf)
+      # watsonScoresComb = bindModScores(watsonScores, watsonScoresSelf)
+      
+      for(j in 1:length(allTypes)) {
+        
+        makeBoxplotsVsN(allTypes[j], seisScores, spdeScores, spdeKernScores, diggleScores, 
+                        watsonScores, spdeKernScoresSelf=spdeKernScoresSelf, diggleScoresSelf=diggleScoresSelf, 
+                        watsonScoresSelf=watsonScoresSelf)
+        
+      }
+      
+    }
   }
+  
   
   # boxplots vs other parameters ----
   
-  # wrt prefPar (fix repelAreaProp)
-  repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
-  for(i in 1:length(repelAreaPropUnique)) {
-    thisRepelAreaProp = repelAreaPropUnique[i]
+  if(adaptScen == "batch") {
     
-    thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
-    
-    for(j in 1:length(allTypes)) {
+    # wrt prefPar (fix repelAreaProp)
+    repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
+    for(i in 1:length(repelAreaPropUnique)) {
+      thisRepelAreaProp = repelAreaPropUnique[i]
       
-      for(k in 1:length(thisUniqueNs)) {
-        thisN = thisUniqueNs[k]
+      thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+      
+      for(j in 1:length(allTypes)) {
         
-        if(adaptScen == "batch") {
-          makeBoxplotsAcrossPar(allTypes[j], parName="prefPar", thisN=thisN, 
-                                fixedParVal=thisRepelAreaProp, propVarCase=NULL)
-        } else {
-          stop("still need to work out adaptive case")
+        for(k in 1:length(thisUniqueNs)) {
+          thisN = thisUniqueNs[k]
+          
+          if(adaptScen == "batch") {
+            makeBoxplotsAcrossPar(allTypes[j], parName="prefPar", thisN=thisN, 
+                                  fixedParVal=thisRepelAreaProp, propVarCase=NULL)
+          } else {
+            stop("still need to work out adaptive case")
+          }
+        }
+      }
+    }
+    
+    # wrt repelAreaProp (fix prefPar)
+    prefParUnique = sort(unique(sampleParCombs$prefPar))
+    for(i in 1:length(prefParUnique)) {
+      thisPrefPar = prefParUnique[i]
+      
+      for(j in 1:length(allTypes)) {
+        
+        for(k in 1:length(nUnique)) {
+          thisN = nUnique[k]
+          
+          if(adaptScen == "batch") {
+            makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
+                                  fixedParVal=thisPrefPar, propVarCase=NULL)
+          } else {
+            stop("still need to work out adaptive case")
+          }
         }
       }
     }
   }
-  
-  # wrt repelAreaProp (fix prefPar)
-  prefParUnique = sort(unique(sampleParCombs$prefPar))
-  for(i in 1:length(prefParUnique)) {
-    thisPrefPar = prefParUnique[i]
-    
-    for(j in 1:length(allTypes)) {
-      
-      for(k in 1:length(nUnique)) {
-        thisN = nUnique[k]
-        
-        if(adaptScen == "batch") {
-          makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
-                                fixedParVal=thisPrefPar, propVarCase=NULL)
-        } else {
-          stop("still need to work out adaptive case")
-        }
-      }
-    }
-  }
-  
   
   
   browser()
