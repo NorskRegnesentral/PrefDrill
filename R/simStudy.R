@@ -1181,7 +1181,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   collectScoreTab = function(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores=NULL, 
                              type=c("agg", "max", "min", "mean", "worst"), varyN=TRUE, 
-                             varyParName=NULL, adaptType=c("spde", "self", "both")) {
+                             varyParName=NULL, adaptType=c("spde", "self")) {
     
     type = match.arg(type)
     adaptType = match.arg(adaptType)
@@ -1226,7 +1226,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
     
     if(adaptScen == "batch") {
-      thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
       thisSPDE = cbind(Model="SPDE", n=addedVar, thisSPDE)
       thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
       thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
@@ -1235,23 +1234,26 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     } else {
       
       if(adaptType == "spde") {
-        
-      } else if("")
-      thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
-      thisSPDE = cbind(Model="SPDE", n=addedVar, thisSPDE)
-      thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
-      thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
-      thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
+        thisSPDE = cbind(Model="SPDE->SPDE", n=addedVar, thisSPDE)
+        thisKern = cbind(Model="SPDE->SPDEK", n=addedVar, thisKern)
+        thisDiggle = cbind(Model="SPDE->Diggle", n=addedVar, thisDiggle)
+        thisWatson = cbind(Model="SPDE->Watson", n=addedVar, thisWatson)
+      } else if(adaptType == "self") {
+        thisSPDE = cbind(Model="SPDE->SPDE", n=addedVar, thisSPDE)
+        thisKern = cbind(Model="SPDEK->SPDEK", n=addedVar, thisKern)
+        thisDiggle = cbind(Model="Diggle->Diggle", n=addedVar, thisDiggle)
+        thisWatson = cbind(Model="Watson->Watson", n=addedVar, thisWatson)
+      } else {
+        stop("not possible")
+      }
+      
     }
     
+    thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
     names(thisSeis)[2] = varyParName
-    
     names(thisSPDE)[2] = varyParName
-    
     names(thisKern)[2] = varyParName
-    
     names(thisDiggle)[2] = varyParName
-    
     names(thisWatson)[2] = varyParName
     if(!is.null(designScores)) {
       thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
@@ -1292,24 +1294,28 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
     
     if(adaptScen != "batch") {
+      # in this case, get scores with SPDE model sampling, self sampling, and all together
+      # remember to remove overlap between the two cases for the SPDE model
       tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
                             type=type, adaptType="spde")
-      tabSelf = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+      tabSelf = collectScoreTab(seisScoresSelf, spdeScoresSelf, spdeKernScoresSelf, diggleScoresSelf, watsonScoresSelf, 
                             type=type, adaptType="self")
-      tabComb = rbind(tab, tabSelf)
+      tempTab = tabSelf
+      tempTab[tempTab$Model == "spde",] = NULL
+      tabComb = rbind(tab, tempTab)
     } else {
       tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores, 
                             type=type)
     }
     
     
-    # Ensure the number of colors matches the number of unique models
-    unique_models <- unique(tab$Model)
-    tab$Model <- factor(tab$Model, levels = unique_models)
-    
     # plot each score
     makeThisBoxplot = function(thisTab, adaptType=c("spde", "self", "comb")) {
       adaptType = match.arg(adaptType)
+      
+      # Ensure the number of colors matches the number of unique models
+      unique_models <- unique(thisTab$Model)
+      thisTab$Model <- factor(thisTab$Model, levels = unique_models)
       
       # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisScore, "_", fileRoot, ".pdf"), width=5, height=5)
       adaptFRoot = ""
@@ -1523,11 +1529,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     nUnique = c(20, 40, 60)
   }
   
-  if(adaptScen == "batch") {
-    propVarCases = c("uniform", "realistic")
-  } else {
-    stop("adaptive scenarios not yet supported")
-  }
+  # if(adaptScen == "batch") {
+  #   propVarCases = c("uniform", "realistic")
+  # } else {
+  #   stop("adaptive scenarios not yet supported")
+  # }
   
   seisScores = getModScores(0, thisParI=1) # seismic scores don't depend on thisParI
   
