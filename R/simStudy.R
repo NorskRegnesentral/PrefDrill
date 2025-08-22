@@ -1300,7 +1300,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       tabSelf = collectScoreTab(seisScores, spdeScoresSelf, spdeKernScoresSelf, diggleScoresSelf, watsonScoresSelf, 
                             type=type, adaptType="self")
       tempTab = tabSelf
-      tempTab[tempTab$Model %in% c("SPDE->SPDE", "Seismic"),] = NULL
+      tempTab = tempTab[!(tempTab$Model %in% c("SPDE->SPDE", "Seismic")),]
       tabComb = rbind(tab, tempTab)
     } else {
       tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores, 
