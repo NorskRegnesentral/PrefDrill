@@ -1587,7 +1587,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisRepPar = repPars[i]
       
       fileSubRoot = ""
-      fileRoot = paste0(adaptScen, "_repA", repelAreaProp)
+      fileRoot = paste0(adaptScen, "_repA", thisRepPar)
       
       # SPDE sampling case
       
