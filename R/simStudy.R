@@ -1278,7 +1278,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                              spdeKernScoresSelf=NULL, diggleScoresSelf=NULL, 
                              watsonScoresSelf=NULL) {
     type = match.arg(type)
-    adaptType = match.arg(adaptType)
     if(type == "agg") {
       typeName = "Aggregate"
     } else if(type == "max") {
