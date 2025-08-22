@@ -1501,7 +1501,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   is = is[modelFitCombs$repI <= maxRepI]
   
   if(adaptScen != "batch") {
-    stop("adaptive scenarios not yet implemented")
     # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
     # JP: I don'tt think the above TODO is necessary?
   }
