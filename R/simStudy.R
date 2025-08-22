@@ -1333,7 +1333,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       pdf(fname, width=5, height=5)
       
       # Create the plot
-      p = ggplot(tab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
+      p = ggplot(thisTab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
         geom_boxplot() +
         stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
                      position = position_dodge(width = 0.75)) +
