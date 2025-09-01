@@ -159,7 +159,7 @@ getPrefDrillLoc = function(seismicDat,
 # sampleParI: ID of parameters related to well sampling. 4 total. Depends on:
 #   repelAreaProp (1-2)
 #   propVarCase (1-2)
-# wellDatI: ID of full well dataset. 400 total. Depends on:
+# wellDatI: ID of full well dataset. 250 total. Depends on:
 #   repelAreaProp (1-2)
 #   propVarCase (1-2)
 #   repI (1-100)
@@ -199,7 +199,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   
   if(adaptScen == "batch") {
-    n = c(20, 40, 60, 400)
+    n = c(20, 40, 60, 250)
     propVarCase = c("realistic", "diggle", "cluster", "realNoClust", "seismic", "uniform")
     prefPar = c(1.5, 3)
     repelAreaProp = c(0, 0.001, 0.01)
@@ -275,13 +275,14 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   removeBadRows = function(tab, modelTab=FALSE) {
     # first remove extra beta value for uniform case
     badBetas = (tab$propVarCase == "uniform") & (tab$prefPar == 3)
-    if(!is.null(tab$n) && (400 %in% n) && ("n" %in% names(tab))) {
-      badBetas = badBetas | ((tab$n == 400) & ((tab$propVarCase != "uniform") & (tab$prefPar != 3)))
+    if(!is.null(tab$n) && (250 %in% n) && ("n" %in% names(tab))) {
+      badBetas = badBetas | ((tab$n == 250) & ((tab$propVarCase != "uniform") & (tab$prefPar != 3)))
     }
     
     # then remove bad values of repelAreaProp
     if(!is.null(tab$n)) {
-      badRepArea = (tab$repelAreaProp * tab$n > 0.5) | ((tab$repelAreaProp != 0) & tab$n > 200)
+      # badRepArea = (tab$repelAreaProp * tab$n > 0.5) | ((tab$repelAreaProp != 0) & tab$n > 200)
+      badRepArea = (tab$repelAreaProp * tab$n > 0.5)
     } else {
       badRepArea = rep(FALSE, nrow(tab))
     }
@@ -354,14 +355,14 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     prefPar = tab$prefPar[i]
     propVarCase = tab$propVarCase[i]
     
-    # sample max number of wells below repulsion limit. Also in big n case use no repulsion
+    # sample max number of wells below repulsion limit. (previously: Also in big n case use no repulsion)
     out = max(n[n * repAreaProp <= 0.5])
-    if((out == 400) && (repAreaProp != 0)) {
-      out = n[length(n)-1]
-    }
+    # if((out == 250) && (repAreaProp != 0)) {
+    #   out = n[length(n)-1]
+    # }
     
     # sample max number of wells below prefPar limit
-    if((out == 400) && (prefPar != 3) && (propVarCase != "uniform")) {
+    if((out == 250) && (prefPar != 3) && (propVarCase != "uniform")) {
       out = n[length(n)-1]
     }
     out
@@ -535,7 +536,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
         truthProp = 0
         indProp = 0
       }
-      sampleDat[,3] = seisProp * seismicDatStd[,3] + truthProp * truthDatStd[,3] + indProp * indepDatStd[,3]
+      sampleDat[,3] = sqrt(seisProp) * seismicDatStd[,3] + sqrt(truthProp) * truthDatStd[,3] + sqrt(indProp) * indepDatStd[,3]
     } else if(propVarCase == "uniform") {
       # in this case, seismic data doesn't matter that much
       sampleDat = seismicDat
@@ -1544,7 +1545,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   allTypes = c("agg", "max", "min", "mean", "worst")
   
   if(adaptScen == "batch") {
-    nUnique = c(20, 40, 60, 400)
+    nUnique = c(20, 40, 60, 250)
   } else {
     # nUnique = c(10, 20, 30)
     nUnique = c(20, 40, 60)
@@ -1659,10 +1660,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     for(i in 1:length(repelAreaPropUnique)) {
       thisRepelAreaProp = repelAreaPropUnique[i]
       
-      thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) < 0.5]
-      if(thisRepelAreaProp != 0) {
-        thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
-      }
+      thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+      # if(thisRepelAreaProp != 0) {
+      #   thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
+      # }
       
       for(j in 1:length(allTypes)) {
         
