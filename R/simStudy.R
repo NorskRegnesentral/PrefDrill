@@ -1578,7 +1578,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       spdeKernScores = getModScores(2, i)
       diggleScores = getModScores(3, i)
       watsonScores = getModScores(4, i)
-      designScores = getModScores(5, i)
+      if(propVarCase != "uniform") {
+        designScores = getModScores(5, i)
+      } else {
+        designScores = spdeScores
+      }
       
       # score names:
       # pwScoresMeanAll, pwScoresWorstAll, aggScoresAll, pwScoresMaxAll, 
