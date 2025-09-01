@@ -1220,6 +1220,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     if(varyN) {
       addedVar = spdeScores[["nAll"]] # doesn't matter which model, just pick one
       varyParName = "n"
+      
+      if(!is.null(designScores)) {
+        addedVarDes = designScores[["nAll"]]
+      }
     } else {
       
       if(is.null(varyParName)) {
@@ -1227,6 +1231,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       
       addedVar = spdeScores[["otherParAll"]]
+      if(!is.null(designScores)) {
+        addedVarDes = designScores[["otherParAll"]]
+      }
     }
     
     if(adaptScen == "batch") {
@@ -1234,7 +1241,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
       thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
       thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
-      thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign) # it already has this info
+      thisDesign = cbind(Model="SPDE + design", n=addedVarDes, thisDesign)
     } else {
       
       if(adaptType == "spde") {
@@ -1448,7 +1455,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       designScores = NULL
     }
     
-    tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
+    tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores, 
                           type=type, varyN=FALSE, varyParName=parName)
     
     # Ensure the number of colors matches the number of unique models
