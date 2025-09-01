@@ -1659,7 +1659,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     for(i in 1:length(repelAreaPropUnique)) {
       thisRepelAreaProp = repelAreaPropUnique[i]
       
-      thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+      thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) < 0.5]
       
       for(j in 1:length(allTypes)) {
         
