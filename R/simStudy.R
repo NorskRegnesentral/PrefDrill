@@ -678,6 +678,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
       predAggMat = out$predAggMat # doesn't include nugget?
       obsMat = out$obsMat # doesn't include nugget
     }
+    fixedEffectSummary = out$fixedEffectSummary
+    parameterSummaryTable = out$parameterSummaryTable
     
     
     # calculate scoring rules and metrics based on predictions
@@ -817,7 +819,9 @@ runSimStudyI = function(i, significance=c(.8, .95),
     # save results
     save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
          corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-         varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+         varEst, corEstTruthWells, corEstTruthTrue, totT=totT, 
+         fixedEffectSummary=fixedEffectSummary, parameterSummaryTable=parameterSummaryTable, 
+         file=scoresFile)
   }
   
   invisible(NULL)
@@ -1230,7 +1234,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisKern = cbind(Model="SPDE + kernel", n=addedVar, thisKern)
       thisDiggle = cbind(Model="Diggle et al.", n=addedVar, thisDiggle)
       thisWatson = cbind(Model="Watson et al.", n=addedVar, thisWatson)
-      thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
+      thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign) # it already has this info
     } else {
       
       if(adaptType == "spde") {
@@ -1256,7 +1260,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     names(thisDiggle)[2] = varyParName
     names(thisWatson)[2] = varyParName
     if(!is.null(designScores)) {
-      thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
+      # thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
       names(thisDesign)[2] = varyParName
     } else {
       thisDesign = NULL
