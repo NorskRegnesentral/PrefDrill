@@ -1690,6 +1690,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
           thisN = nUnique[k]
           
           if(adaptScen == "batch") {
+            if((thisN > 200) && (thisPrefPar < 3)) {
+              next
+            }
             makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
                                   fixedParVal=thisPrefPar, propVarCase=NULL)
           } else {
