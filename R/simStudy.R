@@ -993,8 +993,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     # rows of modelFitCombs
     if(modI != 0) {
       if(!is.null(sampModI)) {
-        thisIs = which((subModelCombs$sampleParI %in% thisParI) & (subModelCombs$fitModFunI == modI) & 
-                         (subModelCombs$sampModFunI == sampModI))
+        thisLs = (subModelCombs$sampleParI %in% thisParI) & (subModelCombs$fitModFunI == modI) & 
+          (subModelCombs$sampModFunI == sampModI)
+        if(sampModI == modI) {
+          thisLs = thisLs & (subModelCombs$propVarCase == "spde") # can choose either spde or self
+        }
+        thisIs = which()
       } else {
         thisIs = which((subModelCombs$sampleParI %in% thisParI) & (subModelCombs$fitModFunI == modI))
       }
@@ -1287,15 +1291,15 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     if(!is.null(thisSeis)) {
       thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
-      names(thisSeis)[2] = varyParName
+      colnames(thisSeis)[2] = varyParName
     }
-    names(thisSPDE)[2] = varyParName
-    names(thisKern)[2] = varyParName
-    names(thisDiggle)[2] = varyParName
-    names(thisWatson)[2] = varyParName
+    colnames(thisSPDE)[2] = varyParName
+    colnames(thisKern)[2] = varyParName
+    colnames(thisDiggle)[2] = varyParName
+    colnames(thisWatson)[2] = varyParName
     if(!is.null(designScores)) {
       # thisDesign = cbind(Model="SPDE + design", n=addedVar, thisDesign)
-      names(thisDesign)[2] = varyParName
+      colnames(thisDesign)[2] = varyParName
     } else {
       thisDesign = NULL
     }
@@ -1304,21 +1308,21 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     if(type == "par") {
       
       # set names of parameters to be interprettable, particularly fixed effects
-      names(thisSPDE)[names(thisSPDE) == "X2"] = "seismic"
-      names(thisKern)[names(thisKern) == "X2"] = "seismic"
-      names(thisKern)[names(thisKern) == "X3"] = "design"
-      names(thisDiggle)[names(thisDiggle) == "X_y"] = "seismic"
-      names(thisWatson)[names(thisWatson) == "X2"] = "seismic"
+      colnames(thisSPDE)[colnames(thisSPDE) == "X2"] = "seismic"
+      colnames(thisKern)[colnames(thisKern) == "X2"] = "seismic"
+      colnames(thisKern)[colnames(thisKern) == "X3"] = "design"
+      colnames(thisDiggle)[colnames(thisDiggle) == "X_y"] = "seismic"
+      colnames(thisWatson)[colnames(thisWatson) == "X2"] = "seismic"
       if(!is.null(designScores)) {
-        names(thisDesign)[names(thisDesign) == "X2"] = "seismic"
-        names(thisDesign)[names(thisDesign) == "X3"] = "design"
+        colnames(thisDesign)[colnames(thisDesign) == "X2"] = "seismic"
+        colnames(thisDesign)[colnames(thisDesign) == "X3"] = "design"
       }
       
       
       # in this case buffer tables with NAs if models don't have given parameters
       if(is.null(thisDesign) ) {
         thisDesign = thisSPDE[numeric(0),]
-      } 
+      }
       if(is.null(thisSeis)) {
         thisSeis = thisSPDE[numeric(0),]
       }
@@ -1728,10 +1732,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                                            (sampleParCombs$repelAreaProp == thisRepPar)]
       
       # get scores for each model
-      spdeScores = getModScores(1, thisIs)
-      spdeKernScores = getModScores(2, thisIs)
-      diggleScores = getModScores(3, thisIs)
-      watsonScores = getModScores(4, thisIs)
+      spdeScores = getModScores(1, thisIs, 1)
+      spdeKernScores = getModScores(2, thisIs, 1)
+      diggleScores = getModScores(3, thisIs, 1)
+      watsonScores = getModScores(4, thisIs, 1)
       
       thisIs = sampleParCombs$sampleParI[sampleParCombs$repelAreaProp == thisRepPar]
       
