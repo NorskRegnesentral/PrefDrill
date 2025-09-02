@@ -641,7 +641,12 @@ runSimStudyI = function(i, significance=c(.8, .95),
   out = load(wellDatFile)
   
   if(fitModFunI == 5) {
-    logitProbsNoRep = wellDat$logitProbsNoRep
+    if("logitProbsNoRep" %in% names(wellDat)) {
+      logitProbsNoRep = wellDat$logitProbsNoRep
+    } else {
+      logitProbsNoRep = wellDat$allLogitProbsNoRep[,1]
+    }
+    
   }
   
   # subset well data based on n for this run
@@ -1017,6 +1022,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     totTAll = c()
     repIAll = c()
     nAll = c()
+    parEstsAll = c()
     for(i in thisIs) {
       thesePar = subModelCombs[i,]
       thisModelI = thesePar$modelFitI
@@ -1031,7 +1037,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
       #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-      #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+      #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, 
+      #      fixedEffectSummary=fixedEffectSummary, parameterSummaryTable=parameterSummaryTable, 
+      #      file=scoresFile)
       
       out = load(scoresFile)
       
@@ -1050,6 +1058,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       totTAll = c(totTAll, totT)
       repIAll = c(repIAll, thesePar$repI)
       nAll = c(nAll, thesePar$n)
+      parEstsAll = rbind(parEstsAll, c(rowMeans(fixedEffectSummary), c(parameterSummaryTable[,1])))
     }
     
     list(pwScoresMeanAll=pwScoresMeanAll, pwScoresWorstAll=pwScoresWorstAll, 
@@ -1058,7 +1067,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
          corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
          varSeisAll=varSeisAll, varEstAll=varEstAll, 
          corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
-         totTAll=totTAll, repIAll=repIAll, nAll=nAll)
+         totTAll=totTAll, repIAll=repIAll, nAll=nAll, parEstsAll=parEstsAll)
   }
   
   # combine scores output from getModScores
@@ -1078,6 +1087,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     totTAll = c(modScores1$totTAll, modScores2$totTAll)
     repIAll = c(modScores1$repIAll, modScores2$repIAll)
     nAll = c(modScores1$nAll, modScores2$nAll)
+    parEstsAll = rbind(modScores1$parEstsAll, modScores2$parEstsAll)
     
     list(pwScoresMeanAll=pwScoresMeanAll, pwScoresWorstAll=pwScoresWorstAll, 
          aggScoresAll=aggScoresAll, pwScoresMaxAll=pwScoresMaxAll, 
@@ -1085,7 +1095,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
          corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
          varSeisAll=varSeisAll, varEstAll=varEstAll, 
          corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
-         totTAll=totTAll, repIAll=repIAll, nAll=nAll)
+         totTAll=totTAll, repIAll=repIAll, nAll=nAll, parEstsAll=parEstsAll)
   }
   
   # modI: the type of model being fit (0 = seismic only)
@@ -1139,6 +1149,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     corEstTruthTrueAll = c()
     totTAll = c()
     repIAll = c()
+    parEstsAll = c()
     otherParAll = c()
     for(i in thisIs) {
       thesePar = subModelCombs[i,]
@@ -1154,7 +1165,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       # save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
       #      corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-      #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+      #      varEst, corEstTruthWells, corEstTruthTrue, totT=totT, 
+      #      fixedEffectSummary=fixedEffectSummary, parameterSummaryTable=parameterSummaryTable, 
+      #      file=scoresFile)
       
       out = load(scoresFile)
       
@@ -1172,6 +1185,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       corEstTruthTrueAll = c(corEstTruthTrueAll, corEstTruthTrue)
       totTAll = c(totTAll, totT)
       repIAll = c(repIAll, thesePar$repI)
+      parEstsAll = rbind(parEstsAll, c(rowMeans(fixedEffectSummary), c(parameterSummaryTable[,1])))
       otherParAll = c(otherParAll, thesePar[[parName]])
     }
     
@@ -1181,15 +1195,16 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
          corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
          varSeisAll=varSeisAll, varEstAll=varEstAll, 
          corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
-         totTAll=totTAll, repIAll=repIAll, otherParAll=otherParAll)
+         totTAll=totTAll, repIAll=repIAll, parEstsAll=parEstsAll, otherParAll=otherParAll)
   }
   
   collectScoreTab = function(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores=NULL, 
-                             type=c("agg", "max", "min", "mean", "worst"), varyN=TRUE, 
-                             varyParName=NULL, adaptType=c("spde", "self")) {
+                             type=c("agg", "max", "min", "mean", "worst", "par"), 
+                             varyN=TRUE, varyParName=NULL, adaptType=c("spde", "self")) {
     
     type = match.arg(type)
     adaptType = match.arg(adaptType)
+    keepMod = rep(TRUE, 6) #  in the case type is a parameter, not all models have the parameter
     if(type == "agg") {
       typeName = "aggScoresAll"
     } else if(type == "max") {
@@ -1200,6 +1215,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       typeName = "pwScoresMeanAll"
     } else if(type == "worst") {
       typeName = "pwScoresWorstAll"
+    } else if(type == "par") {
+      typeName = "parEstsAll"
+    } else {
+      stop("bad type")
     }
     
     # collect aggregate scores for each model (repeat seismic estimates for each  
@@ -1284,7 +1303,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     return(c(y = m, ymin = m - qnorm(.975)*se, ymax = m + qnorm(.975)*se))
   }
   
-  makeBoxplotsVsN = function(type=c("agg", "max", "min", "mean", "worst"), 
+  makeBoxplotsVsN = function(type=c("agg", "max", "min", "mean", "worst", "par"), 
                              seisScores, spdeScores, spdeKernScores, diggleScores, 
                              watsonScores, designScores=NULL, 
                              spdeKernScoresSelf=NULL, diggleScoresSelf=NULL, 
@@ -1300,8 +1319,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       typeName = "Mean"
     } else if(type == "worst") {
       typeName = "Worst"
+    } else if(type == "par") {
+      typeName = "Estimated"
     } else {
-      stop("wont happen")
+      stop("bad type")
     }
     
     if(adaptScen != "batch") {
@@ -1336,16 +1357,16 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         thisModCols = modColsComb
       }
       
-      # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisScore, "_", fileRoot, ".pdf"), width=5, height=5)
+      # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisVar, "_", fileRoot, ".pdf"), width=5, height=5)
       adaptFRoot = ""
       if(adaptScen != "batch") {
         adaptFRoot = paste0("_", adaptType)
       }
-      fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisScore, ".pdf")
+      fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
       
       # Create the plot
-      p = ggplot(thisTab, aes(x = factor(n), y = .data[[thisScore]], fill = Model)) +
+      p = ggplot(thisTab, aes(x = factor(n), y = .data[[thisVar]], fill = Model)) +
         geom_boxplot() +
         stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
                      position = position_dodge(width = 0.75)) +
@@ -1353,18 +1374,18 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                      position = position_dodge(width = 0.75)) +
         scale_fill_manual(values = setNames(thisModCols[1:length(unique_models)], unique_models)) +
         labs(
-          title = paste0(thisScore, " vs. n (", typeName, ")"),
+          title = paste0(thisVar, " vs. n (", typeName, ")"),
           x = "n",
-          y = thisScore,
+          y = thisVar,
           fill = "Model"
         ) +
         theme_minimal()
-      if(!(thisScore %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95"))) {
+      if(!(thisVar %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }
-      if(grepl("Coverage", thisScore)) {
-        cvg <- as.numeric(substr(thisScore, nchar(thisScore)-1, nchar(thisScore))) / 100
+      if(grepl("Coverage", thisVar)) {
+        cvg <- as.numeric(substr(thisVar, nchar(thisVar)-1, nchar(thisVar))) / 100
         p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
       }
       
@@ -1374,11 +1395,30 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
     }
     
-    scoreNames = names(spdeScores$aggScoresAll)
-    for(j in 1:length(scoreNames)) {
-      thisScore = scoreNames[j]
+    if(type != "par") {
+      varNames = names(spdeScores$aggScoresAll)
+    } else {
+      # varNames = names(spdeScores$parEstsAll)
+      varNames = c("prefPar", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
+    }
+    
+    for(j in 1:length(varNames)) {
+      thisVar = varNames[j]
       
-      if(grepl("Coverage", thisScore) && type != "mean") {
+      keepMod = rep(TRUE, 6)
+      if(thisVar == "prefPar") {
+        keepMod[c(1, 2, 3, 6)] = FALSE
+      } else if(thisVar == "effRange") {
+        keepMod[1] = FALSE
+      } else if(thisVar == "margVar") {
+        keepMod[1] = FALSE
+      } else if(thisVar == "sigmaSqEps") {
+        keepMod[1] = FALSE
+      } else if(thisVar == "fixed") {
+        keepMod[c(1, 4, 5)] = FALSE
+      } 
+      
+      if(grepl("Coverage", thisVar) && type != "mean") {
         # for aggregate scores, coverage will just be 0 or 1, not very interesting
         next
       }
@@ -1400,9 +1440,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
   }
   
-  makeBoxplotsAcrossPar = function(type=c("agg", "max", "min", "mean", "worst"), 
-                                   thisN, parName=c("prefPar", "repelAreaProp"), 
-                                   fixedParVal, propVarCase=NULL) {
+  makeBoxplotsVsPar = function(type=c("agg", "max", "min", "mean", "worst", 
+                                      "prefPar", "effRange", "margVar", "sigmaSqEps", "fixed"), 
+                               thisN, parName=c("prefPar", "repelAreaProp"), 
+                               fixedParVal, propVarCase=NULL) {
     type = match.arg(type)
     if(type == "agg") {
       typeName = "Aggregate"
@@ -1414,9 +1455,21 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       typeName = "Mean"
     } else if(type == "worst") {
       typeName = "Worst"
+    } else if(type == "prefPar") {
+      typeName = "prefPar"
+    }  else if(type == "effRange") {
+      typeName = "effRange"
+    }  else if(type == "margVar") {
+      typeName = "margVar"
+    }  else if(type == "sigmaSqEps") {
+      typeName = "sigmaSqEps"
+    }  else if(type == "fixed") {
+      typeName = "fixed"
     } else {
-      stop("wont happen")
+      stop("bad type")
     }
+    
+    isPar = type %in% c("prefPar", "effRange", "margVar", "sigmaSqEps", "fixed")
     
     if(adaptScen != "batch" && is.null(propVarCase)) {
       stop("must provide propVarCase if adaptScen != 'batch'")
@@ -1464,11 +1517,16 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     tab$Model <- factor(tab$Model, levels = unique_models)
     
     # plot each score
-    scoreNames = names(spdeScores$aggScoresAll)
-    for(j in 1:length(scoreNames)) {
-      thisScore = scoreNames[j]
+    if(!isPar) {
+      varNames = names(spdeScores$aggScoresAll)
+    } else {
+      varNames = typeName # just one value
+    }
+    
+    for(j in 1:length(varNames)) {
+      thisVar = varNames[j]
       
-      if(grepl("Coverage", thisScore) && type != "mean") {
+      if(grepl("Coverage", thisVar) && type != "mean") {
         # for aggregate scores, coverage will just be 0 or 1, not very interesting
         next
       }
@@ -1477,13 +1535,13 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         dir.create(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))
       }
       
-      pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", type, "_", thisFileRoot, "_", thisScore, ".pdf"), width=5, height=5)
+      pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", type, "_", thisFileRoot, "_", thisVar, ".pdf"), width=5, height=5)
       
       # Create the plot
       if(parName == "prefPar") {
-        p = ggplot(tab, aes(x = factor(prefPar), y = .data[[thisScore]], fill = Model))
+        p = ggplot(tab, aes(x = factor(prefPar), y = .data[[thisVar]], fill = Model))
       } else {
-        p = ggplot(tab, aes(x = factor(repelAreaProp), y = .data[[thisScore]], fill = Model))
+        p = ggplot(tab, aes(x = factor(repelAreaProp), y = .data[[thisVar]], fill = Model))
       }
       p = p +
         geom_boxplot() +
@@ -1493,20 +1551,20 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                      position = position_dodge(width = 0.75)) +
         scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
         labs(
-          title = paste0(thisScore, " vs. ", parName, 
+          title = paste0(thisVar, " vs. ", parName, 
                          " (", adaptScenCap, ", ", typeName, ", ", 
                          fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
           x = parName,
-          y = thisScore,
+          y = thisVar,
           fill = "Model"
         ) +
         theme_minimal()
-      if(!(thisScore %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95"))) {
+      if(!(thisVar %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }
-      if(grepl("Coverage", thisScore)) {
-        cvg <- as.numeric(substr(thisScore, nchar(thisScore)-1, nchar(thisScore))) / 100
+      if(grepl("Coverage", thisVar)) {
+        cvg <- as.numeric(substr(thisVar, nchar(thisVar)-1, nchar(thisVar))) / 100
         p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
       }
       
@@ -1671,7 +1729,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
           thisN = thisUniqueNs[k]
           
           if(adaptScen == "batch") {
-            makeBoxplotsAcrossPar(allTypes[j], parName="prefPar", thisN=thisN, 
+            makeBoxplotsVsPar(allTypes[j], parName="prefPar", thisN=thisN, 
                                   fixedParVal=thisRepelAreaProp, propVarCase=NULL)
           } else {
             stop("still need to work out adaptive case")
@@ -1694,7 +1752,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
             if((thisN > 200) && (thisPrefPar < 3)) {
               next
             }
-            makeBoxplotsAcrossPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
+            makeBoxplotsVsPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
                                   fixedParVal=thisPrefPar, propVarCase=NULL)
           } else {
             stop("still need to work out adaptive case")
