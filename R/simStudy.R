@@ -998,7 +998,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         if(sampModI == modI) {
           thisLs = thisLs & (subModelCombs$propVarCase == "spde") # can choose either spde or self
         }
-        thisIs = which()
+        thisIs = which(thisLs)
       } else {
         thisIs = which((subModelCombs$sampleParI %in% thisParI) & (subModelCombs$fitModFunI == modI))
       }
