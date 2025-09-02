@@ -1224,10 +1224,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     # collect aggregate scores for each model (repeat seismic estimates for each  
     # value of n we are considering)
-    thisSeis = seisScores[[typeName]]
-    thisSeis = matrix(rep(as.matrix(t(thisSeis)), length(spdeScores$totTAll)/length(seisScores$totTAll)), ncol=ncol(thisSeis), byrow = TRUE)
-    thisSeis = as.data.frame(thisSeis)
-    names(thisSeis) = names(seisScores[[typeName]])
+    if(type != "par") {
+      thisSeis = seisScores[[typeName]]
+      thisSeis = matrix(rep(as.matrix(t(thisSeis)), length(spdeScores$totTAll)/length(seisScores$totTAll)), ncol=ncol(thisSeis), byrow = TRUE)
+      thisSeis = as.data.frame(thisSeis)
+      names(thisSeis) = names(seisScores[[typeName]])
+    } else {
+      thisSeis = NULL
+    }
     
     thisSPDE = spdeScores[[typeName]]
     thisKern = spdeKernScores[[typeName]]
@@ -1281,8 +1285,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
     }
     
-    thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
-    names(thisSeis)[2] = varyParName
+    if(!is.null(thisSeis)) {
+      thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
+      names(thisSeis)[2] = varyParName
+    }
     names(thisSPDE)[2] = varyParName
     names(thisKern)[2] = varyParName
     names(thisDiggle)[2] = varyParName
@@ -1310,13 +1316,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
       
       # in this case buffer tables with NAs if models don't have given parameters
-      if(!is.null(designScores)) {
-        Reduce(function(x, y) merge(x, y, all = TRUE), 
-               list(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign))
-      } else {
-        Reduce(function(x, y) merge(x, y, all = TRUE), 
-               list(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson))
+      if(is.null(thisDesign) ) {
+        thisDesign = thisSPDE[numeric(0),]
+      } 
+      if(is.null(thisSeis)) {
+        thisSeis = thisSPDE[numeric(0),]
       }
+      Reduce(function(x, y) merge(x, y, all = TRUE), 
+             list(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign))
     } else {
       rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign)
     }
