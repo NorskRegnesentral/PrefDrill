@@ -216,6 +216,13 @@ dfToListOfLists = function(df) {
   lapply(list_of_lists, as.list)
 }
 
+# converts the first letter to uppercase, keeps the case of all other letters
+myTitleCase <- function(x) {
+  if (nchar(x) == 0) return(x)
+  paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)))
+}
+
+
 cppFunction('
 NumericMatrix removeOnePerRow(NumericMatrix mat, IntegerVector tIs) {
   int nr = mat.nrow();
