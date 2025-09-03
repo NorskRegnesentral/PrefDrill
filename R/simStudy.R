@@ -1066,7 +1066,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         parEstsAll = rbind(parEstsAll, c(fixedEffectSummary[,1], parameterSummaryTable[,1]))
       }
     }
-    colnames(parEstsAll) = c(row.names(fixedEffectSummary), row.names(parameterSummaryTable))
+    
+    if(modI != 0) {
+      colnames(parEstsAll) = c(row.names(fixedEffectSummary), row.names(parameterSummaryTable))
+    }
     
     list(pwScoresMeanAll=pwScoresMeanAll, pwScoresWorstAll=pwScoresWorstAll, 
          aggScoresAll=aggScoresAll, pwScoresMaxAll=pwScoresMaxAll, 
