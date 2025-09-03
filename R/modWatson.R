@@ -42,7 +42,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
                            control.fixed = list(prec=list(default=0, X.pp21=1/.5^2, X.y2=1/.5^2), mean=list(default=0, X.pp21=1, X.y2=1)), 
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
-                           repelDist=500, sharedInt=FALSE, 
+                           repelDist=500, sharedInt=FALSE, prefMean=0, 
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                            nPostSamples=1000, verbose=FALSE, seed=NULL, 
                            doModAssess=FALSE, previousFit=NULL, customFixedI=NULL, 
@@ -95,7 +95,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
             sharedInt=sharedInt, mesh=mesh, prior=prior, significanceCI=significanceCI, 
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
             verbose=verbose, link=link, seed=seed, doModAssess=doModAssess, 
-            customFixedI=customFixedI, quadratureMethod=quadratureMethod, 
+            customFixedI=customFixedI, quadratureMethod=quadratureMethod, prefMean=prefMean, 
             previousFit=previousFit, addNugToPredCoords=addNugToPredCoords, getPPres=getPPres, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode, bernApprox=bernApprox, 
             controlvb=controlvb)
@@ -160,7 +160,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
                      doModAssess=FALSE, customFixedI=NULL, quadratureMethod=c("pseudoSites", "mesh"), 
                      previousFit=NULL, fixedRepelAmt=NULL, addNugToPredCoords=TRUE, 
-                     getPPres=TRUE, 
+                     getPPres=TRUE, prefMean=0, 
                      fixedParameters=NULL, experimentalMode=FALSE, bernApprox=FALSE, 
                      controlvb=control.vb()) {
   
@@ -230,7 +230,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   # set preferentiality parameter prior
-  prefPrior = list(prior="gaussian", param=c(0, 4))
+  prefPrior = list(prior="gaussian", param=c(prefMean, 1/4))
   
   # if there is an intercept, we need to remove it and instead include a 
   # separate intercept for each iteration in the PProc model. Otherwise, no need 
@@ -473,7 +473,11 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   if(length(xPred) != 0) {
     fixedPredMat.y = xPred  %*% latentMat[fixed.yIndices,]
-    fixedPredMat.pp = xPred %*% latentMat[fixed.ppIndices,]
+    if(getPPres) {
+      fixedPredMat.pp = xPred %*% latentMat[fixed.ppIndices,]
+    } else {
+      fixedPredMat.pp = 0
+    }
   } else {
     fixedPredMat.y = 0
     fixedPredMat.pp = 0
@@ -483,12 +487,20 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   spatialPredMat.pp = APred %*% latentMatMatrix[field.ppIndices,]
   
   predMat.y = fixedPredMat.y + spatialPredMat.y
-  predMat.pp = fixedPredMat.pp + spatialPredMat.pp
+  if(getPPres) {
+    predMat.pp = fixedPredMat.pp + spatialPredMat.pp
+  } else {
+    predMat.pp = 0
+  }
   
   # fixed parameters (aside from repulsion) currently not supported
   # if(!is.null(offsetPred)) {
   #   predMat.y = sweep(predMat.y, 1, offsetPred.y, "+")
   # }
+  
+  if(!is.null(predOffset.pp) && getPPres) {
+    predMat.pp = sweep(predMat.pp, 1, predOffset.pp, "+")
+  }
   
   # now make custom predictions (for responses)
   if(!is.null(customFixedI)) {

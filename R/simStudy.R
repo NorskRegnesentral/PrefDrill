@@ -662,11 +662,14 @@ runSimStudyI = function(i, significance=c(.8, .95),
   # Fit model and calculate scores if need be
   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
-    if(fitModFunI < 4) {
+    if(fitModFunI < 3) {
       inputList = list(wellDat, seismicDat)
+    } else if (fitModFunI == 3) {
+      repDist = repAreaToDist(repelAreaProp)
+      inputList = list(wellDat, seismicDat, prefMean=prefPar)
     } else if (fitModFunI == 4) {
       repDist = repAreaToDist(repelAreaProp)
-      inputList = list(wellDat, seismicDat, repelDist=repDist)
+      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar)
     }
     else if (fitModFunI == 5) {
       repDist = repAreaToDist(repelAreaProp)
@@ -750,12 +753,12 @@ runSimStudyI = function(i, significance=c(.8, .95),
                       sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
       par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
       squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+             xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+             zlim=range(c(preds, gTruth)), asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       
       squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       
@@ -765,8 +768,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       
       squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
-             colScale=seqCols, 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Estimate", 
+             colScale=seqCols, zlim=range(c(preds, gTruth)), 
+             xlab="Easting", ylab="Northing", main="Estimate", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       dev.off()
@@ -775,23 +778,23 @@ runSimStudyI = function(i, significance=c(.8, .95),
                       sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
       par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
       squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+             xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       
       squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       
       splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
             resetGraphics=FALSE, 
-            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+            xlab="Easting", ylab="Northing", main="Well Data", 
             asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
       
       squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
              colScale=quantCols, 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Truth Quantiles", 
+             xlab="Easting", ylab="Northing", main="Truth Quantiles", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       dev.off()
@@ -800,26 +803,57 @@ runSimStudyI = function(i, significance=c(.8, .95),
                       sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
       par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
       squilt(gEast, gNorth, logit(gTruth), grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+             xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       
       squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       
       splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
             resetGraphics=FALSE, 
-            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+            xlab="Easting", ylab="Northing", main="Well Data", 
             asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
       
       squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
              colScale=seqCols, 
-             zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Truth Quantiles", 
+             xlab="Easting", ylab="Northing", main="Truth Quantiles", 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       dev.off()
+      
+      if(fitModFunI == 4) {
+        inputList = list(wellDat, seismicDat, repelDist=repDist, getPPres=TRUE)
+        newOut = do.call("fitModFun", inputList)
+        
+        pdf(file=paste0("figures/testSimStudy/testLambdas_simStudy_", adaptScen, "_par", 
+                        sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
+        par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+        squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+               xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+               zlim=range(c(preds, gTruth)), asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        
+        squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+               xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        
+        lambdas = newOut$pred.ppEst
+        squilt(gEast, gNorth, lambdas, grid=list(x=eastGrid, y=northGrid), 
+               xlab="Easting", ylab="Northing", main="Sampling Intensity Estimate", 
+               asp=1, smallplot=c(.83,.87,.25,.8), zlim=c(min(lambdas[lambdas > -400]), max(lambdas)))
+        points(pEast, pNorth, cex=.5)
+        
+        squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+               colScale=seqCols, zlim=range(c(preds, gTruth)), 
+               xlab="Easting", ylab="Northing", main="Estimate", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        dev.off()
+      }
       
       browser()
       

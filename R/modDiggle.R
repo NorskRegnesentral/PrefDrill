@@ -61,7 +61,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
             predCoords=predPts, 
             control.fixed = control.fixed,
             transform=transform, invTransform=invTransform, 
-            mesh=mesh, prior=prior, significanceCI=significanceCI,
+            mesh=mesh, prior=prior, significanceCI=significanceCI, prefMean=prefMean, 
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
             verbose=verbose, link=link, seed=seed, addNugToPredCoords=addNugToPredCoords, 
             family=family, doModAssess=doModAssess, previousFit=previousFit, 
@@ -80,7 +80,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                      nPostSamples=1000, verbose=TRUE, link=1, seed=NULL,
                      family=c("normal", "binomial", "betabinomial"), 
-                     doModAssess=FALSE, customFixedI = NULL, 
+                     doModAssess=FALSE, customFixedI = NULL, prefMean=0, 
                      previousFit=NULL, addNugToPredCoords=TRUE, 
                      fixedParameters=NULL, experimentalMode=FALSE) {
   
@@ -112,7 +112,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   ## inlabru code
-  prefPrior = list(prior="gaussian", param=c(0,4))
+  prefPrior = list(prior="gaussian", param=c(prefMean, 1/4))
   ys = as.numeric(transform(obsValues))
   # Making X terra
   X_terra = terra::rast(covs$X, type="xyz")
