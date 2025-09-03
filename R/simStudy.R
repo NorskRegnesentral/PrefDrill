@@ -1062,7 +1062,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       totTAll = c(totTAll, totT)
       repIAll = c(repIAll, thesePar$repI)
       nAll = c(nAll, thesePar$n)
-      parEstsAll = rbind(parEstsAll, c(fixedEffectSummary[,1], parameterSummaryTable[,1]))
+      if(modI != 0) {
+        parEstsAll = rbind(parEstsAll, c(fixedEffectSummary[,1], parameterSummaryTable[,1]))
+      }
     }
     colnames(parEstsAll) = c(row.names(fixedEffectSummary), row.names(parameterSummaryTable))
     
