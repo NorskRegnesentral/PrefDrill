@@ -1408,6 +1408,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       
       thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
+      thisTab[[thisVar]] = as.numeric(thisTab[[thisVar]])
       
       fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
@@ -1595,6 +1596,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
       thisTab = tab
       thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
+      thisTab[[thisVar]] = as.numeric(thisTab[[thisVar]])
       
       pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", type, "_", thisFileRoot, "_", thisVar, ".pdf"), width=5, height=5)
       
