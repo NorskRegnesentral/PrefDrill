@@ -37,7 +37,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                            nPostSamples=1000, verbose=FALSE, seed=NULL, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
-                           addNugToPredCoords=FALSE, 
+                           addNugToPredCoords=FALSE, prefMean=0, 
                            fixedParameters=NULL, experimentalMode=FALSE) {
   
   # construct prediction points
@@ -60,7 +60,7 @@ fitDigglesimDat = function(wellDat, seismicDat,
             covs = list(X= seismicDat),
             predCoords=predPts, 
             control.fixed = control.fixed,
-            transform=transform, invTransform=invTransform, 
+            transform=transform, invTransform=invTransform, prefMean=prefMean, 
             mesh=mesh, prior=prior, significanceCI=significanceCI, prefMean=prefMean, 
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
             verbose=verbose, link=link, seed=seed, addNugToPredCoords=addNugToPredCoords, 
