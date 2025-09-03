@@ -62,6 +62,7 @@ library(matrixStats)
 library(Rcpp)
 library(scoringRules)
 library(ggplot2)
+library(dplyr)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising

@@ -677,7 +677,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
     
     if(fitModFunI == 4) {
       predMat = out$predMat.y # doesn't include nugget
-      predAggMat = out$pred.yAggMat # doesn't include nugget?
+      predAggMat = out$pred.yAggMat # doesn't include nugget
       obsMat = out$obsMat.y # doesn't include nugget
     } else {
       predMat = out$predMat # doesn't include nugget
@@ -711,6 +711,9 @@ runSimStudyI = function(i, significance=c(.8, .95),
     totT = endT - startT
     
     if(doPlot) {
+      
+      browser()
+      
       # plot some figures for testing purposes
       
       gEast = seismicDat$east
@@ -1250,6 +1253,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisDesign = designScores[[typeName]]
     }
     
+    # if type == "par", make sure the "prefPar" variable names don't collide
+    if(type == "par") {
+      colnames(thisDiggle)[colnames(thisDiggle) == "prefPar"] = "pref"
+      colnames(thisWatson)[colnames(thisWatson) == "prefPar"] = "pref"
+    }
+    
     # add in info on n (or the other parameter), model
     if(varyN) {
       addedVar = spdeScores[["nAll"]] # doesn't matter which model, just pick one
@@ -1335,8 +1344,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(is.null(thisSeis)) {
         thisSeis = thisSPDE[numeric(0),]
       }
-      Reduce(function(x, y) merge(x, y, all = TRUE), 
-             list(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign))
+      # Reduce(function(x, y) merge(x, y, all = TRUE), 
+      #        list(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign))
+      dplyr::bind_rows(as.data.frame(thisSeis), as.data.frame(thisSPDE), as.data.frame(thisKern), as.data.frame(thisDiggle), as.data.frame(thisWatson), as.data.frame(thisDesign))
     } else {
       rbind(thisSeis, thisSPDE, thisKern, thisDiggle, thisWatson, thisDesign)
     }
@@ -1533,6 +1543,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       typeName = "Mean"
     } else if(type == "worst") {
       typeName = "Worst"
+    } else if(type == "par") {
+      typeName = "Estimated"
     } else {
       stop("bad type")
     }
