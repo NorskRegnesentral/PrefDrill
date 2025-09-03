@@ -1312,7 +1312,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       colnames(thisKern)[colnames(thisKern) == "X2"] = "seismic"
       colnames(thisKern)[colnames(thisKern) == "X3"] = "design"
       colnames(thisDiggle)[colnames(thisDiggle) == "X_y"] = "seismic"
-      colnames(thisWatson)[colnames(thisWatson) == "X2"] = "seismic"
+      colnames(thisDiggle)[colnames(thisDiggle) == "X_pp"] = "seismic.pp"
+      colnames(thisWatson)[colnames(thisWatson) == "X.y2"] = "seismic"
+      colnames(thisWatson)[colnames(thisWatson) == "X.y1"] = "X1"
+      colnames(thisWatson)[colnames(thisWatson) == "X.pp2"] = "seismic.pp"
+      colnames(thisWatson)[colnames(thisWatson) == "X.pp1"] = "X1.pp"
       if(!is.null(designScores)) {
         colnames(thisDesign)[colnames(thisDesign) == "X2"] = "seismic"
         colnames(thisDesign)[colnames(thisDesign) == "X3"] = "design"
@@ -1402,6 +1406,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(adaptScen != "batch") {
         adaptFRoot = paste0("_", adaptType)
       }
+      
+      thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
+      
       fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
       
@@ -1585,6 +1592,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))) {
         dir.create(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))
       }
+      
+      thisTab = tab
+      thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
       
       pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", type, "_", thisFileRoot, "_", thisVar, ".pdf"), width=5, height=5)
       
