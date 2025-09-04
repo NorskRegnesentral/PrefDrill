@@ -1501,7 +1501,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       varNames = names(spdeScores$aggScoresAll)
     } else {
       # varNames = names(spdeScores$parEstsAll)
-      varNames = c("prefPar", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
+      varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
     }
     
     for(j in 1:length(varNames)) {
@@ -1632,7 +1632,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     if(type != "par") {
       varNames = names(spdeScores$aggScoresAll)
     } else {
-      varNames = c("prefPar", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
+      varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
     }
     
     for(j in 1:length(varNames)) {
