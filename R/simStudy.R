@@ -1655,9 +1655,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
       # Create the plot
       if(parName == "prefPar") {
-        p = ggplot(tab, aes(x = factor(prefPar), y = .data[[thisVar]], fill = Model))
+        p = ggplot(thisTab, aes(x = factor(prefPar), y = .data[[thisVar]], fill = Model))
       } else {
-        p = ggplot(tab, aes(x = factor(repelAreaProp), y = .data[[thisVar]], fill = Model))
+        p = ggplot(thisTab, aes(x = factor(repelAreaProp), y = .data[[thisVar]], fill = Model))
       }
       p = p +
         geom_boxplot() +
