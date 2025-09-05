@@ -1478,7 +1478,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         ) +
         theme_minimal()
       if(!(thisVar %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
-                          "prefPar", "seismic", "design"))) {
+                          "pref", "seismic", "design"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }
@@ -1676,7 +1676,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         ) +
         theme_minimal()
       if(!(thisVar %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
-                          "prefPar", "seismic", "design"))) {
+                          "pref", "seismic", "design"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }
