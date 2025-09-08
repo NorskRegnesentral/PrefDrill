@@ -2,7 +2,7 @@
 
 
 # NOTE: this is not supposed to look like the simulation study data...
-getTestDat = function(n=20, xlim=simStudyXlims, ylim=simStudyYlims, 
+getTestDat = function(n=20, xlim=c(0,10000), ylim=c(0,10000), 
                       muSpat=0, sigmaSqSpat=1, corrSeismic=.6, sigmaSqErr=.01, 
                       aRange=diff(xlim)/4, prefPar=2.5, gridWidth=diff(xlim)/50, 
                       grid=make.surface.grid(list(east=seq(xlim[1]+gridWidth/2, xlim[2]-gridWidth/2, l=50), 

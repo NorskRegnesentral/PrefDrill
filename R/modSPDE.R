@@ -13,7 +13,7 @@
 # 
 # Outputs: prior to give to INLA
 getSPDEprior = function(mesh, U=0.1, alpha=0.5, medianRange=NULL) {
-  size <- min(c(diff(range(mesh$loc[, 1])), diff(range(mesh$loc[, 2]))))
+  size <- max(c(diff(range(mesh$loc[, 1])), diff(range(mesh$loc[, 2]))))
   
   # set default median range
   if(is.null(medianRange))
@@ -108,10 +108,21 @@ getSPDEmeshRect = function(lowerLeft=c(0,0), width=1, height=1, n=3500, max.n=50
 # 
 # Outputs:
 # mesh to give to INLA
-getSPDEmeshSimStudy = function(n=1500, max.n=2500, doPlot=FALSE) {
+getSPDEmeshSimStudy = function(n=1500, max.n=2500, doPlot=FALSE, anisFac=1) {
   
-  simStudyXlims = c(-12.5, 15012.5)
+  simStudyXlims = c(-12.5, 15012.5)/anisFac
   simStudyYlims = c(-8.3335, 5008.4336)
+  
+  getSPDEmeshRect(width=diff(simStudyXlims), 
+                  height=diff(simStudyYlims), 
+                  n=n, max.n=max.n, 
+                  doPlot=doPlot)
+}
+
+getSPDEmeshTestDat = function(n=1500, max.n=2500, doPlot=FALSE) {
+  
+  simStudyXlims = c(0, 10000)
+  simStudyYlims = c(0, 10000)
   
   getSPDEmeshRect(width=diff(simStudyXlims), 
                   height=diff(simStudyYlims), 

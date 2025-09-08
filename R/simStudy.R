@@ -705,7 +705,7 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
 
 runSimStudyI = function(i, significance=c(.8, .95), 
                         adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                        regenData=FALSE, verbose=FALSE, doPlot=FALSE) {
+                        regenData=FALSE, verbose=FALSE, doPlot=FALSE, anisFac=3) {
   startT = proc.time()[3]
   adaptScen = match.arg(adaptScen)
   
@@ -739,10 +739,12 @@ runSimStudyI = function(i, significance=c(.8, .95),
   # seismic data
   out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", repI, ".txt"), force01=TRUE)
   seismicDat = out$surfFrame
+  seismicDat[,1] = seismicDat[,1]/anisFac
   
   # truth
   out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truth = out$surfFrame
+  truth[,1] = truth[,1]/anisFac
   
   # subsample
   goodCoords = subsampleSimStudyGrid(seismicDat)
@@ -768,6 +770,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   } else {
     wellDat = wellDat[1:n,]
   }
+  wellDat[,1] = wellDat[,1]/anisFac
   
   # interpolate truth to well points
   truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
@@ -790,18 +793,19 @@ runSimStudyI = function(i, significance=c(.8, .95),
       prefPar = prefPar * truthFac
     }
     
+    mesh = getSPDEmeshSimStudy(anisFac=anisFac)
     if(fitModFunI < 3) {
-      inputList = list(wellDat, seismicDat)
+      inputList = list(wellDat, seismicDat, mesh=mesh)
     } else if (fitModFunI == 3) {
       repDist = repAreaToDist(repelAreaProp)
-      inputList = list(wellDat, seismicDat, prefMean=prefPar)
+      inputList = list(wellDat, seismicDat, prefMean=prefPar, mesh=mesh)
     } else if (fitModFunI == 4) {
       repDist = repAreaToDist(repelAreaProp)
-      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar)
+      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, mesh=mesh)
     }
     else if (fitModFunI == 5) {
       repDist = repAreaToDist(repelAreaProp)
-      inputList = list(wellDat, seismicDat, logitProbsNoRep=logitProbsNoRep)
+      inputList = list(wellDat, seismicDat, logitProbsNoRep=logitProbsNoRep, mesh=mesh)
     }
     
     out = do.call("fitModFun", inputList)
@@ -845,6 +849,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
       
       browser()
       
+      
       # plot some figures for testing purposes
       
       gEast = seismicDat$east
@@ -854,6 +859,22 @@ runSimStudyI = function(i, significance=c(.8, .95),
       pEast = wellDat$east
       pNorth = wellDat$north
       pVolFrac = wellDat$volFrac
+      
+      if(fitModFunI == 4) {
+        
+        pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicDat, 
+                                  transform=logit, invTransform = expit)
+        
+        if("logitProbsNoRep" %in% names(wellDat)) {
+          logitProbsNoRep = wellDat$logitProbsNoRep
+        } else {
+          logitProbsNoRep = wellDat$allLogitProbsNoRep[,1]
+        }
+        
+        summary(lm(logitProbsNoRep ~ I(logit(wellDat$volFrac)) + I(logit(pSeismic))))
+        
+        summary(out$mod)
+      }
       
       preds = ests
       sds = out$predSDs
@@ -877,8 +898,11 @@ runSimStudyI = function(i, significance=c(.8, .95),
         tmp
       }
       
+      mean((truth[,3] - seismicDat[,3])^2)
+      mean((truth[,3] - preds)^2)
+      
       pdf(file=paste0("figures/testSimStudy/testPreds_simStudy_", adaptScen, "_par", 
-                      sampleParI, "_rep", repI, ".pdf"), width=8, height=5)
+                      sampleParI, "_rep", repI, ".pdf"), width=8, height=ifelse(anisFac==1,5, 7.5))
       par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
       squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
              xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
@@ -886,7 +910,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
       points(pEast, pNorth, cex=.5)
       
       squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+             xlab="Easting", ylab="Northing", main="Seismic Estimate", colScale=seqCols, 
              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
       points(pEast, pNorth, cex=.5)
       

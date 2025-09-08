@@ -136,7 +136,53 @@ svyAggEst
 naiveAggEst
 
 # fit model  ----
-out = fitDigglesimDat(wellTestDat_truthPref, seismicTestDat_truthPref)
+# goodCoords = subsampleSimStudyGrid(seismicTestDat_truthPref)
+# thisSeismic = seismicTestDat_truthPref[goodCoords,]
+
+out = fitDigglesimDat(wellTestDat_truthPref, seismicTestDat_truthPref, 
+                      mesh=getSPDEmeshTestDat(), prefMean=2.5)
+
+summary(out$mod)
+# prefMean = 0:
+# Fixed effects:
+#                 mean    sd 0.025quant 0.5quant 0.975quant    mode kld
+# Intercept_pp -16.903 0.633    -18.233  -16.874    -15.735 -16.777   0
+# X_pp           1.923 0.388      1.185    1.915      2.707   1.915   0
+# Intercept_y   -0.093 0.294     -0.699   -0.083      0.462  -0.083   0
+# X_y            0.832 0.165      0.512    0.831      1.159   0.831   0
+# 
+# Random effects:
+#   Name	  Model
+# field_y SPDE2 model
+# field_pp Copy
+# 
+# Model hyperparameters:
+#                                                mean       sd 0.025quant 0.5quant 0.975quant     mode
+# Precision for the Gaussian observations[2]  100.005    3.160     93.857   99.979    106.299   99.979
+# Range for field_y                          3049.729 1050.036   1418.359 2906.014   5497.542 2642.207
+# Stdev for field_y                             0.671    0.148      0.418    0.658      0.999    0.636
+# Beta for field_pp                             1.968    0.524      0.939    1.968      3.001    1.965
+
+# prefMean = 2.5:
+# Fixed effects:
+#                 mean    sd 0.025quant 0.5quant 0.975quant    mode kld
+# Intercept_pp -16.984 0.643    -18.334  -16.955    -15.799 -16.857   0
+# X_pp           1.963 0.395      1.210    1.954      2.761   1.954   0
+# Intercept_y   -0.081 0.280     -0.659   -0.073      0.448  -0.073   0
+# X_y            0.823 0.161      0.510    0.821      1.142   0.821   0
+# 
+# Random effects:
+#   Name	  Model
+# field_y SPDE2 model
+# field_pp Copy
+# 
+# Model hyperparameters:
+#                                                mean       sd 0.025quant 0.5quant 0.975quant     mode
+# Precision for the Gaussian observations[2]  100.020    3.164     93.945   99.967    106.401   99.854
+# Range for field_y                          3070.845 1051.629   1506.376 2905.781   5594.439 2601.978
+# Stdev for field_y                             0.661    0.144      0.424    0.645      0.987    0.615
+# Beta for field_pp                             2.145    0.544      1.115    2.132      3.253    2.074
+
 
 # plot predictions ----
 
@@ -282,3 +328,63 @@ abline(v=trueAgg, col="black")
 abline(v=svyAggEst, col="blue")
 legend("topright", legend=c("Mean", "80% CI", "Truth", "HT"), lty=c(1, 2, 1, 1), col=c("purple", "purple", "black", "blue"))
 dev.off()
+
+
+
+
+
+
+
+# n=250 truth pref ----
+
+testDat = getTestDat(n=250, prefType="truth", saveDat=FALSE)
+
+wellDat = testDat$wellDat
+seismicDat = testDat$seismicDat
+truthDat = testDat$truthDat
+
+out = fitDigglesimDat(wellDat, seismicDat, 
+                      mesh=getSPDEmeshTestDat(), prefMean=2.5)
+
+summary(out$mod)
+
+# prefMean = 2.5
+# Fixed effects:
+#                 mean    sd 0.025quant 0.5quant 0.975quant    mode kld
+# Intercept_pp -14.979 0.534    -16.062  -14.969    -13.957 -14.969   0
+# X_pp           2.373 0.146      2.089    2.372      2.662   2.372   0
+# Intercept_y   -0.354 0.241     -0.841   -0.350      0.107  -0.350   0
+# X_y            1.123 0.058      1.010    1.122      1.236   1.122   0
+# 
+# Random effects:
+#   Name	  Model
+# field_y SPDE2 model
+# field_pp Copy
+# 
+# Model hyperparameters:
+#                                                mean      sd 0.025quant 0.5quant 0.975quant     mode
+# Precision for the Gaussian observations[2]   97.969   3.091     92.062   97.907     104.23   97.757
+# Range for field_y                          2736.558 418.489   2027.538 2697.846    3671.08 2609.116
+# Stdev for field_y                             0.814   0.106      0.632    0.805       1.05    0.785
+# Beta for field_pp                             2.205   0.138      1.935    2.205       2.48    2.203
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
