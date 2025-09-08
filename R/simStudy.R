@@ -207,9 +207,9 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
       truthDatStd[,3] = logit(truthDatStd[,3])
       indepDatStd[,3] = logit(indepDatStd[,3])
     }
-    seismicMean = mean(seismicDatStd)
-    truthMean = mean(truthDatStd)
-    indepMean = mean(indepDatStd)
+    seismicMean = mean(seismicDatStd[,3])
+    truthMean = mean(truthDatStd[,3])
+    indepMean = mean(indepDatStd[,3])
     seismicSD = sd(seismicDatStd[,3])
     truthSD = sd(truthDatStd[,3])
     indepSD = sd(indepDatStd[,3])
