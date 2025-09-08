@@ -224,6 +224,7 @@ getAllNormFacs = function() {
   
   allFacs = numeric(100)
   for(i in 1:100) {
+    print(paste0("i = ", i, "/100"))
     allFacs[i] = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
                             goodCoords=NULL, subsampled=FALSE, truthFacOnly=TRUE)
   }
