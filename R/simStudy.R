@@ -786,6 +786,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
       prefPar = sqrt(0.5) * prefPar * truthFac
     } else if(propVarCase == "realistic") {
       prefPar = sqrt(0.25) * prefPar * truthFac
+    } else if(propVarCase == "diggle") {
+      prefPar = prefPar * truthFac
     }
     
     if(fitModFunI < 3) {
