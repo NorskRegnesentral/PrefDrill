@@ -1739,7 +1739,7 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
       repDist = repAreaToDist(repelAreaProp)
       predGrid = cbind(east=seismicDat$east, north=seismicDat$north)
       pseudoCoords = getPseudoCoordsSimStudy(maxPts=nPseudo, predGrid=predGrid)
-      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar)
+      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, getPPres=TRUE)
     }
     
     out = do.call("fitModFun", inputList)
@@ -1770,7 +1770,7 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
       pNorth = wellDat$north
       pVolFrac = wellDat$volFrac
       
-      preds = ests
+      preds = rowMeans(predMat)
       sds = out$predSDs
       predQuants = sapply(1:length(preds), function(i) {
         ecdf(predMat[i,])(gTruth[i])
@@ -1868,8 +1868,8 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
       dev.off()
       
       if(fitModFunI == 4) {
-        inputList = list(wellDat, seismicDat, repelDist=repDist, getPPres=TRUE)
-        newOut = do.call("fitModFun", inputList)
+        # inputList = list(wellDat, seismicDat, repelDist=repDist, getPPres=TRUE)
+        # newOut = do.call("fitModFun", inputList)
         
         pdf(file=paste0("figures/testPseudo/testLambdas_simStudy_", adaptScen, "_par", 
                         sampleParI, "_rep", repI, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
@@ -1884,7 +1884,7 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
                asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
         points(pEast, pNorth, cex=.5)
         
-        lambdas = newOut$pred.ppEst
+        lambdas = out$pred.ppEst
         squilt(gEast, gNorth, lambdas, grid=list(x=eastGrid, y=northGrid), 
                xlab="Easting", ylab="Northing", main="Sampling Intensity Estimate", 
                asp=1, smallplot=c(.83,.87,.25,.8), zlim=c(min(lambdas[lambdas > -400]), max(lambdas)))
