@@ -192,7 +192,7 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
     # standardize truth on logit scale
     truthDatStd = truthDat
     truthDatStd[,3] = logit(truthDatStd[,3])
-    truthSD = sd(truthDatStd)
+    truthSD = sd(truthDatStd[,3])
     
     1/truthSD
   } else {
