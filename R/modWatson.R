@@ -1727,6 +1727,22 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
   # interpolate truth to well points
   truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
   
+  # make sure prior on preferentiality is centered at truth
+  
+  truthFac = getNormFac(seismicDat=1, truthDat=truth, indepDat=1, 
+                        subsampled=TRUE, goodCoords=goodCoords, truthFacOnly=TRUE)
+  
+  if(propVarCase %in% c("uniform", "cluster", "seismic")) {
+    # make sure priors are centered around the truth in this case
+    prefPar = 0
+  } else if(propVarCase == "realNoClust") {
+    prefPar = sqrt(0.5) * prefPar * truthFac
+  } else if(propVarCase == "realistic") {
+    prefPar = sqrt(0.25) * prefPar * truthFac
+  }
+  
+  # loop through pseudosite resolutions
+  
   fullPredMat = c()
   fixedList = list()
   parList = list()
@@ -1735,7 +1751,7 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
     
     # Fit model and calculate scores if need be
     
-    if (fitModFunI == 4) {
+    if(fitModFunI == 4) {
       repDist = repAreaToDist(repelAreaProp)
       predGrid = cbind(east=seismicDat$east, north=seismicDat$north)
       pseudoCoords = getPseudoCoordsSimStudy(maxPts=nPseudo, predGrid=predGrid)

@@ -152,6 +152,85 @@ getPrefDrillLoc = function(seismicDat,
   c(east=east, north=north, seismicEst=seismicEst)
 }
 
+# Returns the normalization factor of the truth used in the batch case for the 
+# given simulation replicate, i.e. if normLgtTruth = fac * (Lgttruth - meanLgtTruth), 
+# returns fac, meanLgtTruth, and normLgtTruth
+getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
+                      goodCoords=NULL, subsampled=TRUE, truthFacOnly=FALSE) {
+  
+  if(is.null(seismicDat)) {
+    # seismic data
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", repI, ".txt"), force01=TRUE)
+    seismicDat = out$surfFrame
+  }
+  
+  if(is.null(truthDat)) {
+    # truth
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
+    truthDat = out$surfFrame
+  }
+  
+  if(is.null(indepDat)) {
+    # indep
+    otherRepI = ((repI + 1) %% 100) + 1
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", otherRepI, ".txt"), force01=TRUE)
+    indepDat = out$surfFrame
+  }
+  
+  if(!subsampled) {
+    # subsample
+    
+    if(is.null(goodCoords)) {
+      goodCoords = subsampleSimStudyGrid(seismicDat)
+    }
+    seismicDat = seismicDat[goodCoords,]
+    truthDat = truthDat[goodCoords,]
+    indepDat = indepDat[goodCoords,]
+  }
+  
+  if(truthFacOnly) {
+    # standardize truth on logit scale
+    truthDatStd = truthDat
+    truthDatStd[,3] = logit(truthDatStd[,3])
+    truthSD = sd(truthDatStd)
+    
+    1/truthSD
+  } else {
+    # standardize seismic, truth, and indep data on logit scale
+    seismicDatStd = seismicDat
+    truthDatStd = truthDat
+    indepDatStd = indepDat
+    seismicDatStd[,3] = logit(seismicDatStd[,3])
+    truthDatStd[,3] = logit(truthDatStd[,3])
+    indepDatStd[,3] = logit(indepDatStd[,3])
+    seismicMean = mean(seismicDatStd)
+    truthMean = mean(truthDatStd)
+    indepMean = mean(indepDatStd)
+    seismicSD = sd(seismicDatStd)
+    truthSD = sd(truthDatStd)
+    indepSD = sd(indepDatStd)
+    seismicDatStd[,3] = (seismicDatStd[,3] - seismicMean)/seismicSD
+    truthDatStd[,3] = (truthDatStd[,3] - truthMean)/truthSD
+    indepDatStd[,3] = (indepDatStd[,3] - indepMean)/indepSD
+    
+    list(seismicDatStd=seismicDatStd, truthDatStd=truthDatStd, indepDatStd=indepDatStd, 
+         seismicMean=seismicMean, truthMean=truthMean, indepMean=indepMean, 
+         seismicSD=seismicSD, truthSD=truthSD, indepSD=indepSD)
+  }
+}
+
+# returns all normalizing factors
+getAllNormFacs = function() {
+  
+  allFacs = numeric(100)
+  for(i in 1:100) {
+    allFacs[i] = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
+                            goodCoords=NULL, subsampled=FALSE, truthFacOnly=TRUE)
+  }
+  
+  allFacs
+}
+
 # Main simulation study functions -----
 
 # NOTE:
@@ -501,16 +580,12 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       # subsample
       indepDat = indepDat[goodCoords,]
       
-      # standardize seismic, truth, and indep data on logit scale
-      seismicDatStd = seismicDat
-      truthDatStd = truthDat
-      indepDatStd = indepDat
-      seismicDatStd[,3] = logit(seismicDatStd[,3])
-      truthDatStd[,3] = logit(truthDatStd[,3])
-      indepDatStd[,3] = logit(indepDatStd[,3])
-      seismicDatStd[,3] = (seismicDat[,3] - mean(seismicDat[,3]))/sd(seismicDat[,3])
-      truthDatStd[,3] = (truthDat[,3] - mean(truthDat[,3]))/sd(truthDat[,3])
-      indepDatStd[,3] = (indepDat[,3] - mean(indepDat[,3]))/sd(indepDat[,3])
+      # standardize (center + normalize)
+      normDat = getNormFac(seismicDat=seismicDat, truthDat=truthDat, indepDat=indepDat, 
+                           subsampled=TRUE, goodCoords=goodCoords)
+      seismicDatStd = normDat$seismicDatStd
+      truthDatStd = normDat$truthDatStd
+      indepDatStd = normDat$indepDatStd
       
       # combine them into a realistic mix and convert back to [0,1] scale
       sampleDat = seismicDat
@@ -545,7 +620,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       stop("unrecognized propVarCase")
     }
     
-    sampleDat[,3] = expit(sqrt(sigmaSq) * sampleDat[,3])
+    sampleDat[,3] = expit(sampleDat[,3])
     
     # do batch sampling
     wellDat = wellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
@@ -662,6 +737,19 @@ runSimStudyI = function(i, significance=c(.8, .95),
   # Fit model and calculate scores if need be
   scoresFile = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", i, ".RData")
   if(!file.exists(scoresFile) || regenData) {
+    
+    truthFac = getNormFac(seismicDat=1, truthDat=truth, indepDat=1, 
+                                    subsampled=TRUE, goodCoords=goodCoords, truthFacOnly=TRUE)
+    
+    if(propVarCase %in% c("uniform", "cluster", "seismic")) {
+      # make sure priors are centered around the truth in this case
+      prefPar = 0
+    } else if(propVarCase == "realNoClust") {
+      prefPar = sqrt(0.5) * prefPar * truthFac
+    } else if(propVarCase == "realistic") {
+      prefPar = sqrt(0.25) * prefPar * truthFac
+    }
+    
     if(fitModFunI < 3) {
       inputList = list(wellDat, seismicDat)
     } else if (fitModFunI == 3) {
