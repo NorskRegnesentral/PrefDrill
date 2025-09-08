@@ -237,6 +237,36 @@ getAllNormFacs = function(takeLogit=TRUE) {
   allFacs
 }
 
+getAllLMbetas = function() {
+  
+  allBetas = numeric(100)
+  allResidVars = numeric(100)
+  for(i in 1:100) {
+    print(paste0("i = ", i, "/100"))
+    repI = i
+    
+    # seismic data
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", repI, ".txt"), force01=TRUE)
+    seismicDat = out$surfFrame
+    
+    # truth
+    out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
+    truthDat = out$surfFrame
+    
+    
+    goodCoords = subsampleSimStudyGrid(seismicDat)
+    seismicDat = seismicDat[goodCoords,]
+    truthDat = truthDat[goodCoords,]
+    
+    mod = lm(I(logit(truthDat[,3])) ~ I(logit(seismicDat[,3])))
+    
+    allBetas[i] = coef(mod)[2]
+    allResidVars[i] = var(resid(mod))
+  }
+  
+  list(allBetas=allBetas, allResidVars=allResidVars)
+}
+
 # Main simulation study functions -----
 
 # NOTE:

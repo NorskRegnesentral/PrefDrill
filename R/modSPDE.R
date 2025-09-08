@@ -8,11 +8,11 @@
 # Inputs:
 # mesh: SPDE mesh. Could be created by e.g. getSPDEmesh()
 # U, alpha: the threshold and probability of crossing the threshold for the 
-#              standard deviation in the PC prior. By default, p(marginalSD > 1) = 0.05
+#              standard deviation in the PC prior. By default, p(marginalSD > 1) = 0.5
 # medianRange: by default, one fifth of the domain diameter
 # 
 # Outputs: prior to give to INLA
-getSPDEprior = function(mesh, U=1, alpha=0.05, medianRange=NULL) {
+getSPDEprior = function(mesh, U=1, alpha=0.5, medianRange=NULL) {
   size <- min(c(diff(range(mesh$loc[, 1])), diff(range(mesh$loc[, 2]))))
   
   # set default median range
