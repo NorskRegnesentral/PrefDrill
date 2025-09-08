@@ -380,7 +380,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       # save this fit to use next time
       prevFit = fit$mod
       
-    } else if(!is.null(seismicDat)) {
+    } else if(!is.null(seismicDat) && is.null(preds)) {
       
       # base sampling intensity on seismic data
       fit = NULL
@@ -394,6 +394,9 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       preds = rep(0.5, nrow(predGrid))
       predAggMat = mean(preds)
       
+    } else if(!is.null(preds)) {
+      fit=NULL
+      predAggMat = mean(preds)
     } else {
       stop("preds, seismicDat, and modelFitter are all NULL, and prefPar != 0")
     }

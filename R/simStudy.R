@@ -236,6 +236,8 @@ getAllNormFacs = function(takeLogit=TRUE) {
   
   allFacs
 }
+# mean(getAllNormFacs())
+# [1] 2.318985
 
 getAllLMbetas = function() {
   
