@@ -156,7 +156,7 @@ getPrefDrillLoc = function(seismicDat,
 # given simulation replicate, i.e. if normLgtTruth = fac * (Lgttruth - meanLgtTruth), 
 # returns fac, meanLgtTruth, and normLgtTruth
 getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
-                      goodCoords=NULL, subsampled=TRUE, truthFacOnly=FALSE) {
+                      goodCoords=NULL, subsampled=TRUE, truthFacOnly=FALSE, takeLogit=TRUE) {
   
   if(is.null(seismicDat)) {
     # seismic data
@@ -191,7 +191,9 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
   if(truthFacOnly) {
     # standardize truth on logit scale
     truthDatStd = truthDat
-    truthDatStd[,3] = logit(truthDatStd[,3])
+    if(takeLogit) {
+      truthDatStd[,3] = logit(truthDatStd[,3])
+    }
     truthSD = sd(truthDatStd[,3])
     
     1/truthSD
@@ -200,9 +202,11 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
     seismicDatStd = seismicDat
     truthDatStd = truthDat
     indepDatStd = indepDat
-    seismicDatStd[,3] = logit(seismicDatStd[,3])
-    truthDatStd[,3] = logit(truthDatStd[,3])
-    indepDatStd[,3] = logit(indepDatStd[,3])
+    if(takeLogit) {
+      seismicDatStd[,3] = logit(seismicDatStd[,3])
+      truthDatStd[,3] = logit(truthDatStd[,3])
+      indepDatStd[,3] = logit(indepDatStd[,3])
+    }
     seismicMean = mean(seismicDatStd)
     truthMean = mean(truthDatStd)
     indepMean = mean(indepDatStd)
