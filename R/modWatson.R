@@ -48,7 +48,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
                            doModAssess=FALSE, previousFit=NULL, customFixedI=NULL, 
                            quadratureMethod=c("pseudoSites", "mesh"), 
                            fixedParameters=NULL, fixedRepelAmt=500, 
-                           addNugToPredCoords=FALSE, getPPres=FALSE, 
+                           addNugToPredCoords=FALSE, getPPres=FALSE, anisFac=1, 
                            experimentalMode=FALSE, bernApprox=FALSE, controlvb=control.vb()) {
   
   # set defaults
@@ -60,6 +60,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
     pseudoOnSeismicGrid = all.equal(c(pseudoCoords[,1], pseudoCoords[,2]), c(seismicDat[,1], seismicDat[,2]))
   } else {
     pseudoOnSeismicGrid = FALSE
+    stop("if pseudoCoords != seismicGrid, must adjust repulsion to account for pixelI")
   }
   
   # construct prediction points and covariates
@@ -98,7 +99,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
             customFixedI=customFixedI, quadratureMethod=quadratureMethod, prefMean=prefMean, 
             previousFit=previousFit, addNugToPredCoords=addNugToPredCoords, getPPres=getPPres, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode, bernApprox=bernApprox, 
-            controlvb=controlvb)
+            controlvb=controlvb, anisFac=anisFac)
 }
 
 # function for fitting the Watson et al. model to data
@@ -160,7 +161,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      nPostSamples=1000, verbose=TRUE, link=1, seed=NULL, 
                      doModAssess=FALSE, customFixedI=NULL, quadratureMethod=c("pseudoSites", "mesh"), 
                      previousFit=NULL, fixedRepelAmt=NULL, addNugToPredCoords=TRUE, 
-                     getPPres=TRUE, prefMean=0, 
+                     getPPres=TRUE, prefMean=0, anisFac=1, 
                      fixedParameters=NULL, experimentalMode=FALSE, bernApprox=FALSE, 
                      controlvb=control.vb()) {
   
@@ -263,7 +264,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
       #                                repelDist=repelDist, returnSparse=TRUE)
       obsGridCoords = predCoords[obsGridI,]
       thisRepelMat = getRepulsionCov(rbind(obsGridCoords[i,], pseudoCoords), obsGridCoords[1:(i-1),], 
-                                     repelDist=repelDist, returnSparse=TRUE)
+                                     repelDist=repelDist, returnSparse=TRUE, anisFac=anisFac)
     }
     
     if(i == 1) {
@@ -413,7 +414,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   # get prediction covariates
   predRepelMat = getRepulsionCov(predCoords, obsCoords, 
-                                 repelDist=repelDist, returnSparse=TRUE)
+                                 repelDist=repelDist, returnSparse=TRUE, anisFac=anisFac)
   if(!is.null(fixedRepelAmt)) {
     predOffset.pp = predRepelMat * fixedRepelAmt
   } else {
@@ -541,7 +542,8 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   # get repulsion design matrix at observations (at the time they were sampled). 
   # Add effect to observation predictions (not necessary if repulsion isn't 
   # fixed, since already included in fixedObsMat.pp)
-  obsRepelMat = getRepulsionCovAtObs(obsCoords=obsCoords, repelDist=repelDist, returnSparse=TRUE)
+  obsRepelMat = getRepulsionCovAtObs(obsCoords=obsCoords, repelDist=repelDist, 
+                                     returnSparse=TRUE, anisFac=anisFac)
   if(!is.null(fixedRepelAmt) && getPPres) {
     offsetObs = obsRepelMat %*% fixedRepelAmt
     fixedObsMat.pp = sweep(fixedObsMat.pp, 1, offsetObs, "+")
@@ -981,7 +983,7 @@ fitWatsonOld = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValue
       thisRepelMat = Matrix(matrix(rep(0, 1+nPseudoPerIter), ncol=1), sparse=TRUE)
     } else {
       thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
-                                     repelDist=repelDist, returnSparse=TRUE)
+                                     repelDist=repelDist, returnSparse=TRUE, anisFac=anisFac)
     }
     # thisX.pp = cbind(thisX.pp, thisRepelMat)
     
@@ -1590,7 +1592,12 @@ getQuadWeights = function(mesh=getSPDEmeshSimStudy(), domain=getDomainSimStudy()
 # 
 # predCoords: new point locations
 # obsCoords: observation locations new points are repelled from
-getRepulsionCov = function(predCoords, obsCoords, repelDist=10, returnSparse=FALSE) {
+getRepulsionCov = function(predCoords, obsCoords, repelDist=10, returnSparse=FALSE, anisFac=1) {
+  if(anisFac != 1) {
+    # invert the geometric transformation
+    obsCoords[,1] = obsCoords[,1]*anisFac
+    predCoords[,1] = predCoords[,1]*anisFac
+  }
   dists = rdist(predCoords, obsCoords)
   out = matrix(apply(dists, 1, function(x) {-as.numeric(any(x < repelDist))}), ncol=1)
   
@@ -1603,7 +1610,11 @@ getRepulsionCov = function(predCoords, obsCoords, repelDist=10, returnSparse=FAL
 
 # same as getRepulsionCov, but gives the values of the repuslion covariate for 
 # each observation when it was sampled
-getRepulsionCovAtObs = function(obsCoords, repelDist=10, returnSparse=FALSE) {
+getRepulsionCovAtObs = function(obsCoords, repelDist=10, returnSparse=FALSE, anisFac=1) {
+  if(anisFac != 1) {
+    # invert the geometric transformation
+    obsCoords[,1] = obsCoords[,1]*anisFac
+  }
   dists = rdist(obsCoords)
   diag(dists) = Inf
   repelInd = apply(dists, 1, function(x) {

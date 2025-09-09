@@ -1,11 +1,12 @@
 # functions for the simulation study
 
+# THIS FUNCTION NO LONGER USED!!!
 # construct a rectangular prediction grid over a domain
 # # xLims: a 2-vector with the min and max x value
 # # yLims: a 2-vector with the min and max y value
 # upScaleFac: upscale factor (new number of pred pts = normal / 2^upScaleFac)
 getSimStudyPredGrid = function(upScaleFac=2, getGoodCoords=FALSE) {
-  
+  stop("deprecated")
   predGridFile = paste0("savedOutput/global/simPredGrid_", upScaleFac, ".RData")
   
   if(!file.exists(predGridFile)) {
@@ -80,10 +81,10 @@ getFitModFuns = function() {
 
 
 # proportion of domain area -> repel radius bandwidth
-repAreaToDist = function(repArea=.01) {
+repAreaToDist = function(repArea=.01, anisFac=1) {
   # A = pi R^2
   # R = sqrt(A/pi)
-  xlims = c(-12.5, 15012.5)
+  xlims = c(-12.5, 15012.5)/anisFac
   ylims = c(-8.3335, 5008.4336)
   domainArea = diff(xlims) * diff(ylims)
   sqrt(repArea * domainArea / pi)
@@ -223,7 +224,7 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
   }
 }
 
-# returns all normalizing factors
+# returns all normalizing factors for the truth (1/sigma_eta)
 getAllNormFacs = function(takeLogit=TRUE) {
   
   allFacs = numeric(100)
@@ -797,14 +798,12 @@ runSimStudyI = function(i, significance=c(.8, .95),
     if(fitModFunI < 3) {
       inputList = list(wellDat, seismicDat, mesh=mesh)
     } else if (fitModFunI == 3) {
-      repDist = repAreaToDist(repelAreaProp)
       inputList = list(wellDat, seismicDat, prefMean=prefPar, mesh=mesh)
     } else if (fitModFunI == 4) {
       repDist = repAreaToDist(repelAreaProp)
       inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, mesh=mesh)
     }
     else if (fitModFunI == 5) {
-      repDist = repAreaToDist(repelAreaProp)
       inputList = list(wellDat, seismicDat, logitProbsNoRep=logitProbsNoRep, mesh=mesh)
     }
     
@@ -1508,17 +1507,17 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     if(type == "par") {
       
       # set names of parameters to be interprettable, particularly fixed effects
-      colnames(thisSPDE)[colnames(thisSPDE) == "X2"] = "seismic"
-      colnames(thisKern)[colnames(thisKern) == "X2"] = "seismic"
+      colnames(thisSPDE)[colnames(thisSPDE) == "X2"] = "seismic_y"
+      colnames(thisKern)[colnames(thisKern) == "X2"] = "seismic_y"
       colnames(thisKern)[colnames(thisKern) == "X3"] = "design"
-      colnames(thisDiggle)[colnames(thisDiggle) == "X_y"] = "seismic"
-      colnames(thisDiggle)[colnames(thisDiggle) == "X_pp"] = "seismic.pp"
-      colnames(thisWatson)[colnames(thisWatson) == "X.y2"] = "seismic"
+      colnames(thisDiggle)[colnames(thisDiggle) == "X_y"] = "seismic_y"
+      colnames(thisDiggle)[colnames(thisDiggle) == "X_pp"] = "seismic_p"
+      colnames(thisWatson)[colnames(thisWatson) == "X.y2"] = "seismic_y"
       colnames(thisWatson)[colnames(thisWatson) == "X.y1"] = "X1"
-      colnames(thisWatson)[colnames(thisWatson) == "X.pp2"] = "seismic.pp"
+      colnames(thisWatson)[colnames(thisWatson) == "X.pp2"] = "seismic_p"
       colnames(thisWatson)[colnames(thisWatson) == "X.pp1"] = "X1.pp"
       if(!is.null(designScores)) {
-        colnames(thisDesign)[colnames(thisDesign) == "X2"] = "seismic"
+        colnames(thisDesign)[colnames(thisDesign) == "X2"] = "seismic_y"
         colnames(thisDesign)[colnames(thisDesign) == "X3"] = "design"
       }
       
@@ -1630,7 +1629,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         ) +
         theme_minimal()
       if(!(thisVar %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
-                          "pref", "seismic", "design"))) {
+                          "pref", "seismic_y", "seismic_p", "design"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }
@@ -1653,7 +1652,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       varNames = names(spdeScores$aggScoresAll)
     } else {
       # varNames = names(spdeScores$parEstsAll)
-      varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
+      varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design")
     }
     
     for(j in 1:length(varNames)) {
@@ -1784,7 +1783,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     if(type != "par") {
       varNames = names(spdeScores$aggScoresAll)
     } else {
-      varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic", "design")
+      varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design")
     }
     
     for(j in 1:length(varNames)) {
@@ -1828,7 +1827,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         ) +
         theme_minimal()
       if(!(thisVar %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
-                          "pref", "seismic", "design"))) {
+                          "pref", "seismic_y", "seismic_p", "design"))) {
         # seismic estimates have 0 variance
         p = p + scale_y_log10()
       }

@@ -295,7 +295,8 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   predAggUpper = quantile(predAggMat, probs=1-(1-significanceCI)/2)
   
   interceptSummary=mod$summary.fixed[3, 1:5]
-  fixedEffectSummary=mod$summary.fixed[grepl("_y", row.names(mod$summary.fixed)), 1:5]
+  # fixedEffectSummary=mod$summary.fixed[grepl("_y", row.names(mod$summary.fixed)), 1:5]
+  fixedEffectSummary=mod$summary.fixed[, 1:5]
   
   rangeSummary=mod$summary.hyperpar[which(hyperparNames == "Range for field_y"), 1:5]
   spatialSDSummary = mod$summary.hyperpar[which(hyperparNames == "Stdev for field_y"), 1:5]
