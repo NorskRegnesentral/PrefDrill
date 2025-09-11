@@ -1903,7 +1903,6 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
       }
       
       
-      stop("make sure wellDat$pixelI fixed to account for subsampling and resolution changes before running this!!!")
       out = do.call("fitModFun", inputList)
       
       if(fitModFunI == 4) {
