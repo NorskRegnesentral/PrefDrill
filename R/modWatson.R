@@ -1710,8 +1710,7 @@ getRepulsionCovAtObs = function(obsCoords, obsGridCoords, repelDist=10, returnSp
   diag(dists) = Inf
   repelInd = apply(dists, 1, function(x) {
     inRangeI = which(x < repelDist)
-    # ifelse(identical(integer(0), inRangeI), Inf, min(inRangeI))
-    min(inRangeI)
+    ifelse(identical(integer(0), inRangeI), Inf, min(inRangeI))
   })
   out = matrix(-as.numeric(repelInd < 1:nrow(obsCoords)), ncol=1)
   
