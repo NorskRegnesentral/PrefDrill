@@ -1887,8 +1887,11 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
     fullPredMat = c()
     fixedList = list()
     parList = list()
+    allTs = numeric(nPseudos)
     for(j in 1:length(nPseudos)) {
       nPseudo = nPseudos[j]
+      
+      print(paste0("fitting Watson model for res ", nPseudo, " and j=", j, "/", length(nPseudos)))
       
       # Fit model and calculate scores if need be
       
@@ -1915,7 +1918,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
       fullPredMat = cbind(fullPredMat, rowMeans(predMat))
       fixedList = c(fixedList, list(fixedEffectSummary))
       parList = c(parList, list(parameterSummaryTable))
-      
+      allTs[j] = out$timings$totalTime
       
       if(doPlot) {
         
