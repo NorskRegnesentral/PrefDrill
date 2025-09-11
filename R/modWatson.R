@@ -1887,7 +1887,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
     fullPredMat = c()
     fixedList = list()
     parList = list()
-    allTs = numeric(nPseudos)
+    allTs = numeric(length(nPseudos))
     for(j in 1:length(nPseudos)) {
       nPseudo = nPseudos[j]
       
