@@ -2062,7 +2062,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
       }
     }
     
-    save(fullPredMat, fixedList, parList, nPseudos=nPseudos, file=pseudoFile)
+    save(fullPredMat, fixedList, parList, allTs, nPseudos, file=pseudoFile)
   } else {
     out = load(pseudoFile)
   }
