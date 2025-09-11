@@ -1793,12 +1793,14 @@ getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL, getPredGridI=TRUE
 }
 
 # head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 250) & (modelFitCombs$repelAreaProp == 0.001) & (modelFitCombs$propVarCase == "diggle"),])
-testPseudoConvergence = function(i=44034, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000), 
+testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000), 
                                  significance=c(.8, .95), 
                                  adaptScen=c("batch", "adaptPref", "adaptVar"), 
                                  regenData=FALSE, verbose=FALSE, doPlot=TRUE, anisFac=3) {
   startT = proc.time()[3]
   adaptScen = match.arg(adaptScen)
+  
+  pseudoFile=paste0("savedOutput/testPseudo/testPseudo_", i, ".RData")
   
   if(verbose) {
     print(paste0("generating model predictions for i: ", i, ", adapt scenario: ", adaptScen))
@@ -1881,155 +1883,76 @@ testPseudoConvergence = function(i=44034, nPseudos=c(500, 750, 1000, 1500, 2000,
   
   # loop through pseudosite resolutions
   
-  fullPredMat = c()
-  fixedList = list()
-  parList = list()
-  for(j in 1:length(nPseudos)) {
-    nPseudo = nPseudos[j]
-    
-    # Fit model and calculate scores if need be
-    
-    if(fitModFunI == 4) {
-      repDist = repAreaToDist(repelAreaProp)
-      predGrid = cbind(east=seismicDat$east, north=seismicDat$north)
-      pseudoCoords = getPseudoCoordsSimStudy(maxPts=nPseudo, predGrid=predGrid)
+  if(!file.exists(pseudoFile) || regenData) {
+    fullPredMat = c()
+    fixedList = list()
+    parList = list()
+    for(j in 1:length(nPseudos)) {
+      nPseudo = nPseudos[j]
       
-      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, mesh=mesh, getPPres=TRUE)
-    }
-    
-    
-    stop("make sure wellDat$pixelI fixed to account for subsampling and resolution changes before running this!!!")
-    out = do.call("fitModFun", inputList)
-    
-    if(fitModFunI == 4) {
-      predMat = out$predMat.y # doesn't include nugget
-      predAggMat = out$pred.yAggMat # doesn't include nugget
-      obsMat = out$obsMat.y # doesn't include nugget
-    }
-    fixedEffectSummary = out$fixedEffectSummary
-    parameterSummaryTable = out$parameterSummaryTable
-    
-    # concatenate results
-    fullPredMat = cbind(fullPredMat, rowMeans(predMat))
-    fixedList = c(fixedList, list(fixedEffectSummary))
-    parList = c(parList, list(parameterSummaryTable))
-    
-    
-    if(doPlot) {
-      
-      # plot some figures for testing purposes
-      
-      gEast = seismicDat$east
-      gNorth = seismicDat$north
-      gSeismic = seismicDat$seismicEst
-      gTruth = truth[,3]
-      pEast = wellDat$east
-      pNorth = wellDat$north
-      pVolFrac = wellDat$volFrac
-      
-      preds = rowMeans(predMat)
-      sds = out$predSDs
-      predQuants = sapply(1:length(preds), function(i) {
-        ecdf(predMat[i,])(gTruth[i])
-      })
-      predQuants[predQuants > .975] = 1
-      predQuants[predQuants < .025] = 0
-      
-      eastGrid = sort(unique(gEast))
-      northGrid = sort(unique(gNorth))
-      
-      ticks = seq(0, 1, by=.2)
-      tickLabs = as.character(ticks)
-      
-      seqCols = function(n) {purpleYellowSeqCols(n)}
-      quantCols = function(n) {
-        tmp = seqCols(n)
-        tmp[n] = "red"
-        tmp[1] = "blue"
-        tmp
-      }
-      
-      pdf(file=paste0("figures/testPseudo/testPreds_simStudy_", adaptScen, "_par", 
-                      sampleParI, "_rep", repI, "_nPseudo", nPseudo, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
-      par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-      squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-             xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-             zlim=range(c(preds, gTruth)), asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      
-      squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      
-      splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-            resetGraphics=FALSE, 
-            zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
-            asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      
-      squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
-             colScale=seqCols, zlim=range(c(preds, gTruth)), 
-             xlab="Easting", ylab="Northing", main="Estimate", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      dev.off()
-      
-      pdf(file=paste0("figures/testPseudo/testQuants_simStudy_", adaptScen, "_par", 
-                      sampleParI, "_rep", repI, "_nPseudo", nPseudo, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
-      par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-      squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-             xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      
-      squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      
-      splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-            resetGraphics=FALSE, 
-            xlab="Easting", ylab="Northing", main="Well Data", 
-            asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
-      
-      squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
-             colScale=quantCols, 
-             xlab="Easting", ylab="Northing", main="Truth Quantiles", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      dev.off()
-      
-      pdf(file=paste0("figures/testPseudo/testLogitSDs_simStudy_", adaptScen, "_par", 
-                      sampleParI, "_rep", repI, "_nPseudo", nPseudo, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
-      par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
-      squilt(gEast, gNorth, logit(gTruth), grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-             xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      
-      squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
-             xlab="Easting", ylab="Northing", main="Seismic Estimate", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      
-      splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-            resetGraphics=FALSE, 
-            xlab="Easting", ylab="Northing", main="Well Data", 
-            asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
-      
-      squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
-             colScale=seqCols, 
-             xlab="Easting", ylab="Northing", main="Truth Quantiles", 
-             asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
-      points(pEast, pNorth, cex=.5)
-      dev.off()
+      # Fit model and calculate scores if need be
       
       if(fitModFunI == 4) {
-        # inputList = list(wellDat, seismicDat, repelDist=repDist, getPPres=TRUE)
-        # newOut = do.call("fitModFun", inputList)
+        repDist = repAreaToDist(repelAreaProp)
+        predGrid = cbind(east=seismicDat$east, north=seismicDat$north)
         
-        pdf(file=paste0("figures/testPseudo/testLambdas_simStudy_", adaptScen, "_par", 
-                        sampleParI, "_rep", repI, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
+        inputList = list(wellDat, seismicDat, repelDist=repDist, nPseudo=nPseudo, prefMean=prefPar, mesh=mesh, getPPres=TRUE)
+      }
+      
+      
+      stop("make sure wellDat$pixelI fixed to account for subsampling and resolution changes before running this!!!")
+      out = do.call("fitModFun", inputList)
+      
+      if(fitModFunI == 4) {
+        predMat = out$predMat.y # doesn't include nugget
+        predAggMat = out$pred.yAggMat # doesn't include nugget
+        obsMat = out$obsMat.y # doesn't include nugget
+      }
+      fixedEffectSummary = out$fixedEffectSummary
+      parameterSummaryTable = out$parameterSummaryTable
+      
+      # concatenate results
+      fullPredMat = cbind(fullPredMat, rowMeans(predMat))
+      fixedList = c(fixedList, list(fixedEffectSummary))
+      parList = c(parList, list(parameterSummaryTable))
+      
+      
+      if(doPlot) {
+        
+        # plot some figures for testing purposes
+        
+        gEast = seismicDat$east
+        gNorth = seismicDat$north
+        gSeismic = seismicDat$seismicEst
+        gTruth = truth[,3]
+        pEast = wellDat$east
+        pNorth = wellDat$north
+        pVolFrac = wellDat$volFrac
+        
+        preds = rowMeans(predMat)
+        sds = out$predSDs
+        predQuants = sapply(1:length(preds), function(i) {
+          ecdf(predMat[i,])(gTruth[i])
+        })
+        predQuants[predQuants > .975] = 1
+        predQuants[predQuants < .025] = 0
+        
+        eastGrid = sort(unique(gEast))
+        northGrid = sort(unique(gNorth))
+        
+        ticks = seq(0, 1, by=.2)
+        tickLabs = as.character(ticks)
+        
+        seqCols = function(n) {purpleYellowSeqCols(n)}
+        quantCols = function(n) {
+          tmp = seqCols(n)
+          tmp[n] = "red"
+          tmp[1] = "blue"
+          tmp
+        }
+        
+        pdf(file=paste0("figures/testPseudo/testPreds_simStudy_", adaptScen, "_par", 
+                        sampleParI, "_rep", repI, "_nPseudo", nPseudo, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
         par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
         squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
                xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
@@ -2041,11 +1964,10 @@ testPseudoConvergence = function(i=44034, nPseudos=c(500, 750, 1000, 1500, 2000,
                asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
         points(pEast, pNorth, cex=.5)
         
-        lambdas = out$pred.ppEst
-        squilt(gEast, gNorth, lambdas, grid=list(x=eastGrid, y=northGrid), 
-               xlab="Easting", ylab="Northing", main="Sampling Intensity Estimate", 
-               asp=1, smallplot=c(.83,.87,.25,.8), zlim=c(min(lambdas[lambdas > -400]), max(lambdas)))
-        points(pEast, pNorth, cex=.5)
+        splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+              resetGraphics=FALSE, 
+              zlim=c(0, 1), xlab="Easting", ylab="Northing", main="Well Data", 
+              asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
         
         squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
                colScale=seqCols, zlim=range(c(preds, gTruth)), 
@@ -2053,14 +1975,100 @@ testPseudoConvergence = function(i=44034, nPseudos=c(500, 750, 1000, 1500, 2000,
                asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
         points(pEast, pNorth, cex=.5)
         dev.off()
+        
+        pdf(file=paste0("figures/testPseudo/testQuants_simStudy_", adaptScen, "_par", 
+                        sampleParI, "_rep", repI, "_nPseudo", nPseudo, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
+        par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+        squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+               xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        
+        squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+               xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        
+        splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+              resetGraphics=FALSE, 
+              xlab="Easting", ylab="Northing", main="Well Data", 
+              asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
+        
+        squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
+               colScale=quantCols, 
+               xlab="Easting", ylab="Northing", main="Truth Quantiles", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        dev.off()
+        
+        pdf(file=paste0("figures/testPseudo/testLogitSDs_simStudy_", adaptScen, "_par", 
+                        sampleParI, "_rep", repI, "_nPseudo", nPseudo, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
+        par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+        squilt(gEast, gNorth, logit(gTruth), grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+               xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        
+        squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+               xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        
+        splot(pEast, pNorth, pVolFrac, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+              resetGraphics=FALSE, 
+              xlab="Easting", ylab="Northing", main="Well Data", 
+              asp=1, legend.args=list(smallplot=c(.83,.87,.25,.8)), ticks=ticks, tickLabels=tickLabs)
+        
+        squilt(gEast, gNorth, predQuants, grid=list(x=eastGrid, y=northGrid), 
+               colScale=seqCols, 
+               xlab="Easting", ylab="Northing", main="Truth Quantiles", 
+               asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+        points(pEast, pNorth, cex=.5)
+        dev.off()
+        
+        if(fitModFunI == 4) {
+          # inputList = list(wellDat, seismicDat, repelDist=repDist, getPPres=TRUE)
+          # newOut = do.call("fitModFun", inputList)
+          
+          pdf(file=paste0("figures/testPseudo/testLambdas_simStudy_", adaptScen, "_par", 
+                          sampleParI, "_rep", repI, "_nPseudo", nPseudo, ".pdf"), width=8, height=5)
+          par(mfrow=c(2,2), oma=c( 0,0,0,0), mar=c(5.1, 4.1, 4.1, 5.5))
+          squilt(gEast, gNorth, gTruth, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+                 xlab="Easting", ylab="Northing", main="True Sand Volume Frac", 
+                 zlim=range(c(preds, gTruth)), asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+          points(pEast, pNorth, cex=.5)
+          
+          squilt(gEast, gNorth, gSeismic, grid=list(x=eastGrid, y=northGrid), 
+                 xlab="Easting", ylab="Northing", main="Seismic Estimate", 
+                 asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+          points(pEast, pNorth, cex=.5)
+          
+          lambdas = out$pred.ppEst
+          squilt(gEast, gNorth, lambdas, grid=list(x=eastGrid, y=northGrid), 
+                 xlab="Easting", ylab="Northing", main="Sampling Intensity Estimate", 
+                 asp=1, smallplot=c(.83,.87,.25,.8), zlim=c(min(lambdas[lambdas > -400]), max(lambdas)))
+          points(pEast, pNorth, cex=.5)
+          
+          squilt(gEast, gNorth, preds, grid=list(x=eastGrid, y=northGrid), 
+                 colScale=seqCols, zlim=range(c(preds, gTruth)), 
+                 xlab="Easting", ylab="Northing", main="Estimate", 
+                 asp=1, smallplot=c(.83,.87,.25,.8), ticks=ticks, tickLabels=tickLabs)
+          points(pEast, pNorth, cex=.5)
+          dev.off()
+        }
+        
       }
-      
     }
+    
+    save(fullPredMat, fixedList, parList, nPseudos=nPseudos, file=pseudoFile)
+  } else {
+    out = load(pseudoFile)
   }
   
-  save(fullPredMat, fixedList, parList, file="savedOutput/testPseudo/testPseudo.RData")
-  
+  # plot results
   browser()
+  
+  
   
   invisible(NULL)
 }
