@@ -37,8 +37,8 @@ fitDigglesimDat = function(wellDat, seismicDat,
                            significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                            nPostSamples=1000, verbose=FALSE, seed=NULL, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
-                           addNugToPredCoords=FALSE, prefMean=0, 
-                           fixedParameters=NULL, experimentalMode=FALSE) {
+                           addNugToPredCoords=FALSE, prefMean=0, getPPres=FALSE, 
+                           fixedParameters=NULL, experimentalMode=FALSE, fixPref=FALSE) {
   
   # construct prediction points
   predPts = st_as_sf(seismicDat[,1:2], coords = c("east", "north"))
@@ -61,10 +61,10 @@ fitDigglesimDat = function(wellDat, seismicDat,
             predCoords=predPts, 
             control.fixed = control.fixed,
             transform=transform, invTransform=invTransform, prefMean=prefMean, 
-            mesh=mesh, prior=prior, significanceCI=significanceCI, 
+            mesh=mesh, prior=prior, significanceCI=significanceCI, fixPref=fixPref, 
             int.strategy=int.strategy, strategy=strategy, nPostSamples=nPostSamples, 
             verbose=verbose, link=link, seed=seed, addNugToPredCoords=addNugToPredCoords, 
-            family=family, doModAssess=doModAssess, previousFit=previousFit, 
+            family=family, doModAssess=doModAssess, previousFit=previousFit, getPPres=getPPres, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode)
   
 }
@@ -81,8 +81,8 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      nPostSamples=1000, verbose=TRUE, link=1, seed=NULL,
                      family=c("normal", "binomial", "betabinomial"), 
                      doModAssess=FALSE, customFixedI = NULL, prefMean=0, 
-                     previousFit=NULL, addNugToPredCoords=TRUE, 
-                     fixedParameters=NULL, experimentalMode=FALSE) {
+                     previousFit=NULL, addNugToPredCoords=TRUE, getPPres=FALSE, 
+                     fixedParameters=NULL, experimentalMode=FALSE, fixPref=FALSE) {
   
   family = match.arg(family)
   startTime = proc.time()[3]
@@ -104,8 +104,9 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   # set family prior
-  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
-
+  # control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
+  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1.116960395, 0.009827238))))
+  
   if(!is.null(fixedParameters$familyPrec)) {
     # fix the family precision parameter on INLA's latent scale
     control.family = list(initial=log(fixedParameters$familyPrec), fixed=TRUE)
@@ -126,8 +127,33 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
 
   well_data_sf =st_as_sf(wellDat, coords = c("east", "north"))  
   
-  cmp <- ~ field_pp(geometry, copy = "field_y", fixed =F, hyper = list(beta=prefPrior)) + Intercept_y(1) + Intercept_pp(1) + X_pp(X_terra, model="linear") +
-    field_y(geometry, model=prior) + X_y(X, model="linear")
+  priorX_pp = list(mean.linear=control.fixed$mean$default, prec.linear=control.fixed$prec$default)
+  priorX_y = list(mean.linear=control.fixed$mean$default, prec.linear=control.fixed$prec$default)
+  if("X_pp" %in% names(control.fixed$mean)) {
+    priorX_pp$mean.linear = control.fixed$mean$X_pp
+  }
+  if("X_pp" %in% names(control.fixed$prec)) {
+    priorX_pp$prec.linear = control.fixed$prec$X_pp
+  }
+  if("X_y" %in% names(control.fixed$mean)) {
+    priorX_y$mean.linear = control.fixed$mean$X_y
+  }
+  if("X_y" %in% names(control.fixed$prec)) {
+    priorX_y$prec.linear = control.fixed$prec$X_y
+  }
+  
+  if(!fixPref) {
+    cmp <- ~ field_pp(geometry, copy = "field_y", fixed =F, hyper = list(beta=prefPrior)) + Intercept_y(1) + Intercept_pp(1) + 
+      X_pp(X_terra, model="linear", mean.linear=priorX_pp$mean.linear, prec.linear=priorX_pp$prec.linear) +
+      field_y(geometry, model=prior) + 
+      X_y(X, model="linear", mean.linear=priorX_y$mean.linear, prec.linear=priorX_y$prec.linear)
+  } else {
+    prefPrior = list(prior="gaussian", param=c(prefMean, 1/4))
+    cmp <- ~ field_pp(geometry, copy = "field_y", hyper = list(beta=list(fixed=TRUE, init=prefMean))) + Intercept_y(1) + Intercept_pp(1) + 
+      X_pp(X_terra, model="linear", mean.linear=priorX_pp$mean.linear, prec.linear=priorX_pp$prec.linear) +
+      field_y(geometry, model=prior) + 
+      X_y(X, model="linear", mean.linear=priorX_y$mean.linear, prec.linear=priorX_y$prec.linear)
+  }
   
   ## Construct study area
   ext_rast <- ext(X_terra)
@@ -197,6 +223,9 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   field_y_Indices = which(grepl("field_y", latentVarNames))
   field_pp_Indices = which(grepl("field_pp", latentVarNames))
   fixedIndices = which(grepl("X_y", latentVarNames))
+  if(getPPres) {
+    fixedIndices_pp = which(grepl("X_pp", latentVarNames))
+  }
   fixedInt_y_Indices = which(grepl("Intercept_y", latentVarNames))
   fixedInt_pp_Indices = which(grepl("Intercept_pp", latentVarNames))
   
@@ -204,7 +233,11 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   APred = inla.spde.make.A(mesh, loc = predCoords)
   AObs = inla.spde.make.A(mesh,loc=well_data_sf)
   spatial_y_PredMat = APred %*% latentMat[field_y_Indices,]
-  spatial_pp_PredMat = APred %*% latentMat[field_pp_Indices,]
+  if(getPPres) {
+    spatial_pp_PredMat = APred %*% latentMat[field_pp_Indices,]
+  } else {
+    spatial_pp_PredMat = NULL
+  }
   spatial_y_ObsMat = AObs %*% latentMat[field_y_Indices,]
 
   fixed_y_pred = latentMat[fixedInt_y_Indices,]
@@ -219,16 +252,29 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   X_samps = matrix(latentMat[fixedIndices,], nrow = 1, ncol = ncol(latentMat))
   fixedPredMat = sweep(X_pred_cov_mat, MARGIN = 2, STATS = X_samps, FUN = "*")
   fixedObsMat = sweep(X_obs_mat, MARGIN = 2, STATS = X_samps, FUN = "*")
+  if(getPPres) {
+    X_samps_pp = matrix(latentMat[fixedIndices_pp,], nrow = 1, ncol = ncol(latentMat))
+    fixedPredMat_pp = sweep(X_pred_cov_mat, MARGIN = 2, STATS = X_samps_pp, FUN = "*")
+    # fixedObsMat_pp = sweep(X_obs_mat, MARGIN = 2, STATS = X_samps_pp, FUN = "*")
+  }
+  
   
   Predbase_int_mat = matrix(1,nrow=nrow(predCoords),ncol=nPostSamples)
   IntPred_y_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_y_Indices,], FUN = "*")
-  IntPred_pp_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_pp_Indices,], FUN = "*")
+  if(getPPres) {
+    IntPred_pp_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_pp_Indices,], FUN = "*")
+  }
   
   Obsbase_int_mat = matrix(1,nrow=nrow(well_data_sf),ncol=nPostSamples)
   IntObs_y_samps = sweep(Obsbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_y_Indices,], FUN = "*")
  
   predMat = IntPred_y_samps + fixedPredMat + spatial_y_PredMat
   obsMat = IntObs_y_samps + fixedObsMat + spatial_y_ObsMat
+  if(getPPres) {
+    predMat.pp = IntPred_pp_samps + fixedPredMat_pp + spatial_pp_PredMat
+  } else {
+    predMat.pp = NULL
+  }
   
   if(family == "normal") {
     # get cluster effect variance
@@ -326,6 +372,10 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   else 
     stop("family not supported")
   
+  if(fixPref) {
+    hyperNames = hyperNames[-length(hyperNames)]
+  }
+  
   if(is.matrix(hyperMat)) {
     rownames(mat) = hyperNames
     
@@ -345,7 +395,13 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
       sdSummary=parameterSummaryTable[summaryHyperNames == "errorSD",]
       varSummary=parameterSummaryTable[summaryHyperNames == "errorVar",]
       rangeSummary=parameterSummaryTable[summaryHyperNames == "spatialRange",]
-      prefParSummary = parameterSummaryTable[summaryHyperNames == "prefPar",]
+      if(!fixPref) {
+        prefParSummary = parameterSummaryTable[summaryHyperNames == "prefPar",]
+      } else {
+        prefParSummary = matrix(rep(prefMean, length(summaryNames)), nrow=1)
+        colnames(prefParSummary) = summaryNames
+      }
+      
     } else {
       stop("family not supported")
     }
@@ -379,9 +435,10 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
        sdSummary=sdSummary, varSummary=varSummary, 
        parameterSummaryTable=parameterSummaryTable, 
        fixedEffectDraws=latentMat[fixedIndices,], 
-       spatialPredMat=spatial_y_PredMat, fixedPredMat=fixedPredMat, 
+       spatialPredMat=spatial_y_PredMat, fixedPredMat=(IntPred_y_samps+fixedPredMat), 
        spatialObsMat=spatial_y_ObsMat, fixedObsMat=fixedObsMat, 
        obsMat=obsMat, obsMatNugget=obsMatNugget, predMat=predMat, predMatNugget=predMatNugget, 
+       predMat.pp=predMat.pp, spatialPredMat.pp=spatial_pp_PredMat, fixedPredMat.pp=(IntPred_pp_samps + fixedPredMat_pp), 
        hyperMat=hyperMat, timings=timings, sigmaEpsilonDraws=sqrt(clusterVars))
 
 }

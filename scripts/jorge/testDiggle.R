@@ -334,8 +334,9 @@ dev.off()
 
 
 
-
+# ~~~~~~~~~~~~~~ ----
 # n=250 truth pref ----
+# ~~~~~~~~~~~~~~ ----
 
 testDat = getTestDat(n=250, prefType="truth", saveDat=FALSE)
 

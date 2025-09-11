@@ -36,9 +36,9 @@
 # 
 # Outputs:
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
-fitWatsonSimDat = function(wellDat, seismicDat, 
+fitWatsonSimDat = function(wellDat, seismicDat, nPseudo=2500, 
                            predGrid=cbind(east=seismicDat$east, north=seismicDat$north), 
-                           pseudoCoords=getPseudoCoordsSimStudy(predGrid=predGrid), 
+                           pseudoCoords=getPseudoCoordsSimStudy(maxPts=nPseudo, predGrid=predGrid), 
                            control.fixed = list(prec=list(default=0, X.pp21=1/.5^2, X.y2=1/.5^2), mean=list(default=0, X.pp21=1, X.y2=1)), 
                            transform=logit, invTransform=expit, 
                            mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
@@ -49,7 +49,8 @@ fitWatsonSimDat = function(wellDat, seismicDat,
                            quadratureMethod=c("pseudoSites", "mesh"), 
                            fixedParameters=NULL, fixedRepelAmt=500, 
                            addNugToPredCoords=FALSE, getPPres=FALSE, anisFac=1, 
-                           experimentalMode=FALSE, bernApprox=FALSE, controlvb=control.vb()) {
+                           experimentalMode=FALSE, bernApprox=FALSE, controlvb=control.vb(), 
+                           debugMode=FALSE) {
   
   # set defaults
   # family = match.arg(family)
@@ -60,7 +61,6 @@ fitWatsonSimDat = function(wellDat, seismicDat,
     pseudoOnSeismicGrid = all.equal(c(pseudoCoords[,1], pseudoCoords[,2]), c(seismicDat[,1], seismicDat[,2]))
   } else {
     pseudoOnSeismicGrid = FALSE
-    stop("if pseudoCoords != seismicGrid, must adjust repulsion to account for pixelI")
   }
   
   # construct prediction points and covariates
@@ -99,7 +99,7 @@ fitWatsonSimDat = function(wellDat, seismicDat,
             customFixedI=customFixedI, quadratureMethod=quadratureMethod, prefMean=prefMean, 
             previousFit=previousFit, addNugToPredCoords=addNugToPredCoords, getPPres=getPPres, 
             fixedParameters=fixedParameters, experimentalMode=experimentalMode, bernApprox=bernApprox, 
-            controlvb=controlvb, anisFac=anisFac)
+            controlvb=controlvb, anisFac=anisFac, debugMode=debugMode)
 }
 
 # function for fitting the Watson et al. model to data
@@ -163,7 +163,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      previousFit=NULL, fixedRepelAmt=NULL, addNugToPredCoords=TRUE, 
                      getPPres=TRUE, prefMean=0, anisFac=1, 
                      fixedParameters=NULL, experimentalMode=FALSE, bernApprox=FALSE, 
-                     controlvb=control.vb()) {
+                     controlvb=control.vb(), debugMode=FALSE) {
   
   startTime = proc.time()[3]
   if(!is.null(seed))
@@ -200,6 +200,11 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   if(quadratureMethod == "mesh") {
     stop("mesh quadrature currently not supported")
+  }
+  
+  if(ncol(pseudoCoords) == 3) {
+    pseudoPredI = pseudoCoords[,3] # indices of predGrid closest to pseudoCoords
+    pseudoCoords = pseudoCoords[,1:2]
   }
   
   # check if pseudoCoords are the same as the prediction coordinates
@@ -251,6 +256,14 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   # construct A matrix for observations (response)
   AObs = inla.spde.make.A(mesh, loc = obsCoords)
   
+  # get gridCoords associated with well data and pseudoCoords
+  obsGridCoords = predCoords[obsGridI,]
+  if(pseudoArePred) {
+    pseudoGridCoords = pseudoCoords
+  } else {
+    pseudoGridCoords = predCoords[pseudoPredI,]
+  }
+  
   # construct A and design matrices for observations (Bernoulli regression)
   for(i in 1:nObs) {
     thisA.pp = inla.spde.make.A(mesh, loc = as.matrix(rbind(matrix(obsCoords[i,], nrow=1), 
@@ -262,8 +275,8 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     } else {
       # thisRepelMat = getRepulsionCov(rbind(obsCoords[i,], pseudoCoords), obsCoords[1:(i-1),], 
       #                                repelDist=repelDist, returnSparse=TRUE)
-      obsGridCoords = predCoords[obsGridI,]
-      thisRepelMat = getRepulsionCov(rbind(obsGridCoords[i,], pseudoCoords), obsGridCoords[1:(i-1),], 
+      
+      thisRepelMat = getRepulsionCov(rbind(obsGridCoords[i,], pseudoGridCoords), matrix(obsCoords[1:(i-1),], ncol=2), 
                                      repelDist=repelDist, returnSparse=TRUE, anisFac=anisFac)
     }
     
@@ -286,6 +299,41 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
                      xPseudo)
       }
     }
+    
+    if(debugMode) {
+      
+      if(i != 1) {
+        if(FALSE) {
+          # checked this already and it looks good
+          browser()
+          testGridCoords = rbind(obsGridCoords[i,], pseudoGridCoords)
+          testCoords = rbind(obsCoords[i,], pseudoCoords)
+          
+          pseudoGridEast = sort(unique(pseudoCoords[,1]))
+          pseudoGridNorth = sort(unique(pseudoCoords[,2]))
+          predGridEast = sort(unique(predCoords[,1]))
+          predGridNorth = sort(unique(predCoords[,2]))
+          
+          squilt(testGridCoords[,1], testGridCoords[,2], as.numeric(thisRepelMat), grid=list(x=predGridEast, y=predGridNorth))
+          points(obsCoords[1:(i-1),1], obsCoords[1:(i-1),2], col="red")
+          # points(obsGridCoords[1:(i-1),1], obsGridCoords[1:(i-1),2], col="purple")
+          points(pseudoCoords[,1], pseudoCoords[,2], col="lightblue", cex=.3)
+          points(obsGridCoords[i,1], obsGridCoords[i,2])
+          points(obsCoords[i,1], obsCoords[i,2], col="green")
+          
+          # squilt(obsGridCoords[1:(i-1),1], obsGridCoords[1:(i-1),2], as.numeric(thisRepelMat)[1:(i-1)], grid=list(x=pseudoGridEast, y=pseudoGridNorth))
+          # points(obsCoords[1:(i-1),1], obsCoords[1:(i-1),2], col="red")
+          # points(obsGridCoords[1:(i-1),1], obsGridCoords[1:(i-1),2], col="purple")
+          # points(pseudoCoords[,1], pseudoCoords[,2], col="lightblue", cex=.3)
+          # 
+          # squilt(testCoords[,1], testCoords[,2], as.numeric(thisRepelMat), grid=list(x=pseudoGridEast, y=pseudoGridNorth))
+          # points(obsCoords[1:(i-1),1], obsCoords[1:(i-1),2], col="red")
+          # points(obsGridCoords[1:(i-1),1], obsGridCoords[1:(i-1),2], col="purple")
+          # points(pseudoCoords[,1], pseudoCoords[,2], col="lightblue", cex=.3)
+          # points(predCoords[,1], predCoords[,2], col="blue", pch=".")
+        }
+      }
+    }
   }
   
   # make indices for intercepts
@@ -296,6 +344,34 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     repelOffset = as.numeric(fixedRepelAmt * X.pp.rep)
   } else {
     repelOffset = rep(0, nrow(X.pp.rep))
+  }
+  
+  if(debugMode) {
+    browser()
+    
+    testGridCoords = rbind(obsGridCoords[i,], pseudoGridCoords)
+    testCoords = rbind(obsCoords[i,], pseudoCoords)
+    
+    pseudoGridEast = sort(unique(pseudoCoords[,1]))
+    pseudoGridNorth = sort(unique(pseudoCoords[,2]))
+    predGridEast = sort(unique(predCoords[,1]))
+    predGridNorth = sort(unique(predCoords[,2]))
+    
+    endI = length(repelOffset)
+    startI = endI - nPseudoPerIter + 1
+    
+    squilt(pseudoGridCoords[,1], pseudoGridCoords[,2], as.numeric(repelOffset)[startI:endI], 
+           grid=list(x=predGridEast, y=predGridNorth))
+    points(obsCoords[1:(i-1),1], obsCoords[1:(i-1),2], col="red")
+    # points(obsGridCoords[1:(i-1),1], obsGridCoords[1:(i-1),2], col="purple")
+    points(pseudoCoords[,1], pseudoCoords[,2], col="lightblue", cex=.3)
+    
+    range(as.numeric(repelOffset)[obsInds]) # should just be 0's, which it is
+    # obsInds = seq(from=1, to=length(repelOffset), by=nPseudoPerIter+1)
+    # squilt(obsGridCoords[,1], obsGridCoords[,2], as.numeric(repelOffset)[obsInds], 
+    #        grid=list(x=predGridEast, y=predGridNorth))
+    # points(obsCoords[,1], obsCoords[,2], col="red")
+    # points(obsGridCoords[,1], obsGridCoords[,2], col="purple")
   }
   
   # construct A matrix for predictions
@@ -421,6 +497,20 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     predOffset.pp = rep(0, nrow(predCoords))
   }
   
+  if(debugMode) {
+    browser()
+    
+    testGridCoords = rbind(obsGridCoords[i,], pseudoGridCoords)
+    testCoords = rbind(obsCoords[i,], pseudoCoords)
+    
+    predGridEast = sort(unique(predCoords[,1]))
+    predGridNorth = sort(unique(predCoords[,2]))
+    
+    squilt(predCoords[,1], predCoords[,2], as.numeric(predOffset.pp), 
+           grid=list(x=predGridEast, y=predGridNorth))
+    points(obsCoords[,1], obsCoords[,2], col="red")
+  }
+  
   # generate samples from posterior
   startTimePosteriorSampling = proc.time()[3]
   postSamples = inla.posterior.sample(nPostSamples, mod)
@@ -542,7 +632,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   # get repulsion design matrix at observations (at the time they were sampled). 
   # Add effect to observation predictions (not necessary if repulsion isn't 
   # fixed, since already included in fixedObsMat.pp)
-  obsRepelMat = getRepulsionCovAtObs(obsCoords=obsCoords, repelDist=repelDist, 
+  obsRepelMat = getRepulsionCovAtObs(obsCoords=obsCoords, obsGridCoords=obsGridCoords, repelDist=repelDist, 
                                      returnSparse=TRUE, anisFac=anisFac)
   if(!is.null(fixedRepelAmt) && getPPres) {
     offsetObs = obsRepelMat %*% fixedRepelAmt
@@ -1608,18 +1698,20 @@ getRepulsionCov = function(predCoords, obsCoords, repelDist=10, returnSparse=FAL
   }
 }
 
-# same as getRepulsionCov, but gives the values of the repuslion covariate for 
+# same as getRepulsionCov, but gives the values of the repulsion covariate for 
 # each observation when it was sampled
-getRepulsionCovAtObs = function(obsCoords, repelDist=10, returnSparse=FALSE, anisFac=1) {
+getRepulsionCovAtObs = function(obsCoords, obsGridCoords, repelDist=10, returnSparse=FALSE, anisFac=1) {
   if(anisFac != 1) {
     # invert the geometric transformation
-    obsCoords[,1] = obsCoords[,1]*anisFac
+    obsCoords[,1] = obsCoords[,1] * anisFac
+    obsGridCoords[,1] = obsGridCoords[,1] * anisFac
   }
-  dists = rdist(obsCoords)
+  dists = rdist(obsGridCoords, obsCoords)
   diag(dists) = Inf
   repelInd = apply(dists, 1, function(x) {
     inRangeI = which(x < repelDist)
-    ifelse(identical(integer(0), inRangeI), Inf, min(inRangeI))
+    # ifelse(identical(integer(0), inRangeI), Inf, min(inRangeI))
+    min(inRangeI)
   })
   out = matrix(-as.numeric(repelInd < 1:nrow(obsCoords)), ncol=1)
   
@@ -1632,7 +1724,7 @@ getRepulsionCovAtObs = function(obsCoords, repelDist=10, returnSparse=FALSE, ani
 
 # function for subsetting prediction grid to get a different regular grid of 
 # pseudo sites for the Watson model for the simulation study
-getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL) {
+getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL, getPredGridI=TRUE) {
   
   if(is.null(predGrid)) {
     out = readSurfaceRMS("data/seisTruthReplicates/RegularizedPred_1.txt")
@@ -1653,13 +1745,13 @@ getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL) {
   # maxPts = newnx * newny
   # (xwid / delt + 1) * (ywid / delt + 1) = maxPts
   
-  solve_delt <- function(xwid, ywid, maxPts) {
+  solve_delt <- function(xwid, ywid) {
     f <- function(delt) {
       (xwid / delt + 1) * (ywid / delt + 1) - maxPts
     }
-    uniroot(f, lower = 1e-6, upper = max(xwid, ywid))$root
+    uniroot(f, lower = 1e-6, upper = max(c(xwid, ywid)))$root
   }
-  delt = solve_delt(xwid=xwid, ywid=ywid, maxPts=maxPts)
+  delt = solve_delt(xwid=xwid, ywid=ywid)
   
   newnx = floor(xwid/delt)
   newny = floor(ywid/delt)
@@ -1667,14 +1759,44 @@ getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL) {
   newxs = seq(xlim[1], xlim[2], l=newnx)
   newys = seq(ylim[1], ylim[2], l=newny)
   
-  make.surface.grid(list(east=newxs, north=newys))
+  outGrid = make.surface.grid(list(east=newxs, north=newys))
+  
+  if(getPredGridI) {
+    # calculate indices of points in original predGrid closest to output pseudosite grid points
+    
+    if(is.null(predGrid)) {
+      stop("predGrid must be specified if getPredGridI == TRUE")
+    }
+    
+    # first get distances to east and north grid points separately
+    dists = rdist(xs, newxs)
+    nearEast = xs[apply(dists, 2, which.min)]
+    dists = rdist(ys, newys)
+    nearNorth = ys[apply(dists, 2, which.min)]
+    
+    if(!is.list(predGrid)) {
+      colnames(predGrid) = c("east", "north")
+      predGrid = as.data.frame(predGrid)
+    }
+    
+    nearOutGrid = make.surface.grid(list(east=nearEast, north=nearNorth))
+    
+    # now use closest east and north grid coords to match indices in predGrid
+    require(prodlim)
+    predGridIs = row.match(as.data.frame(nearOutGrid), predGrid)
+    
+    # append info to outGrid
+    outGrid = cbind(outGrid, predGridIs=predGridIs)
+  }
+  
+  outGrid
 }
 
 # head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 250) & (modelFitCombs$repelAreaProp == 0.001) & (modelFitCombs$propVarCase == "diggle"),])
-testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 3500, 5000, 7000, 10000), 
+testPseudoConvergence = function(i=44034, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000), 
                                  significance=c(.8, .95), 
                                  adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                                 regenData=FALSE, verbose=FALSE, doPlot=TRUE) {
+                                 regenData=FALSE, verbose=FALSE, doPlot=TRUE, anisFac=3) {
   startT = proc.time()[3]
   adaptScen = match.arg(adaptScen)
   
@@ -1713,10 +1835,12 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
   # seismic data
   out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", repI, ".txt"), force01=TRUE)
   seismicDat = out$surfFrame
+  seismicDat[,1] = seismicDat[,1]/anisFac
   
   # truth
   out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", repI, ".txt"), force01=TRUE)
   truth = out$surfFrame
+  truth[,1] = truth[,1]/anisFac
   
   # subsample
   goodCoords = subsampleSimStudyGrid(seismicDat)
@@ -1734,6 +1858,7 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
   } else {
     wellDat = wellDat[1:n,]
   }
+  wellDat[,1] = wellDat[,1]/anisFac
   
   # interpolate truth to well points
   truthWells = bilinearInterp(wellDat[,1:2], truth, transform=logit, invTransform=expit)
@@ -1752,6 +1877,8 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
     prefPar = sqrt(0.25) * prefPar * truthFac
   }
   
+  mesh = getSPDEmeshSimStudy(anisFac=anisFac)
+  
   # loop through pseudosite resolutions
   
   fullPredMat = c()
@@ -1766,9 +1893,12 @@ testPseudoConvergence = function(i=44034, nPseudos=c(1000, 1500, 2000, 2500, 350
       repDist = repAreaToDist(repelAreaProp)
       predGrid = cbind(east=seismicDat$east, north=seismicDat$north)
       pseudoCoords = getPseudoCoordsSimStudy(maxPts=nPseudo, predGrid=predGrid)
-      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, getPPres=TRUE)
+      
+      inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, mesh=mesh, getPPres=TRUE)
     }
     
+    
+    stop("make sure wellDat$pixelI fixed to account for subsampling and resolution changes before running this!!!")
     out = do.call("fitModFun", inputList)
     
     if(fitModFunI == 4) {
