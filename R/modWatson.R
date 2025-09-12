@@ -1852,6 +1852,14 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
   wellDatFile = paste0("savedOutput/simStudy/wellDat/wellDat_", adaptScen, "_par", sampleParI, "_rep", repI, ".RData")
   out = load(wellDatFile)
   
+  if((fitModFunI == 5) || doPlot) {
+    if("logitProbsNoRep" %in% names(wellDat)) {
+      logitProbsNoRep = wellDat$logitProbsNoRep
+    } else {
+      logitProbsNoRep = wellDat$allLogitProbsNoRep[,1]
+    }
+    
+  }
   
   # subset well data based on n for this run
   if("wellDat" %in% names(wellDat)) {
@@ -1939,6 +1947,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
         }
         
         ests = rowMeans(predMat)
+        preds = ests
         estsWells = rowMeans(obsMat)
         varEst = var(ests)
         corEstTruthWells = cor(estsWells, truthWells)
