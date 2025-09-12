@@ -1938,10 +1938,13 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
           logitProbsNoRepWells = wellDat$logitProbsNoRep
         }
         
-        
-        
-        preds = ests
+        ests = rowMeans(predMat)
+        estsWells = rowMeans(obsMat)
+        varEst = var(ests)
+        corEstTruthWells = cor(estsWells, truthWells)
+        corEstTruthTrue = cor(ests, truth[,3])
         sds = out$predSDs
+        
         predQuants = sapply(1:length(preds), function(i) {
           ecdf(predMat[i,])(gTruth[i])
         })
