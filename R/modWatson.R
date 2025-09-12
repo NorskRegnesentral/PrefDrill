@@ -1921,13 +1921,26 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
       
       if(doPlot) {
         
+        # plot some figures for testing purposes
+        
+        gEast = seismicDat$east
+        gNorth = seismicDat$north
+        gSeismic = seismicDat$seismicEst
+        gTruth = truth[,3]
+        pEast = wellDat$east
+        pNorth = wellDat$north
+        pVolFrac = wellDat$volFrac
+        
+        pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicDat, 
+                                  transform=logit, invTransform = expit)
+        
         if("logitProbsNoRep" %in% names(wellDat)) {
           logitProbsNoRepWells = wellDat$logitProbsNoRep
         }
         
         
         
-        preds = rowMeans(predMat)
+        preds = ests
         sds = out$predSDs
         predQuants = sapply(1:length(preds), function(i) {
           ecdf(predMat[i,])(gTruth[i])
