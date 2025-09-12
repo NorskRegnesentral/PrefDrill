@@ -1883,11 +1883,6 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
   predGrid = cbind(east=seismicDat$east, north=seismicDat$north)
   mesh = getSPDEmeshSimStudy(anisFac=anisFac)
   
-  if(doPlot && (fitModFunI %in% c(3, 4))) {
-    # for testing purposes, get the point process results also
-    inputList = c(inputList, list(getPPres=TRUE))
-  }
-  
   # loop through pseudosite resolutions
   
   if(!file.exists(pseudoFile) || regenData) {
