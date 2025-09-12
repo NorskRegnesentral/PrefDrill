@@ -1927,7 +1927,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
         
         
         
-        preds = ests
+        preds = rowMeans(predMat)
         sds = out$predSDs
         predQuants = sapply(1:length(preds), function(i) {
           ecdf(predMat[i,])(gTruth[i])
