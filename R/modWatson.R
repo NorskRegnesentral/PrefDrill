@@ -1792,7 +1792,7 @@ getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL, getPredGridI=TRUE
 }
 
 # head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 250) & (modelFitCombs$repelAreaProp == 0.001) & (modelFitCombs$propVarCase == "diggle"),])
-testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000), 
+testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000, 7500, 10000), 
                                  significance=c(.8, .95), 
                                  adaptScen=c("batch", "adaptPref", "adaptVar"), 
                                  regenData=FALSE, verbose=FALSE, doPlot=TRUE, anisFac=3) {
@@ -2216,6 +2216,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
   # plot results
   browser()
   
+  parMat = sapply(parList, function(x) {x[,1]})
   
   
   invisible(NULL)
