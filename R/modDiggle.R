@@ -256,6 +256,8 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
     X_samps_pp = matrix(latentMat[fixedIndices_pp,], nrow = 1, ncol = ncol(latentMat))
     fixedPredMat_pp = sweep(X_pred_cov_mat, MARGIN = 2, STATS = X_samps_pp, FUN = "*")
     # fixedObsMat_pp = sweep(X_obs_mat, MARGIN = 2, STATS = X_samps_pp, FUN = "*")
+  } else {
+    fixedPredMat_pp = NULL
   }
   
   
