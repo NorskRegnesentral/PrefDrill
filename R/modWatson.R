@@ -229,7 +229,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   
   # set family prior
   # control.family.gaussian = list(hyper = list(prec = list(prior="loggamma", param=c(1000,10))))
-  control.family = list(hyper = list(prec = list(prior="loggamma", param=c(1.116960395, 0.009827238))))
+  control.family.gaussian = list(hyper = list(prec = list(prior="loggamma", param=c(1.116960395, 0.009827238))))
   
   if(!is.null(fixedParameters$familyPrec)) {
     # fix the family precision parameter on INLA's latent scale
