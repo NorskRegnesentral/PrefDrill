@@ -263,6 +263,8 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   IntPred_y_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_y_Indices,], FUN = "*")
   if(getPPres) {
     IntPred_pp_samps = sweep(Predbase_int_mat, MARGIN = 2, STATS = latentMat[fixedInt_pp_Indices,], FUN = "*")
+  } else {
+    IntPred_pp_samps = NULL
   }
   
   Obsbase_int_mat = matrix(1,nrow=nrow(well_data_sf),ncol=nPostSamples)

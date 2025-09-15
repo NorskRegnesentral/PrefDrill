@@ -1792,7 +1792,9 @@ getPseudoCoordsSimStudy = function(maxPts=2500, predGrid=NULL, getPredGridI=TRUE
 }
 
 # head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 250) & (modelFitCombs$repelAreaProp == 0.001) & (modelFitCombs$propVarCase == "diggle"),])
-testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000, 7500, 10000), 
+# head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 40) & (modelFitCombs$prefPar == 3) & (modelFitCombs$propVarCase == "diggle") & (modelFitCombs$repelAreaProp == 0.01),]) # 31626
+# head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 40) & (modelFitCombs$prefPar == 3) & (modelFitCombs$propVarCase == "diggle") & (modelFitCombs$repelAreaProp == 0.001),]) # 31625
+testPseudoConvergence = function(i=31625, nPseudos=c(500, 750, 1000, 1500, 2000, 2500, 3500, 5000, 7500, 10000), 
                                  significance=c(.8, .95), 
                                  adaptScen=c("batch", "adaptPref", "adaptVar"), 
                                  regenData=FALSE, verbose=FALSE, doPlot=TRUE, anisFac=3) {
@@ -2217,7 +2219,7 @@ testPseudoConvergence = function(i=31626, nPseudos=c(500, 750, 1000, 1500, 2000,
   browser()
   
   parMat = sapply(parList, function(x) {x[,1]})
-  
+  print(rbind(nPseudos, allTs, parMat))
   
   invisible(NULL)
 }
