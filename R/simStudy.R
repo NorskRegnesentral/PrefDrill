@@ -1882,7 +1882,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   makeBoxplotsVsPar = function(type=c("agg", "max", "min", "mean", "worst", "par"), 
                                thisN, parName=c("prefPar", "repelAreaProp"), 
-                               fixedParVal, propVarCase=NULL) {
+                               fixedParVal, propVarCase) {
     type = match.arg(type)
     if(type == "agg") {
       typeName = "Aggregate"
@@ -1902,14 +1902,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     fixedParName = ifelse(parName == "prefPar", "repelAreaProp", "prefPar")
     
-    if(adaptScen != "batch" && is.null(propVarCase)) {
-      stop("must provide propVarCase if adaptScen != 'batch'")
-    }
     
     if(parName == "prefPar") {
-      thisFileRoot = paste0("prefParAll_repelAreaProp", fixedParVal, "_n", thisN, "_", adaptScen)
+      thisFileRoot = paste0(propVarCase, "_prefParAll_repelAreaProp", fixedParVal, "_n", thisN, "_", adaptScen)
     } else {
-      thisFileRoot = paste0("repelAreaPropAll_prefPar", fixedParVal, "_n", thisN, "_", adaptScen)
+      thisFileRoot = paste0(propVarCase, "_repelAreaPropAll_prefPar", fixedParVal, "_n", thisN, "_", adaptScen)
     }
     
     
@@ -2143,57 +2140,74 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   }
   
   
-  # boxplots vs other parameters ----
+  # boxplots vs parameters ----
+  
+  propVarCases = c("uniform", "diggle", "seismic", "cluster", "realNoClust", "realistic")
   
   if(adaptScen == "batch") {
     
-    # wrt prefPar (fix repelAreaProp)
+    
+    thisPropVarCases = propVarCases[-1] # remove uniform case, since that corresponds to perfPar == 0
     repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
-    for(i in 1:length(repelAreaPropUnique)) {
-      thisRepelAreaProp = repelAreaPropUnique[i]
+    
+    for(caseI in 1:length(thisPropVarCases)) {
       
-      thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
-      # if(thisRepelAreaProp != 0) {
-      #   thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
-      # }
+      thisPropVarCase = thisPropVarCases[caseI]
       
-      for(j in 1:length(allTypes)) {
+      
+      # wrt prefPar (fix repelAreaProp)
+      for(i in 1:length(repelAreaPropUnique)) {
+        thisRepelAreaProp = repelAreaPropUnique[i]
         
-        for(k in 1:length(thisUniqueNs)) {
-          thisN = thisUniqueNs[k]
+        thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+        # if(thisRepelAreaProp != 0) {
+        #   thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
+        # }
+        
+        for(j in 1:length(allTypes)) {
           
-          if(adaptScen == "batch") {
-            makeBoxplotsVsPar(allTypes[j], parName="prefPar", thisN=thisN, 
-                                  fixedParVal=thisRepelAreaProp, propVarCase=NULL)
-          } else {
-            stop("still need to work out adaptive case")
+          for(k in 1:length(thisUniqueNs)) {
+            thisN = thisUniqueNs[k]
+            
+            if(adaptScen == "batch") {
+              makeBoxplotsVsPar(allTypes[j], parName="prefPar", thisN=thisN, 
+                                fixedParVal=thisRepelAreaProp, propVarCase=thisPropVarCase)
+            } else {
+              stop("still need to work out adaptive case")
+            }
           }
         }
       }
+      
+      
+      # wrt repelAreaProp (fix prefPar)
+      prefParUnique = sort(unique(sampleParCombs$prefPar))
+      for(i in 1:length(prefParUnique)) {
+        thisPrefPar = prefParUnique[i]
+        
+        for(j in 1:length(allTypes)) {
+          
+          for(k in 1:length(nUnique)) {
+            thisN = nUnique[k]
+            
+            if(adaptScen == "batch") {
+              if((thisN > 200) && (thisPrefPar < 3)) {
+                next
+              }
+              makeBoxplotsVsPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
+                                fixedParVal=thisPrefPar, propVarCase=NULL)
+            } else {
+              stop("still need to work out adaptive case")
+            }
+          }
+        }
+      }
+      
     }
     
-    # wrt repelAreaProp (fix prefPar)
-    prefParUnique = sort(unique(sampleParCombs$prefPar))
-    for(i in 1:length(prefParUnique)) {
-      thisPrefPar = prefParUnique[i]
-      
-      for(j in 1:length(allTypes)) {
-        
-        for(k in 1:length(nUnique)) {
-          thisN = nUnique[k]
-          
-          if(adaptScen == "batch") {
-            if((thisN > 200) && (thisPrefPar < 3)) {
-              next
-            }
-            makeBoxplotsVsPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
-                                  fixedParVal=thisPrefPar, propVarCase=NULL)
-          } else {
-            stop("still need to work out adaptive case")
-          }
-        }
-      }
-    }
+    
+    
+    
   }
   
   
