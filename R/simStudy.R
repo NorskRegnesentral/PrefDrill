@@ -1776,7 +1776,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
       thisTab[[thisVar]] = as.numeric(thisTab[[thisVar]])
       
-      fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
+      # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
+      fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
       
       # Create the plot
@@ -1846,11 +1847,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         next
       }
       
-      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))) {
-        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))
-      }
-      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))) {
-        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))
+      # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))) {
+      #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))
+      # }
+      # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))) {
+      #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot))
+      # }
+      if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot))) {
+        dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileRoot))
       }
       
       
@@ -2205,11 +2209,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
     }
     
-    
-    
-    
   }
   
+  # copy only the figures we will actually keep for the manuscript
+  copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
+                  dstDir=paste0("~/fig/", adaptScen), 
+                  includeSubstr = "agg", excludeSubstr = c("80", "Var", "RMSE"))
   
   browser()
   

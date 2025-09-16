@@ -217,10 +217,58 @@ dfToListOfLists = function(df) {
 }
 
 # converts the first letter to uppercase, keeps the case of all other letters
-myTitleCase <- function(x) {
+myTitleCase = function(x) {
   if (nchar(x) == 0) return(x)
   paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)))
 }
+
+# Copies the given directory along with all subdirectories and the files contained except:
+#  - only copies files if they contain includeSubstr
+#  - doesn't copy files that contain anything in the vector excludeSubstr
+copyDirFiltered <- function(srcDir, dstDir, includeSubstr = NULL, excludeSubstr = NULL) {
+  # Ensure paths don't end with slash
+  srcDir <- normalizePath(srcDir, mustWork = TRUE)
+  dstDir <- normalizePath(dstDir, mustWork = FALSE)
+  
+  # Create destination root if it doesn’t exist
+  if (!dir.exists(dstDir)) {
+    dir.create(dstDir, recursive = TRUE)
+  }
+  
+  # List all files recursively
+  files <- list.files(srcDir, recursive = TRUE, full.names = TRUE)
+  
+  # Apply include filter (if given)
+  if (!is.null(includeSubstr)) {
+    files <- files[grepl(includeSubstr, basename(files))]
+  }
+  
+  # Apply exclude filter (if given)
+  if (!is.null(excludeSubstr)) {
+    excludePattern <- paste(excludeSubstr, collapse = "|")
+    files <- files[!grepl(excludePattern, basename(files))]
+  }
+  
+  # Copy files preserving directory structure
+  for (f in files) {
+    relPath <- sub(paste0("^", srcDir, "/?"), "", f)
+    targetPath <- file.path(dstDir, relPath)
+    targetDir <- dirname(targetPath)
+    
+    if (!dir.exists(targetDir)) {
+      dir.create(targetDir, recursive = TRUE)
+    }
+    
+    file.copy(f, targetPath, overwrite = TRUE)
+  }
+  
+  message("Copied ", length(files), " files to ", dstDir)
+  
+  invisible(NULL)
+}
+
+
+
 
 
 cppFunction('
