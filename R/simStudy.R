@@ -2151,38 +2151,40 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   if(adaptScen == "batch") {
     
     
-    thisPropVarCases = propVarCases[-1] # remove uniform case, since that corresponds to perfPar == 0
     repelAreaPropUnique = sort(unique(sampleParCombs$repelAreaProp))
     
-    for(caseI in 1:length(thisPropVarCases)) {
+    for(caseI in 1:length(propVarCases)) {
       
-      thisPropVarCase = thisPropVarCases[caseI]
+      thisPropVarCase = propVarCases[caseI]
       
       
       # wrt prefPar (fix repelAreaProp)
-      for(i in 1:length(repelAreaPropUnique)) {
-        thisRepelAreaProp = repelAreaPropUnique[i]
+      if(thisPropVarCase != "uniform") {
         
-        thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
-        # if(thisRepelAreaProp != 0) {
-        #   thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
-        # }
-        
-        for(j in 1:length(allTypes)) {
+        for(i in 1:length(repelAreaPropUnique)) {
+          thisRepelAreaProp = repelAreaPropUnique[i]
           
-          for(k in 1:length(thisUniqueNs)) {
-            thisN = thisUniqueNs[k]
+          thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+          # if(thisRepelAreaProp != 0) {
+          #   thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
+          # }
+          
+          for(j in 1:length(allTypes)) {
             
-            if(adaptScen == "batch") {
-              makeBoxplotsVsPar(allTypes[j], parName="prefPar", thisN=thisN, 
-                                fixedParVal=thisRepelAreaProp, propVarCase=thisPropVarCase)
-            } else {
-              stop("still need to work out adaptive case")
+            for(k in 1:length(thisUniqueNs)) {
+              thisN = thisUniqueNs[k]
+              
+              if(adaptScen == "batch") {
+                makeBoxplotsVsPar(allTypes[j], parName="prefPar", thisN=thisN, 
+                                  fixedParVal=thisRepelAreaProp, propVarCase=thisPropVarCase)
+              } else {
+                stop("still need to work out adaptive case")
+              }
             }
           }
         }
+        
       }
-      
       
       # wrt repelAreaProp (fix prefPar)
       prefParUnique = sort(unique(sampleParCombs$prefPar))
@@ -2199,7 +2201,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                 next
               }
               makeBoxplotsVsPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
-                                fixedParVal=thisPrefPar, propVarCase=NULL)
+                                fixedParVal=thisPrefPar, propVarCase=thisPropVarCase)
             } else {
               stop("still need to work out adaptive case")
             }
@@ -2213,7 +2215,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   # copy only the figures we will actually keep for the manuscript
   copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
-                  dstDir=paste0("~/fig/", adaptScen), 
+                  dstDir=paste0("~/fig/simStudy/", adaptScen), 
                   includeSubstr = "agg", excludeSubstr = c("80", "Var", "RMSE"))
   
   browser()
