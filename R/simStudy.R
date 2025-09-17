@@ -410,6 +410,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   # - don't generate data based on propVarCase in adaptive settings
   # - don't use sampModFunI in batch settings
   # - either sampModFunI == fitModFunI or sampModFunI == 1 in adaptive case (for modelTab)
+  # - don't consider SPDED model in uniform case, since sample probs are uniform
   
   removeBadRows = function(tab, modelTab=FALSE) {
     # first remove extra beta value for uniform case
@@ -460,7 +461,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
         goodSampMod[tab$propVarCase == "self"] = 
           tab$sampModFunI[tab$propVarCase == "self"] == tab$fitModFunI[tab$propVarCase == "self"]
       } else {
-        # in uniform case, logit probabilities are all identical, so 
+        # in uniform case, logit probabilities are all identical, so don't include SPDED model then
         goodSampMod[tab$propVarCase == "uniform"] = 
           tab$fitModFunI[tab$propVarCase == "uniform"] != 5
       }
@@ -1932,7 +1933,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                                          fixedParVal=fixedParVal, propVarCase=propVarCase)
     watsonScores = getModScoresAcrossPar(4, thisN=thisN, parName=parName, 
                                          fixedParVal=fixedParVal, propVarCase=propVarCase)
-    if(adaptScen == "batch") {
+    if((adaptScen == "batch") && (propVarCase != "uniform")) {
       designScores = getModScoresAcrossPar(5, thisN=thisN, parName=parName, 
                                            fixedParVal=fixedParVal, propVarCase=propVarCase)
     } else {
