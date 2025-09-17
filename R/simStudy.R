@@ -747,20 +747,28 @@ runSimStudyIPar = function(i, significance=c(.8, .95),
 # 5494             0      diggle    6       Inf      0.01       1       3          3 250     44273     1879         22 1360835856
 # head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 60) & (modelFitCombs$prefPar == 3) & (modelFitCombs$propVarCase == "diggle") & (modelFitCombs$repelAreaProp == 0),])
 #      repelAreaProp propVarCase repI repEffect nuggetVar sigmaSq prefPar fitModFunI  n modelFitI wellDatI sampleParI       seed
-# 3517             0      diggle    1       Inf      0.01       1       3          4 60     39033     1804         22 1143075945
-# 3938             0      diggle    2       Inf      0.01       1       3          4 60     39083     1819         22  246931735
-# 4321             0      diggle    3       Inf      0.01       1       3          4 60     39133     1834         22  938260209
-# 4722             0      diggle    4       Inf      0.01       1       3          4 60     39183     1849         22 1519975417
-# 5103             0      diggle    5       Inf      0.01       1       3          4 60     39233     1864         22 1321273569
-# 5484             0      diggle    6       Inf      0.01       1       3          4 60     39283     1879         22 2126311122
+# 3535             0      diggle    1       Inf      0.01       1       3          4 60     41949     1804         22  329769516
+# 3938             0      diggle    2       Inf      0.01       1       3          4 60     42024     1819         22  407592108
+# 4325             0      diggle    3       Inf      0.01       1       3          4 60     42099     1834         22 1588549675
+# 4710             0      diggle    4       Inf      0.01       1       3          4 60     42174     1849         22   44923799
+# 5099             0      diggle    5       Inf      0.01       1       3          4 60     42249     1864         22  239254633
+# 5481             0      diggle    6       Inf      0.01       1       3          4 60     42324     1879         22  638595106
 # head(modelFitCombs[(modelFitCombs$fitModFunI == 4) & (modelFitCombs$n == 40) & (modelFitCombs$prefPar == 3) & (modelFitCombs$propVarCase == "diggle") & (modelFitCombs$repelAreaProp == 0.01),])
 #       repelAreaProp propVarCase repI repEffect nuggetVar sigmaSq prefPar fitModFunI  n modelFitI wellDatI sampleParI       seed
-# 40212          0.01      diggle    1       Inf      0.01       1       3          4 40     31551     1806         24 1664656096
-# 40451          0.01      diggle    2       Inf      0.01       1       3          4 40     31626     1821         24  145111854
-# 40673          0.01      diggle    3       Inf      0.01       1       3          4 40     31701     1836         24 1106428431
-# 40898          0.01      diggle    4       Inf      0.01       1       3          4 40     31776     1851         24 1363333097
-# 41112          0.01      diggle    5       Inf      0.01       1       3          4 40     31851     1866         24  566292637
-# 41331          0.01      diggle    6       Inf      0.01       1       3          4 40     31926     1881         24  497242737
+# 41229          0.02      diggle    1       Inf      0.01       1       3          4 40     34451     1806         24  199193277
+# 41585          0.02      diggle    2       Inf      0.01       1       3          4 40     34526     1821         24  520229110
+# 41906          0.02      diggle    3       Inf      0.01       1       3          4 40     34601     1836         24 1235426228
+# 42247          0.02      diggle    4       Inf      0.01       1       3          4 40     34676     1851         24 1101297221
+# 42572          0.02      diggle    5       Inf      0.01       1       3          4 40     34751     1866         24   66030971
+# 42902          0.02      diggle    6       Inf      0.01       1       3          4 40     34826     1881         24 1176183191
+# head(modelFitCombs[(modelFitCombs$fitModFunI == 5) & (modelFitCombs$n == 60) & (modelFitCombs$prefPar == 3) & (modelFitCombs$propVarCase == "diggle") & (modelFitCombs$repelAreaProp == 0),])
+#      repelAreaProp propVarCase repI repEffect nuggetVar sigmaSq prefPar fitModFunI  n modelFitI wellDatI sampleParI       seed
+# 3530             0      diggle    1       Inf      0.01       1       3          5 60     41964     1804         22 1467909580
+# 3948             0      diggle    2       Inf      0.01       1       3          5 60     42039     1819         22  884959045
+# 4331             0      diggle    3       Inf      0.01       1       3          5 60     42114     1834         22 1463736114
+# 4708             0      diggle    4       Inf      0.01       1       3          5 60     42189     1849         22 1274854046
+# 5096             0      diggle    5       Inf      0.01       1       3          5 60     42264     1864         22 1251339718
+# 5494             0      diggle    6       Inf      0.01       1       3          5 60     42339     1879         22 2144331088
 runSimStudyI = function(i, significance=c(.8, .95), 
                         adaptScen=c("batch", "adaptPref", "adaptVar"), 
                         regenData=FALSE, verbose=FALSE, doPlot=FALSE, anisFac=3) {

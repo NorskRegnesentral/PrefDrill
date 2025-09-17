@@ -45,7 +45,7 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), pref
   sampleDat = seismicDat
   
   sampleDat[,3] = truthDatStd[,3]
-  sampleDat[,3] = expit(sampleDat[,3])
+  sampleDat[,3] = exp(sampleDat[,3])
   
   # do batch sampling
   if(thisN == 20) {
@@ -105,9 +105,9 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), pref
   }
   
   # get well data and sampling probabilities
-  noRepelProbs = expit(wellDatNoRepel$logitProbsNoRep)
-  noRepelWellDat = wellDatNoRepel$wellDat[1:thisN,]
+  noRepelProbs = exp(wellDatNoRepel$logProbsNoRep)
   noRepelProbs = noRepelProbs * (1/sum(noRepelProbs))
+  noRepelWellDat = wellDatNoRepel$wellDat[1:thisN,]
   
   # midRepelProbs = wellDatMidRepel$allProbs[,1]
   # midRepelWellDat = wellDatMidRepel$wellDat[1:thisN,]
@@ -140,22 +140,33 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), pref
   
   # top row
   squilt(gEast, gNorth, noRepelProbs, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-         xlab=xlab, ylab="", main=title1, 
-         smallplot=c(.97,1,.25,.8), addColorBar=FALSE)
+         xlab=xlab, ylab="", main=title1, scaleFun=log, scaleFunInverse=exp, 
+         smallplot=c(.95,.98,.25,.87), addColorBar=FALSE, ticks=getLogScaleTicks(noRepelProbs), 
+         tickLabels = as.character(getLogScaleTicks(noRepelProbs)))
   points(noRepelWellDat[,1], noRepelWellDat[,2], cex=thisCex, col="red", pch=19)
   
   mtext("Northing", side=2, line=1.5, outer=TRUE)
   
   
   squilt(gEast, gNorth, noRepelProbs, grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
-         xlab=xlab, ylab="", main=title2, 
-         smallplot=c(.97,1,.25,.8))
+         xlab=xlab, ylab="", main=title2, scaleFun=log, scaleFunInverse=exp, 
+         smallplot=c(.95,.98,.25,.87), ticks=getLogScaleTicks(noRepelProbs), 
+         tickLabels = as.character(getLogScaleTicks(noRepelProbs)))
   points(highRepelWellDat[,1], highRepelWellDat[,2], cex=thisCex, col="red", pch=19)
   
   # apply(highRepelWellDat[,1:2], 1, function(p) drawCircle(p[1], p[2], r=highRepelDist, lty = 2, lwd=.5, col=rgb(1,0,0,.7)))
   
   dev.off()
   
+}
+
+makeAllRepulsionPlots = function(regenData=TRUE) {
+  plotRepulsion(regenData=regenData, thisN=20)
+  plotRepulsion(regenData=regenData, thisN=60)
+  plotRepulsion(regenData=regenData, thisN=250)
+  plotRepulsion(regenData=regenData, thisN=20, prefPar=3)
+  plotRepulsion(regenData=regenData, thisN=60, prefPar=3)
+  plotRepulsion(regenData=regenData, thisN=250, prefPar=3)
 }
 
 
