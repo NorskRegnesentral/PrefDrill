@@ -117,7 +117,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
       wellDat = rbind(wellDat, thisWell)
     }
     
-    out = list(wellDat = wellDat, logitProbsNoRep = out$logitProbsNoRep)
+    out = list(wellDat = wellDat, logProbsNoRep = out$logProbsNoRep)
     
     return(out)
   }
@@ -165,7 +165,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   if(samplingModel == "ipp") {
     # in the inhomogeneous Poisson process, sampling probability is proportional 
     # to the predictions
-    logitProbsNoRep = logit(preds)*prefPar
+    logProbsNoRep = log(preds)*prefPar
   } else {
     stop(paste0("sampling model ", samplingModel, " not yet supported"))
   }
@@ -186,13 +186,13 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
     repelEffectsGrid[forceZero] = 0
     
     # update sampling probabilities
-    logitProbs = logitProbsNoRep - repelEffectsGrid
+    logProbs = logProbsNoRep - repelEffectsGrid
   } else {
-    logitProbs = logitProbsNoRep
+    logProbs = logProbsNoRep
   }
   
   # transform probabilities back to probability scale, ensure sum to 1 over grid
-  probs = expit(logitProbs)
+  probs = exp(logProbs)
   probs = probs * (1 / sum(probs))
   
   # sample the grid cell
@@ -208,22 +208,22 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   nextPts = centerPts + ptErrs
   
   # get the sampling probabilities without repulsion for the well points
-  nextLogitProbsNoRep = logitProbsNoRep[nextIs]
+  nextLogProbsNoRep = logProbsNoRep[nextIs]
   
   if(!is.null(truthDat)) {
     # get seismic estimate at that point
     nextTruth = bilinearInterp(nextPts, truthDat, 
                                transform=transform, invTransform=invTransform)
     nextVolFrac = invTransform(transform(nextTruth) + rnorm(nWells, sd=sqrt(sigmaSqErr)))
-    res = cbind(nextPts, nextVolFrac, nextIs, nextLogitProbsNoRep)
-    colnames(res) = c("east", "north", "volFrac", "gridI", "logitProbsNoRep")
+    res = cbind(nextPts, nextVolFrac, nextIs, nextLogProbsNoRep)
+    colnames(res) = c("east", "north", "volFrac", "gridI", "logProbsNoRep")
   } else {
-    res = cbind(nextPts, nextIs, nextLogitProbsNoRep)
-    colnames(res) = c("east", "north", "gridI", "logitProbsNoRep")
+    res = cbind(nextPts, nextIs, nextLogProbsNoRep)
+    colnames(res) = c("east", "north", "gridI", "logProbsNoRep")
   }
   
   list(wellDat = as.data.frame(res), preds=preds, predAggMat=predAggMat, 
-       logitProbsNoRep=logitProbsNoRep, fit=fit)
+       logProbsNoRep=logProbsNoRep, fit=fit)
 }
 
 
@@ -286,7 +286,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       
       # in the inhomogeneous Poisson process, sampling probability is proportional 
       # to the predictions
-      logitProbs = logit(preds) * prefPar
+      logProbs = log(preds) * prefPar
       
     } else {
       stop(paste0("sampling model ", samplingModel, " not yet supported"))
@@ -297,7 +297,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
     predAggMat = mean(preds)
     
   } else {
-    logitProbs = NULL
+    logProbs = NULL
   }
   
   print("Successive sampling...")
@@ -319,7 +319,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       allProbs = matrix(nrow=nrow(predGrid), ncol=nbatch)
     }
     
-    allLogitProbsNoRep = matrix(nrow=nrow(predGrid), ncol=nbatch)
+    allLogProbsNoRep = matrix(nrow=nrow(predGrid), ncol=nbatch)
   }
   for(i in 1:nbatch) {
     if(verbose) {
@@ -406,7 +406,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       
       # in the inhomogeneous Poisson process, sampling probability is proportional 
       # to the predictions
-      logitProbsNoRep = logit(preds) * prefPar
+      logProbsNoRep = log(preds) * prefPar
       
     } else {
       stop(paste0("sampling model ", samplingModel, " not yet supported"))
@@ -477,17 +477,17 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       
       
       # update selection probabilities to account for repulsion effects
-      thisLogitProbs = logitProbsNoRep - repelEffectsGrid
+      thisLogProbs = logProbsNoRep - repelEffectsGrid
       
       # transform probabilities back to probability scale, ensure sum to 1 over grid
-      probs = expit(thisLogitProbs)
+      probs = exp(thisLogProbs)
       probs = probs * (1 / sum(probs))
       
       if((j == 1) && saveAllPredsProbs) {
         if(!getProbsNoRepOnly) {
           allProbs[,i] = probs
         }
-        allLogitProbsNoRep[,i] = logitProbsNoRep
+        allLogProbsNoRep[,i] = logProbsNoRep
       }
       
       # sample the grid cell
@@ -500,7 +500,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       nextPts = centerPts + ptErrs
       
       # get the sampling probabilities without repulsion for the well points
-      nextLogitProbsNoRep = logitProbsNoRep[nextIs]
+      nextLogProbsNoRep = logProbsNoRep[nextIs]
       
       if(!is.null(truthDat)) {
         # get seismic estimate at that point
@@ -508,11 +508,11 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                                    transform=transform, invTransform=invTransform)
         
         nextVolFrac = invTransform(transform(nextTruth) + rnorm(1, sd=sqrt(sigmaSqErr)))
-        thisWell = cbind(nextPts, nextVolFrac, nextIs, nextLogitProbsNoRep)
-        colnames(thisWell) = c("east", "north", "volFrac", "gridI", "logitProbsNoRep")
+        thisWell = cbind(nextPts, nextVolFrac, nextIs, nextLogProbsNoRep)
+        colnames(thisWell) = c("east", "north", "volFrac", "gridI", "logProbsNoRep")
       } else {
-        thisWell = cbind(nextPts, nextIs, nextLogitProbsNoRep)
-        colnames(thisWell) = c("east", "north", "gridI", "logitProbsNoRep")
+        thisWell = cbind(nextPts, nextIs, nextLogProbsNoRep)
+        colnames(thisWell) = c("east", "north", "gridI", "logProbsNoRep")
       }
       
       # update well data with this batch of samples
@@ -531,7 +531,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
   names(preds) = NULL # remove names to save space
   if(saveAllPredsProbs) {
     list(wellDat = as.data.frame(wellDat), preds=preds, predAggMat=predAggMat, 
-         allPreds=allPreds, allProbs=allProbs, allLogitProbsNoRep=allLogitProbsNoRep)
+         allPreds=allPreds, allProbs=allProbs, allLogProbsNoRep=allLogProbsNoRep)
   } else {
     list(wellDat = as.data.frame(wellDat), preds=preds, predAggMat=predAggMat)
   }

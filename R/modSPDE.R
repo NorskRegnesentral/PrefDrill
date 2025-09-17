@@ -197,8 +197,8 @@ fitSPDEsimDat = function(wellDat, seismicDat,
                          significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                          nPostSamples=1000, useSeismic=TRUE, verbose=FALSE, seed=NULL, 
                          family="normal", doModAssess=FALSE, previousFit=NULL, 
-                         fixedParameters=NULL, experimentalMode=FALSE, addLogitProbs=FALSE, 
-                         logitProbsNoRep=NULL) {
+                         fixedParameters=NULL, experimentalMode=FALSE, addLogProbs=FALSE, 
+                         logProbsNoRep=NULL) {
   
   # set defaults
   # family = match.arg(family)
@@ -241,9 +241,9 @@ fitSPDEsimDat = function(wellDat, seismicDat,
                                     centerScale=TRUE, kde.args=kde.args)
     wGrid = fitPProc$wellEffectGrid
     wObs = fitPProc$wellEffectPredPts
-  } else if(addLogitProbs) {
-    wGrid = logitProbsNoRep
-    wObs = logitProbsNoRep[wellDat$gridI]
+  } else if(addLogProbs) {
+    wGrid = logProbsNoRep
+    wObs = logProbsNoRep[wellDat$gridI]
     
     control.fixed$prec$X3 = NULL
   } else {

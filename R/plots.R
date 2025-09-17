@@ -1,8 +1,9 @@
 # functions for making plots and illustrations for the manuscript
 
 
-plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250)) {
+plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), prefPar = c(1.5, 3)) {
   thisN = matchArgNumeric(thisN)
+  prefPar = matchArgNumeric(prefPar)
   
   # get sampling probabilities and well data locations under high preferentiality, 
   # varying repulsion
@@ -13,7 +14,7 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250)) {
   
   # parameters
   propVarCase = "diggle"
-  prefPar = 3
+  
   repI = thisRepI
   sigmaSqErr = 0.01
   sigmaSq = 1
@@ -64,7 +65,7 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250)) {
   }
   
   
-  wellDatFileName = paste0("savedOutput/illustrations/illustrateRepulsion_n", thisN, ".RData")
+  wellDatFileName = paste0("savedOutput/illustrations/illustrateRepulsion_n", thisN, "_pref", prefPar, ".RData")
   
   if(!file.exists(wellDatFileName) || regenData) {
     # sample well data, making sure to use the same sampling probs and random seed, but 
@@ -130,7 +131,7 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250)) {
   
   thisCex = ifelse(thisN == 250, .3, 1)
   
-  pdf(file=paste0("figures/illustrations/showRepulsion_n", thisN, ".pdf"), width=12, height=3.4)
+  pdf(file=paste0("figures/illustrations/showRepulsion_n", thisN, "_pref", prefPar, ".pdf"), width=12, height=3.4)
   par(mfrow=c(1, 2), oma=c( 0,2.5,0,3.6), mar=c(4.1, 1.1, 1.9, 1.7))
   
   xlab = ifelse(thisN == 250, "Easting", "")

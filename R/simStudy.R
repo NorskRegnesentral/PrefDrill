@@ -95,7 +95,7 @@ getFitModFuns = function() {
   funs = c(funs, list(fitWatsonSimDat))
   
   # SPDE with design sampling probabilities accounted for
-  funs = c(funs, list(function(...) {fitSPDEsimDat(addLogitProbs=TRUE, ...)}))
+  funs = c(funs, list(function(...) {fitSPDEsimDat(addLogProbs=TRUE, ...)}))
   
   funs
 }
@@ -690,7 +690,8 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       stop("unrecognized propVarCase")
     }
     
-    sampleDat[,3] = expit(sampleDat[,3])
+    # take exp not expit, since multivariate expit is exp normalized to sum to 1
+    sampleDat[,3] = exp(sampleDat[,3])
     
     # do batch sampling
     wellDat = wellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
@@ -813,10 +814,10 @@ runSimStudyI = function(i, significance=c(.8, .95),
   out = load(wellDatFile)
   
   if((fitModFunI == 5) || doPlot) {
-    if("logitProbsNoRep" %in% names(wellDat)) {
-      logitProbsNoRep = wellDat$logitProbsNoRep
+    if("logProbsNoRep" %in% names(wellDat)) {
+      logProbsNoRep = wellDat$logProbsNoRep
     } else {
-      logitProbsNoRep = wellDat$allLogitProbsNoRep[,1]
+      logProbsNoRep = wellDat$allLogProbsNoRep[,1]
     }
     
   }
@@ -860,7 +861,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
       inputList = list(wellDat, seismicDat, repelDist=repDist, prefMean=prefPar, mesh=mesh, anisFac=anisFac)
     }
     else if (fitModFunI == 5) {
-      inputList = list(wellDat, seismicDat, logitProbsNoRep=logitProbsNoRep, mesh=mesh)
+      inputList = list(wellDat, seismicDat, logProbsNoRep=logProbsNoRep, mesh=mesh)
     }
     
     if(doPlot && (fitModFunI %in% c(3, 4))) {
@@ -923,8 +924,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
       pSeismic = bilinearInterp(cbind(pEast, pNorth), seismicDat, 
                                 transform=logit, invTransform = expit)
       
-      if("logitProbsNoRep" %in% names(wellDat)) {
-        logitProbsNoRepWells = wellDat$logitProbsNoRep
+      if("logProbsNoRep" %in% names(wellDat)) {
+        logProbsNoRepWells = wellDat$logProbsNoRep
       }
       
       
@@ -952,8 +953,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
       # Residual standard error: 0.3249 on 20299 degrees of freedom
       # Multiple R-squared:  0.3981,	Adjusted R-squared:  0.3981 
       # F-statistic: 1.343e+04 on 1 and 20299 DF,  p-value: < 2.2e-16
-      summary(lm(logitProbsNoRepWells ~ I(logit(wellDat$volFrac)) + I(logit(pSeismic))))
-      summary(lm(logitProbsNoRep ~ I(logit(gTruth)) + I(logit(gSeismic))))
+      summary(lm(logProbsNoRepWells ~ I(logit(wellDat$volFrac)) + I(logit(pSeismic))))
+      summary(lm(logProbsNoRep ~ I(logit(gTruth)) + I(logit(gSeismic))))
       
       summary(out$mod)
       
@@ -1050,7 +1051,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
       if(fitModFunI %in% c(3:4)) {
         lambdas = exp(rowMeans(out$predMat.pp))
         lambdas = lambdas * (1/sum(lambdas))
-        probsNoRep = expit(logitProbsNoRep)
+        probsNoRep = exp(logProbsNoRep)
         probsNoRep = probsNoRep * (1/sum(probsNoRep))
         probLims = range(c(lambdas, probsNoRep))
         
@@ -1645,7 +1646,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisKern = cbind(Model="SPDEK", n=addedVar, thisKern)
       thisDiggle = cbind(Model="Diggle", n=addedVar, thisDiggle)
       thisWatson = cbind(Model="Watson", n=addedVar, thisWatson)
-      thisDesign = cbind(Model="SPDED", n=addedVarDes, thisDesign)
+      if(!is.null(designScores)) {
+        thisDesign = cbind(Model="SPDED", n=addedVarDes, thisDesign)
+      }
     } else {
       
       if(adaptType == "spde") {
