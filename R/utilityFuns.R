@@ -267,6 +267,37 @@ copyDirFiltered <- function(srcDir, dstDir, includeSubstr = NULL, excludeSubstr 
   invisible(NULL)
 }
 
+# like match.arg, but for numeric choices
+matchArgNumeric <- function(arg, choices, several.ok = FALSE) {
+  # If choices not provided, take default from caller
+  if (missing(choices)) {
+    formal.args <- formals(sys.function(sysP <- sys.parent()))
+    choices <- eval(formal.args[[as.character(substitute(arg))]],
+                    envir = sys.frame(sysP))
+  }
+  
+  if (is.null(arg)) return(choices[1L])
+  
+  if (!is.numeric(arg)) stop("'arg' must be NULL or a numeric vector")
+  
+  if (!several.ok) {
+    if (identical(arg, choices)) return(arg[1L])
+    if (length(arg) > 1L) stop("'arg' must be of length 1")
+  } else if (length(arg) == 0L) {
+    stop("'arg' must be of length >= 1")
+  }
+  
+  # exact matching only
+  i <- which(arg %in% choices)
+  if (length(i) == 0L) {
+    stop(sprintf("'arg' should be one of %s", paste(choices, collapse = ", ")),
+         domain = NA)
+  }
+  
+  if (!several.ok && length(i) > 1) stop("there is more than one match in 'matchArgNumeric'")
+  
+  arg[i]
+}
 
 
 

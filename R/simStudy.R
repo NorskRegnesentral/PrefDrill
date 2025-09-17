@@ -111,6 +111,15 @@ repAreaToDist = function(repArea=.01, anisFac=1) {
   sqrt(repArea * domainArea / pi)
 }
 
+
+oldToNewRepA = function(repArea=.01) {
+  xlims = c(-12.5, 15012.5)
+  ylims = c(-8.3335, 5008.4336)
+  domainArea = diff(xlims) * diff(ylims)
+  rad = repAreaToDist(repArea)
+  pi * (0.5 * rad)^2 / domainArea # turns out to be previous area / 4
+}
+
 # samples the next drilling location.
 # 
 # If betaP == gammaP == 0, sampling is uniform, 
@@ -341,13 +350,13 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     n = c(20, 40, 60, 250)
     propVarCase = c("realistic", "diggle", "cluster", "realNoClust", "seismic", "uniform")
     prefPar = c(1.5, 3)
-    repelAreaProp = c(0, 0.001, 0.01)
+    repelAreaProp = c(0, 0.004, 0.02)
   } else {
     # n = c(10, 20, 30)
     n = c(20, 40, 60)
     propVarCase = c("spde", "self")
     prefPar = c(3)
-    repelAreaProp = c(0, 0.01)
+    repelAreaProp = c(0, 0.02)
   }
   fitModFunI = 1:length(getFitModFuns())
   
@@ -422,7 +431,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     # then remove bad values of repelAreaProp
     if(!is.null(tab$n)) {
       # badRepArea = (tab$repelAreaProp * tab$n > 0.5) | ((tab$repelAreaProp != 0) & tab$n > 200)
-      badRepArea = (tab$repelAreaProp * tab$n > 0.5)
+      badRepArea = (tab$repelAreaProp * tab$n > 1.2) # under manuscript parameterization, equivalent to > 0.3
     } else {
       badRepArea = rep(FALSE, nrow(tab))
     }
@@ -496,7 +505,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     propVarCase = tab$propVarCase[i]
     
     # sample max number of wells below repulsion limit. (previously: Also in big n case use no repulsion)
-    out = max(n[n * repAreaProp <= 0.5])
+    out = max(n[n * repAreaProp <= 1.2])
     # if((out == 250) && (repAreaProp != 0)) {
     #   out = n[length(n)-1]
     # }

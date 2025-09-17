@@ -83,6 +83,7 @@ source('R/getTestDat.R')
 source("R/readRMS.R")
 source("R/wellSampler.R")
 source("R/scores.R")
+source("R/plots.R")
 
 # set up global variables ----
 
