@@ -165,7 +165,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   if(samplingModel == "ipp") {
     # in the inhomogeneous Poisson process, sampling probability is proportional 
     # to the predictions
-    logProbsNoRep = log(preds)*prefPar
+    logProbsNoRep = logit(preds)*prefPar
   } else {
     stop(paste0("sampling model ", samplingModel, " not yet supported"))
   }
@@ -285,8 +285,8 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
     if(samplingModel == "ipp") {
       
       # in the inhomogeneous Poisson process, sampling probability is proportional 
-      # to the predictions
-      logProbs = log(preds) * prefPar
+      # to the logit predictions
+      logProbs = logit(preds) * prefPar
       
     } else {
       stop(paste0("sampling model ", samplingModel, " not yet supported"))
@@ -406,7 +406,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       
       # in the inhomogeneous Poisson process, sampling probability is proportional 
       # to the predictions
-      logProbsNoRep = log(preds) * prefPar
+      logProbsNoRep = logit(preds) * prefPar
       
     } else {
       stop(paste0("sampling model ", samplingModel, " not yet supported"))

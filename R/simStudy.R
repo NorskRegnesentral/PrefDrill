@@ -691,8 +691,8 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
       stop("unrecognized propVarCase")
     }
     
-    # take exp not expit, since multivariate expit is exp normalized to sum to 1
-    sampleDat[,3] = exp(sampleDat[,3])
+    # must expit here, since preds argument assumes 0-1 scale
+    sampleDat[,3] = expit(sampleDat[,3])
     
     # do batch sampling
     wellDat = wellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
