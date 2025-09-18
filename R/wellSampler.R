@@ -401,6 +401,11 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       stop("preds, seismicDat, and modelFitter are all NULL, and prefPar != 0")
     }
     
+    # normalize preds to have sd 1 on logit scale
+    lgtPreds = logit(preds)
+    stdLgtPreds = lgtPreds * (1 / sd(lgtPreds))
+    preds = expit(stdLgtPreds)
+    
     # calculate selection probabilities over the grid based on predictions
     if(samplingModel == "ipp") {
       
