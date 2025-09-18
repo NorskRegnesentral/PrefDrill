@@ -1,7 +1,7 @@
 # functions for making plots and illustrations for the manuscript
 
 
-plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), prefPar = c(1.5, 3)) {
+plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), prefPar = c(.5, .75)) {
   thisN = matchArgNumeric(thisN)
   prefPar = matchArgNumeric(prefPar)
   
@@ -164,9 +164,9 @@ makeAllRepulsionPlots = function(regenData=TRUE) {
   plotRepulsion(regenData=regenData, thisN=20)
   plotRepulsion(regenData=regenData, thisN=60)
   plotRepulsion(regenData=regenData, thisN=250)
-  plotRepulsion(regenData=regenData, thisN=20, prefPar=3)
-  plotRepulsion(regenData=regenData, thisN=60, prefPar=3)
-  plotRepulsion(regenData=regenData, thisN=250, prefPar=3)
+  plotRepulsion(regenData=regenData, thisN=20, prefPar=.75)
+  plotRepulsion(regenData=regenData, thisN=60, prefPar=.75)
+  plotRepulsion(regenData=regenData, thisN=250, prefPar=.75)
 }
 
 

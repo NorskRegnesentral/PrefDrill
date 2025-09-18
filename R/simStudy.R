@@ -349,13 +349,13 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   if(adaptScen == "batch") {
     n = c(20, 40, 60, 250)
     propVarCase = c("realistic", "diggle", "cluster", "realNoClust", "seismic", "uniform")
-    prefPar = c(1.5, 3)
+    prefPar = c(1, 2)
     repelAreaProp = c(0, 0.004, 0.02)
   } else {
     # n = c(10, 20, 30)
     n = c(20, 40, 60)
     propVarCase = c("spde", "self")
-    prefPar = c(3)
+    prefPar = c(2)
     repelAreaProp = c(0, 0.02)
   }
   fitModFunI = 1:length(getFitModFuns())
@@ -423,9 +423,9 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
   
   removeBadRows = function(tab, modelTab=FALSE) {
     # first remove extra beta value for uniform case
-    badBetas = (tab$propVarCase == "uniform") & (tab$prefPar == 3)
+    badBetas = (tab$propVarCase == "uniform") & (tab$prefPar == 2)
     if(!is.null(tab$n) && (250 %in% n) && ("n" %in% names(tab))) {
-      badBetas = badBetas | ((tab$n == 250) & ((tab$propVarCase != "uniform") & (tab$prefPar != 3)))
+      badBetas = badBetas | ((tab$n == 250) & ((tab$propVarCase != "uniform") & (tab$prefPar != 2)))
     }
     
     # then remove bad values of repelAreaProp
@@ -511,7 +511,7 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
     # }
     
     # sample max number of wells below prefPar limit
-    if((out == 250) && (prefPar != 3) && (propVarCase != "uniform")) {
+    if((out == 250) && (prefPar != 2) && (propVarCase != "uniform")) {
       out = n[length(n)-1]
     }
     out
@@ -682,8 +682,9 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
         indProp = 0
       }
       sampleDat[,3] = sqrt(seisProp) * seismicDatStd[,3] + sqrt(truthProp) * truthDatStd[,3] + sqrt(indProp) * indepDatStd[,3]
+      sampleDat[,3] = sampleDat[,3] * (1/sd(sampleDat[,3]))
     } else if(propVarCase == "uniform") {
-      # in this case, seismic data doesn't matter that much
+      # in this case, sampleDat doesn't matter
       sampleDat = seismicDat
       sampleDat[,3] = rep(0, nrow(sampleDat))
     } else {
@@ -1309,6 +1310,8 @@ fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar
                            doPar=TRUE, regenData=FALSE) {
   adaptScen = match.arg(adaptScen)
   
+  startT = proc.time()[3]
+  
   # load simulation parameters
   adaptScenCap = str_to_title(adaptScen)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
@@ -1333,6 +1336,11 @@ fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar
       runSimStudyI(i, adaptScen=adaptScen, regenData=regenData, verbose=TRUE)
     }
   }
+  
+  endT = proc.time()[3]
+  totHours = (endT - startT)/(60 * 60)
+  
+  print(paste0("took ", totHours, " hours, or ", totHours/maxRepI, " hours per replicate"))
 }
 
 getAllSeisEstsSimStudy = function(regenData=FALSE, significance=c(.8, .95)) {
@@ -2218,7 +2226,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
             thisN = nUnique[k]
             
             if(adaptScen == "batch") {
-              if((thisN > 200) && (thisPrefPar < 3)) {
+              if((thisN > 200) && (thisPrefPar < 2)) {
                 next
               }
               makeBoxplotsVsPar(allTypes[j], parName="repelAreaProp", thisN=thisN, 
