@@ -1684,7 +1684,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
     
     if(!is.null(thisSeis)) {
-      thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
+      if(nrow(thisSeis) == 0) {
+        thisSeis = cbind(Model=character(0), n=numeric(0), thisSeis)
+      } else {
+        thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
+      }
+      
       colnames(thisSeis)[2] = varyParName
     }
     colnames(thisSPDE)[2] = varyParName
@@ -2042,6 +2047,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   # make sure computer knows uniform case has no preferentiality
   modelFitCombs$prefPar[modelFitCombs$propVarCase == "uniform"] = 0
+  wellDatCombs$prefPar[wellDatCombs$propVarCase == "uniform"] = 0
+  sampleParCombs$prefPar[sampleParCombs$propVarCase == "uniform"] = 0
   
   # figure out which parameter sets have repI <= maxRepI
   is = 1:nrow(modelFitCombs)
@@ -2216,7 +2223,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       
       # wrt repelAreaProp (fix prefPar)
-      prefParUnique = sort(unique(sampleParCombs$prefPar))
+      prefParUnique = sort(unique(sampleParCombs$prefPar[sampleParCombs$propVarCase == thisPropVarCase,]))
       for(i in 1:length(prefParUnique)) {
         thisPrefPar = prefParUnique[i]
         
