@@ -1689,7 +1689,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(nrow(thisSeis) == 0) {
         thisSeis = cbind(Model=character(0), n=numeric(0), thisSeis)
       } else {
-        thisSeis = cbind(Model="Siesmic", n=addedVar, thisSeis)
+        thisSeis = cbind(Model="Seismic", n=addedVar, thisSeis)
       }
       
       colnames(thisSeis)[2] = varyParName
