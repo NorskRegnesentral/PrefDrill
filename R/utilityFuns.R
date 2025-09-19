@@ -222,6 +222,18 @@ myTitleCase = function(x) {
   paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)))
 }
 
+greplAny = function(pattern, x, ...) {
+  # if(length(pattern) <= 1) {
+  #   grepl(pattern, x, ...)
+  # } else {
+  #   res = sapply(pattern, function(pat) {grepl(pat, x, ...)})
+  #   apply(res, 1, FUN=any)
+  # }
+  
+  pat = paste(pattern, collapse = "|")
+  grepl(pat, x, ...)
+}
+
 # Copies the given directory along with all subdirectories and the files contained except:
 #  - only copies files if they contain includeSubstr
 #  - doesn't copy files that contain anything in the vector excludeSubstr
@@ -240,7 +252,8 @@ copyDirFiltered <- function(srcDir, dstDir, includeSubstr = NULL, excludeSubstr 
   
   # Apply include filter (if given)
   if (!is.null(includeSubstr)) {
-    files <- files[grepl(includeSubstr, basename(files))]
+    includePattern <- paste(includeSubstr, collapse = "|")
+    files <- files[grepl(includePattern, basename(files))]
   }
   
   # Apply exclude filter (if given)

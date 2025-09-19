@@ -2252,9 +2252,18 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # copy only the figures we will actually keep for the manuscript
   copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
                   dstDir=paste0("~/fig/simStudy/", adaptScen), 
-                  includeSubstr = "agg", excludeSubstr = c("80", "Var", "RMSE"))
+                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "Var", "RMSE"))
   
   browser()
+  
+}
+
+# call on the cluster to copy figures we need into the manuscript directory ~/fig
+refreshManuscriptFigDir = function(adaptScens=c("batch", "adaptPref", "adaptVar")) {
+  
+  copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
+                  dstDir=paste0("~/fig/simStudy/"), 
+                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "Var", "RMSE"))
   
 }
 
