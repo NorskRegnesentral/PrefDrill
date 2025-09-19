@@ -1832,11 +1832,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       levelsN = sort(unique(as.numeric(thisTab$n)))
       thisTab$n = factor(thisTab$n, levels = as.character(levelsN))
       
-      if((thisVar == "pref") && (i == 25)) {
-        # check that boxplots are ordered correctly wrt n and that n=250 values are correct
-        browser()
-      }
-      
       # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
