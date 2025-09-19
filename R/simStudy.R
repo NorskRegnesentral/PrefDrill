@@ -39,6 +39,8 @@ getSimStudyPredGrid = function(upScaleFac=2, getGoodCoords=FALSE) {
   }
 }
 
+# low: lower end of CI on variance
+# high: upper end of CI on variance
 getPrecPrior = function(low=.05^2, high=0.5^2, alpha=.05) {
   
   optFun = function(par) {
@@ -1810,6 +1812,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
       thisTab[[thisVar]] = as.numeric(thisTab[[thisVar]])
       
+      if((thisVar == "pref") && (!is.null(propVarCase)) && (propVarCase == "diggle")) {
+        # check that boxplots are ordered correctly wrt n and that n=250 values are correct
+        browser()
+      }
+      
       # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
@@ -2252,18 +2259,18 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # copy only the figures we will actually keep for the manuscript
   copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
                   dstDir=paste0("~/fig/simStudy/", adaptScen), 
-                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "Var", "RMSE"))
+                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "_Var", "RMSE"))
   
   browser()
   
 }
 
 # call on the cluster to copy figures we need into the manuscript directory ~/fig
-refreshManuscriptFigDir = function(adaptScens=c("batch", "adaptPref", "adaptVar")) {
+refreshManuscriptFigDir = function() {
   
   copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
                   dstDir=paste0("~/fig/simStudy/"), 
-                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "Var", "RMSE"))
+                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "_Var", "RMSE"))
   
 }
 
