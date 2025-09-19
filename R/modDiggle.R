@@ -113,7 +113,7 @@ fitDiggle = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   ## inlabru code
-  prefPrior = list(prior="gaussian", param=c(prefMean, 1/4))
+  prefPrior = list(prior="gaussian", param=c(prefMean, 1))
   ys = as.numeric(transform(obsValues))
   # Making X terra
   X_terra = terra::rast(covs$X, type="xyz")

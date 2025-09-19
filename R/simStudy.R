@@ -1792,16 +1792,34 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       adaptType = match.arg(adaptType)
       
       # Ensure the number of colors matches the number of unique models
-      unique_models <- unique(thisTab$Model)
-      thisTab$Model <- factor(thisTab$Model, levels = unique_models)
-      
-      if(adaptType == "spde") {
-        thisModCols = modCols
-      } else if(adaptType == "self") {
-        thisModCols = modColsSelf
+      # if(adaptScen == "batch") {
+      #   modCols = c("grey", "turquoise1", "blue", "purple", "maroon2", "seagreen")
+      # } else {
+      #   modCols = c("grey", "turquoise1", "blue", "purple", "maroon2")
+      #   modColsSelf = c("grey", "turquoise1", "steelblue1", "violet", "palevioletred1")
+      #   modColsComb = c("grey", "turquoise1", "blue", "purple", "maroon2", "steelblue1", "violet", "palevioletred1")
+      #   # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
+      # }
+      unique_models = unique(thisTab$Model)
+      if (adaptScen == "batch") {
+        baseCols = modCols
       } else {
-        thisModCols = modColsComb
+        if (adaptType == "spde") {
+          baseCols = modCols
+        } else if (adaptType == "self") {
+          baseCols = modColsSelf
+        } else {
+          baseCols = modColsComb
+        }
       }
+      
+      # restrict to models actually present in thisTab, 
+      # but preserve the order from baseCols
+      presentModels = intersect(names(baseCols), as.character(thisTab$Model))
+      thisModCols = baseCols[presentModels]
+      
+      # set factor levels of Model in the same order as colors
+      thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
       
       # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisVar, "_", fileRoot, ".pdf"), width=5, height=5)
       adaptFRoot = ""
@@ -1811,6 +1829,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
       thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
       thisTab[[thisVar]] = as.numeric(thisTab[[thisVar]])
+      levelsN = sort(unique(as.numeric(thisTab$n)))
+      thisTab$n = factor(thisTab$n, levels = as.character(levelsN))
       
       if((thisVar == "pref") && (i == 25)) {
         # check that boxplots are ordered correctly wrt n and that n=250 values are correct
@@ -1828,9 +1848,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                      position = position_dodge(width = 0.75)) +
         stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
-        scale_fill_manual(values = setNames(thisModCols[1:length(unique_models)], unique_models)) +
+        # scale_fill_manual(values = setNames(thisModCols[1:length(unique_models)], unique_models)) +
+        scale_fill_manual(values = thisModCols) + 
         labs(
-          title = paste0(myTitleCase(thisVar), " vs. n (", typeName, ")"),
+          # title = paste0(myTitleCase(thisVar), " vs. n (", typeName, ")"),
+          title = paste0(myTitleCase(thisVar), " vs. n"),
           x = "n",
           y = myTitleCase(thisVar),
           fill = "Model"
@@ -1842,11 +1864,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         p = p + scale_y_log10()
       }
       if(grepl("Coverage", thisVar)) {
-        cvg <- as.numeric(substr(thisVar, nchar(thisVar)-1, nchar(thisVar))) / 100
+        cvg = as.numeric(substr(thisVar, nchar(thisVar)-1, nchar(thisVar))) / 100
         p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
       }
       if(thisVar %in% c()) {
-        cvg <- as.numeric(substr(thisVar, nchar(thisVar)-1, nchar(thisVar))) / 100
+        cvg = as.numeric(substr(thisVar, nchar(thisVar)-1, nchar(thisVar))) / 100
         p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
       }
       
@@ -1985,7 +2007,25 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     # Ensure the number of colors matches the number of unique models
     unique_models <- unique(tab$Model)
-    tab$Model <- factor(tab$Model, levels = unique_models)
+    if (adaptScen == "batch") {
+      baseCols = modCols
+    } else {
+      if (adaptType == "spde") {
+        baseCols = modCols
+      } else if (adaptType == "self") {
+        baseCols = modColsSelf
+      } else {
+        baseCols = modColsComb
+      }
+    }
+    
+    # restrict to models actually present in thisTab, 
+    # but preserve the order from baseCols
+    presentModels = intersect(names(baseCols), as.character(tab$Model))
+    thisModCols = baseCols[presentModels]
+    
+    # set factor levels of Model in the same order as colors
+    tab$Model = factor(tab$Model, levels = names(thisModCols))
     
     # plot each score
     if(type != "par") {
@@ -2024,11 +2064,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
                      position = position_dodge(width = 0.75)) +
         stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
-        scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
+        # scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
+        scale_fill_manual(values = thisModCols) + 
         labs(
+          # title = paste0(myTitleCase(thisVar), " vs. ", parName, 
+          #                " (", adaptScenCap, ", ", typeName, ", ", 
+          #                fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
           title = paste0(myTitleCase(thisVar), " vs. ", parName, 
-                         " (", adaptScenCap, ", ", typeName, ", ", 
-                         fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
+                         " (", fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
           x = parName,
           y = myTitleCase(thisVar),
           fill = "Model"
@@ -2069,12 +2112,14 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   thisDirRoot = paste0(adaptScen, "/")
   if(adaptScen == "batch") {
-    modCols = c("grey", "turquoise1", "blue", "purple", "maroon2", "seagreen")
+    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", Watson="maroon2", SPDED="seagreen")
   } else {
-    modCols = c("grey", "turquoise1", "blue", "purple", "maroon2")
+    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", Watson="maroon2")
     modColsSelf = c("grey", "turquoise1", "steelblue1", "violet", "palevioletred1")
     modColsComb = c("grey", "turquoise1", "blue", "purple", "maroon2", "steelblue1", "violet", "palevioletred1")
     # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
+    names(modColsSelf) = c("SPDE->SPDE", "SPDE->SPDEK", "SPDE->Diggle", "SPDE->Watson")
+    names(modColsComb) = c("SPDE->SPDE", "SPDEK->SPDEK", "Diggle->Diggle", "Watson->Watson")
   }
   
   pch = c(5, 15:19)

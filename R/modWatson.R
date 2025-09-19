@@ -237,7 +237,7 @@ fitWatson = function(obsCoords, obsValues, xObs=matrix(rep(1, length(obsValues))
   }
   
   # set preferentiality parameter prior
-  prefPrior = list(prior="gaussian", param=c(prefMean, 1/4))
+  prefPrior = list(prior="gaussian", param=c(prefMean, 1))
   
   # if there is an intercept, we need to remove it and instead include a 
   # separate intercept for each iteration in the PProc model. Otherwise, no need 
