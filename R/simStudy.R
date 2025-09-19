@@ -1812,7 +1812,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       thisTab = thisTab[!is.na(thisTab[[thisVar]]),]
       thisTab[[thisVar]] = as.numeric(thisTab[[thisVar]])
       
-      if((thisVar == "pref") && (!is.null(propVarCase)) && (propVarCase == "diggle")) {
+      if((thisVar == "pref") && (i == 25)) {
         # check that boxplots are ordered correctly wrt n and that n=250 values are correct
         browser()
       }
