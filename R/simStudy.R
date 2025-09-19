@@ -2223,7 +2223,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       }
       
       # wrt repelAreaProp (fix prefPar)
-      prefParUnique = sort(unique(sampleParCombs$prefPar[sampleParCombs$propVarCase == thisPropVarCase,]))
+      prefParUnique = sort(unique(sampleParCombs$prefPar[sampleParCombs$propVarCase == thisPropVarCase]))
       for(i in 1:length(prefParUnique)) {
         thisPrefPar = prefParUnique[i]
         
