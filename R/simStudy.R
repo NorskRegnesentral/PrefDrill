@@ -2244,6 +2244,10 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       # wrt prefPar (fix repelAreaProp)
       if(thisPropVarCase != "uniform") {
         
+        if(propVarCase == "seismic") {
+          browser()
+        }
+        
         for(i in 1:length(repelAreaPropUnique)) {
           thisRepelAreaProp = repelAreaPropUnique[i]
           
