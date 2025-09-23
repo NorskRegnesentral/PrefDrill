@@ -1906,11 +1906,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       # allMods = c("Seismic", "SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
       # keptsMods = allMods[keepMod]
       
-      if(grepl("Coverage", thisVar) && type != "mean") {
-        # for aggregate scores, coverage will just be 0 or 1, not very interesting
-        next
-      }
-      
       # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))) {
       #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot))
       # }
@@ -2037,11 +2032,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
     for(j in 1:length(varNames)) {
       thisVar = varNames[j]
-      
-      if(grepl("Coverage", thisVar) && type != "mean") {
-        # for aggregate scores, coverage will just be 0 or 1, not very interesting
-        next
-      }
       
       if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))) {
         dir.create(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))
