@@ -2030,6 +2030,11 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       varNames = c("pref", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design")
     }
     
+    # reparameterize repelAreaProp (divide by 4)
+    if(parName == "repelAreaProp") {
+      tab$repelAreaProp = tab$repelAreaProp * 0.25 # faster than call to oldToNewRepA()
+    }
+    
     for(j in 1:length(varNames)) {
       thisVar = varNames[j]
       
