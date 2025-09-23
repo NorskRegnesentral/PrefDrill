@@ -1837,10 +1837,16 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       pdf(fname, width=5, height=5)
       
       # Create the plot
-      p = ggplot(thisTab, aes(x = factor(n), y = .data[[thisVar]], fill = Model)) +
-        geom_boxplot() +
-        stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
-                     position = position_dodge(width = 0.75)) +
+      p = ggplot(thisTab, aes(x = factor(n), y = .data[[thisVar]], fill = Model))
+      if(!(thisVar %in% c("Coverage80", "Coverage95"))) {
+        p = p + geom_boxplot()
+      }
+       p = p +
+        # stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
+        #              position = position_dodge(width = 0.75)) +
+        stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+                     color = "black", aes(fill = Model),
+                     position = position_dodge(width = 0.75)) + 
         stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
                      position = position_dodge(width = 0.75)) +
         # scale_fill_manual(values = setNames(thisModCols[1:length(unique_models)], unique_models)) +
@@ -2053,12 +2059,15 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       } else {
         p = ggplot(thisTab, aes(x = factor(repelAreaProp), y = .data[[thisVar]], fill = Model))
       }
+      if(!(thisVar %in% c("Coverage80", "Coverage95"))) {
+        p = p + geom_boxplot()
+      }
       p = p +
-        geom_boxplot() +
-        stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
-                     position = position_dodge(width = 0.75)) +
-        stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
-                     position = position_dodge(width = 0.75)) +
+        # stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
+        #              position = position_dodge(width = 0.75)) +
+        stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+                     color = "black", aes(fill = Model),
+                     position = position_dodge(width = 0.75)) + 
         # scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
         scale_fill_manual(values = thisModCols) + 
         labs(
@@ -2089,6 +2098,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   }
   
   # plots and tables setup ----
+  print("plotting...")
   
   # make sure computer knows uniform case has no preferentiality
   modelFitCombs$prefPar[modelFitCombs$propVarCase == "uniform"] = 0
@@ -2136,6 +2146,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   seisScores = getModScores(0, thisParI=1) # seismic scores don't depend on thisParI
   
   # boxplots vs n ----
+  print("boxplots vs n...")
   
   # for each set of sampling parameters, show results
   if(adaptScen == "batch") {
@@ -2228,6 +2239,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   
   # boxplots vs parameters ----
+  print("boxplots vs parameters...")
   
   propVarCases = c("uniform", "diggle", "seismic", "cluster", "realNoClust", "realistic")
   
@@ -2243,10 +2255,6 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       
       # wrt prefPar (fix repelAreaProp)
       if(thisPropVarCase != "uniform") {
-        
-        if(propVarCase == "seismic") {
-          browser()
-        }
         
         for(i in 1:length(repelAreaPropUnique)) {
           thisRepelAreaProp = repelAreaPropUnique[i]
@@ -2300,6 +2308,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     
   }
   
+  print("copying figures to manuscript fig dir...")
   # copy only the figures we will actually keep for the manuscript
   copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
                   dstDir=paste0("~/fig/simStudy/", adaptScen), 
