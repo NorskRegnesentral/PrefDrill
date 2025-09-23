@@ -1841,7 +1841,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       if(!(thisVar %in% c("Coverage80", "Coverage95"))) {
         p = p + geom_boxplot()
       }
-       p = p +
+      p = p +
         # stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
         #              position = position_dodge(width = 0.75)) +
         stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
@@ -2307,7 +2307,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # copy only the figures we will actually keep for the manuscript
   copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
                   dstDir=paste0("~/fig/simStudy/", adaptScen), 
-                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "_Var", "RMSE"))
+                  includeSubstr = c("agg", "par", "mean.*Coverage"), excludeSubstr = c("80", "_Var", "RMSE"))
   
   browser()
   
@@ -2318,7 +2318,7 @@ refreshManuscriptFigDir = function() {
   
   copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
                   dstDir=paste0("~/fig/simStudy/"), 
-                  includeSubstr = c("agg", "par"), excludeSubstr = c("80", "_Var", "RMSE"))
+                  includeSubstr = c("agg", "par", "mean.*Coverage"), excludeSubstr = c("80", "_Var", "RMSE"))
   
 }
 
