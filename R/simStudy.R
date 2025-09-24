@@ -565,7 +565,7 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
 # anisFac: only used in the adaptive case as model parameter
 simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
                                regenData=FALSE, verbose=FALSE, batchSize=5, anisFac=3, 
-                               doPlot=FALSE) {
+                               doPlot=FALSE, doDebug=FALSE, extraVerbose=doDebug) {
   adaptScen = match.arg(adaptScen)
   
   if(verbose) {
@@ -654,7 +654,8 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                           repelType=repelType, bwRepel=bwRepel, batchSize=batchSize, 
                           repelAmount=repelAmount, seed=seed, 
                           int.strategy="eb", strategy="gaussian", 
-                          getProbsNoRepOnly=TRUE, fitInputs=inputList)
+                          getProbsNoRepOnly=TRUE, fitInputs=inputList, 
+                          verbose=extraVerbose, doDebug=doDebug)
     
     # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
     #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
@@ -726,7 +727,9 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                      repelType=repelType, bwRepel=bwRepel, 
                      rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
-                     seed=seed, int.strategy="eb", strategy="gaussian", getProbsNoRepOnly=TRUE)
+                     seed=seed, int.strategy="eb", strategy="gaussian", 
+                     getProbsNoRepOnly=TRUE, verbose=extraVerbose, 
+                     doDebug=doDebug)
     
   }
   

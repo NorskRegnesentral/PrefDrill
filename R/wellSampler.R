@@ -245,7 +245,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                        rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
                        seed=NULL, batchSize=1, minN=4, verbose=FALSE, 
                        saveAllPredsProbs=TRUE, getProbsNoRepOnly=TRUE, 
-                       fitInputs=NULL, ...) {
+                       fitInputs=NULL, doDebug=FALSE, ...) {
   
   # set up defaults
   if(!is.null(seed)) {
@@ -526,6 +526,12 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
     if(verbose) {
       endBatchT = proc.time()[3]
       print(paste0("took ", endBatchT - startBatchT, " seconds"))
+    }
+    
+    if(doDebug) {
+      
+      browser()
+      
     }
   }
   

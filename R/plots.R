@@ -1,7 +1,7 @@
 # functions for making plots and illustrations for the manuscript
 
 
-plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), prefPar = c(1, 2)) {
+plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 40, 60, 250), prefPar = c(1, 2)) {
   thisN = matchArgNumeric(thisN)
   prefPar = matchArgNumeric(prefPar)
   
@@ -48,20 +48,25 @@ plotRepulsion = function(seed=123, regenData=FALSE, thisN = c(20, 60, 250), pref
   sampleDat[,3] = expit(sampleDat[,3])
   
   # do batch sampling
-  if(thisN == 20) {
-    noRepelDist = repAreaToDist(0)
-    midRepelDist = repAreaToDist(0.004) # 0.001 in new p_rep parameterization
-    highRepelDist = repAreaToDist(0.02) # 0.005 in new p_rep parameterization
-  } else if(thisN == 60) {
-    noRepelDist = repAreaToDist(0)
-    midRepelDist = repAreaToDist(0.004) # 0.001 in new p_rep parameterization
-    highRepelDist = repAreaToDist(0.02) # 0.005 in new p_rep parameterization
-  } else if (thisN == 250) {
-    noRepelDist = repAreaToDist(0)
-    midRepelDist = repAreaToDist(0.002)  # 0.001 in new p_rep parameterization
-    highRepelDist = repAreaToDist(0.004) # 0.005 in new p_rep parameterization
-  } else {
-    stop()
+  # if(thisN == 20) {
+  #   noRepelDist = repAreaToDist(0)
+  #   midRepelDist = repAreaToDist(0.004) # 0.001 in new p_rep parameterization
+  #   highRepelDist = repAreaToDist(0.02) # 0.005 in new p_rep parameterization
+  # } else if(thisN == 60) {
+  #   noRepelDist = repAreaToDist(0)
+  #   midRepelDist = repAreaToDist(0.004) # 0.001 in new p_rep parameterization
+  #   highRepelDist = repAreaToDist(0.02) # 0.005 in new p_rep parameterization
+  # } else if (thisN == 250) {
+  #   noRepelDist = repAreaToDist(0)
+  #   midRepelDist = repAreaToDist(0.002)  # 0.001 in new p_rep parameterization
+  #   highRepelDist = repAreaToDist(0.004) # 0.005 in new p_rep parameterization
+  # } else {
+  #   stop()
+  # }
+  noRepelDist = repAreaToDist(0)
+  highRepelDist = repAreaToDist(0.02) # 0.005 in new p_rep parameterization
+  if(thisN == 250) {
+    highRepelDist = repAreaToDist(0.004)
   }
   
   
