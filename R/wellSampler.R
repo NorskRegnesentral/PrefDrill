@@ -79,7 +79,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
                             samplingModel=c("ipp"), sigmaSqErr=.1^2, 
                             repelType=c("none", "rbf"), bwRepel=NULL, 
                             rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
-                            seed=NULL, isWatson=FALSE, ...) {
+                            seed=NULL, fitInputs=NULL, ...) {
   
   if(!is.null(seed)) {
     set.seed(seed)
@@ -104,7 +104,7 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
                              samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                              repelType=repelType, bwRepel=bwRepel, 
                              rbf=rbf, repelAmount=repelAmount, 
-                             seed=seed, isWatson=isWatson, ...)
+                             seed=seed, fitInputs=fitInputs, ...)
       # list(wellDat = as.data.frame(res), preds=preds, predAggMat=predAggMat, fit=fit)
       
       thisWell = out$wellDat
@@ -131,16 +131,19 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
   # first fit the model and get predictions over the grid (or just take seismic estimates)
   if(is.null(preds)) {
     if(!is.null(wellDat) && !is.null(modelFitter)) {
-      if(!isWatson) {
-        fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
-                          transform=transform, invTransform=invTransform, ...)
+      fit = do.call("modelFitter", c(list(wellDat=wellDatDF, seismicDat=seismicDat, predGrid=predGrid, 
+                                          transform=transform, invTransform=invTransform, previousFit=prevFit), 
+                                     fitInputs, list(...)))
+      
+      if("pred.yEst" %in% names(fit)) {
+        # this is the Watson model
+        preds = fit$pred.yEst
+        predAggMat = fit$pred.yAggMat
       } else {
-        fit = modelFitter(wellDat=wellDat, seismicDat=seismicDat, predGrid=predGrid, 
-                          transform=transform, invTransform=invTransform, repelDist=bwRepel, ...)
+        preds = fit$predEst
+        predAggMat = fit$predAggMat
       }
       
-      preds = fit$predEst
-      predAggMat = fit$predAggMat
     } else if(!is.null(seismicDat)) {
       fit = NULL
       preds = seismicDat[,3]
@@ -240,8 +243,9 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                        samplingModel=c("ipp"), sigmaSqErr=.1^2, 
                        repelType=c("none", "rbf"), bwRepel=NULL, 
                        rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
-                       seed=NULL, batchSize=1, minN=4, isWatson=FALSE, verbose=FALSE, 
-                       saveAllPredsProbs=TRUE, getProbsNoRepOnly=TRUE, ...) {
+                       seed=NULL, batchSize=1, minN=4, verbose=FALSE, 
+                       saveAllPredsProbs=TRUE, getProbsNoRepOnly=TRUE, 
+                       fitInputs=NULL, ...) {
   
   # set up defaults
   if(!is.null(seed)) {
@@ -270,7 +274,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                             samplingModel=samplingModel, sigmaSqErr=sigmaSqErr, 
                             repelType=repelType, bwRepel=bwRepel, 
                             rbf=rbf, repelAmount=repelAmount, isWatson=isWatson, 
-                            seed=seed, ...))
+                            seed=seed, fitInputs=fitInputs, ...))
   }
   
   # calculate grid resolution
@@ -359,23 +363,18 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       wellDatDF = as.data.frame(wellDat)
       
       # base sampling intensity on model predictions
-      if(!isWatson) {
-        fit = modelFitter(wellDat=wellDatDF, seismicDat=seismicDat, predGrid=predGrid, 
-                          transform=transform, invTransform=invTransform, previousFit=prevFit, 
-                          ...)
-        
-        preds = fit$predEst
-        predAggMat = fit$predAggMat
-      } else {
-        fit = modelFitter(wellDat=wellDatDF, seismicDat=seismicDat, predGrid=predGrid, repelDist=bwRepel, 
-                          transform=transform, invTransform=invTransform, previousFit=prevFit, 
-                          ...)
-        
+      fit = do.call("modelFitter", c(list(wellDat=wellDatDF, seismicDat=seismicDat, predGrid=predGrid, 
+                                          transform=transform, invTransform=invTransform, previousFit=prevFit), 
+                                     fitInputs, list(...)))
+      
+      if("pred.yEst" %in% names(fit)) {
+        # this is the Watson model
         preds = fit$pred.yEst
         predAggMat = fit$pred.yAggMat
+      } else {
+        preds = fit$predEst
+        predAggMat = fit$predAggMat
       }
-      
-      
       
       # save this fit to use next time
       prevFit = fit$mod

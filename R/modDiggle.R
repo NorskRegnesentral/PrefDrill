@@ -25,6 +25,7 @@
 #                  Contains some of all of the elements: spde$effRange, 
 #                  spde$margVar, familyPrec, clusterPrec, beta (NOT TESTED)
 # experimentalMode: Whether to use INLA variational inference tools (NOT TESTED)
+# bwRepel: does nothing for this model
 # 
 # Outputs:
 # INLA model, predictions, summary statistics, input data, (posterior draws), etc.
@@ -38,7 +39,8 @@ fitDigglesimDat = function(wellDat, seismicDat,
                            nPostSamples=1000, verbose=FALSE, seed=NULL, 
                            family="normal", doModAssess=FALSE, previousFit=NULL, 
                            addNugToPredCoords=FALSE, prefMean=0, getPPres=FALSE, 
-                           fixedParameters=NULL, experimentalMode=FALSE, fixPref=FALSE) {
+                           fixedParameters=NULL, experimentalMode=FALSE, 
+                           fixPref=FALSE, bwRepel=NULL) {
   
   # construct prediction points
   predPts = st_as_sf(seismicDat[,1:2], coords = c("east", "north"))

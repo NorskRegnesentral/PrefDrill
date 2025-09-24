@@ -185,6 +185,7 @@ getDomainSimStudy = function(returnClass=c("sf", "matrix")) {
 #                  Contains some of all of the elements: spde$effRange, 
 #                  spde$margVar, familyPrec, clusterPrec, beta (NOT TESTED)
 # experimentalMode: Whether to use INLA variational inference tools (NOT TESTED)
+# bwRepel: does nothing for this model
 # 
 # Outputs:
 # INLA model, predictions, summary statistics, input data, posterior draws, etc.
@@ -198,7 +199,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
                          nPostSamples=1000, useSeismic=TRUE, verbose=FALSE, seed=NULL, 
                          family="normal", doModAssess=FALSE, previousFit=NULL, 
                          fixedParameters=NULL, experimentalMode=FALSE, addLogProbs=FALSE, 
-                         logProbsNoRep=NULL) {
+                         logProbsNoRep=NULL, bwRepel=NULL) {
   
   # set defaults
   # family = match.arg(family)

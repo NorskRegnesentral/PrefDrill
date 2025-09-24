@@ -577,10 +577,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   sigmaSq = thisPar$sigmaSq
   repelAmount = thisPar$repEffect
   nWells = thisPar$n
-  if(adaptScen != "batch") {
-    modelFitter = getFitModFuns()[[thisPar$sampModFunI]]
-    isWatson = thisPar$sampModFunI == 4
-  }
+  sampModFunI = thisPar$sampModFunI
   repelDist = repAreaToDist(thisPar$repelAreaProp)
   seed = thisPar$seed
   
@@ -614,25 +611,41 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   }
   
   if(adaptScen != "batch") {
-    # sample the wells
-    # wellDat = wellSampler(truthDat, seismicDat, modelFitter, nWells=nWells, minN=4,
-    #                       predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
-    #                       transform=logit, invTransform=expit, prefPar=prefPar,
-    #                       samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
-    #                       repelType=repelType, bwRepel=bwRepel,
-    #                       repelAmount=repelAmount, seed=seed,
-    #                       int.strategy="eb", strategy="gaussian")
     
-    # for testing purposes:
+    truthFac = getNormFac(seismicDat=1, truthDat=truth, indepDat=1, 
+                          subsampled=TRUE, goodCoords=goodCoords, truthFacOnly=TRUE)
+    
+    # use the same preferentiality prior as the realistic non-adaptive case
+    prefPar = sqrt(0.25) * prefPar * truthFac
+    
+    mesh = getSPDEmeshSimStudy(anisFac=anisFac)
+    if(sampModFunI < 3) {
+      inputList = list(mesh=mesh)
+    } else if (sampModFunI == 3) {
+      inputList = list(prefMean=prefPar, mesh=mesh)
+    } else if (sampModFunI == 4) {
+      repDist = repAreaToDist(repelAreaProp)
+      inputList = list(repelDist=repDist, prefMean=prefPar, mesh=mesh, anisFac=anisFac)
+    }
+    
+    if(doPlot && (sampModFunI %in% c(3, 4))) {
+      # for testing purposes, get the point process results also
+      inputList = c(inputList, list(getPPres=TRUE))
+    }
+    
+    modelFitter = getFitModFuns()[[sampModFunI]]
+    
+    
+    # sample the wells
     wellDat = wellSampler(truthDat=truthDat, seismicDat=seismicDat, 
                           modelFitter=modelFitter, nWells=nWells, minN=4,
                           predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
                           transform=logit, invTransform=expit, prefPar=prefPar,
                           samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr,
                           repelType=repelType, bwRepel=bwRepel, batchSize=batchSize, 
-                          repelAmount=repelAmount, seed=seed, isWatson=isWatson, 
+                          repelAmount=repelAmount, seed=seed, 
                           int.strategy="eb", strategy="gaussian", 
-                          getProbsNoRepOnly=TRUE)
+                          getProbsNoRepOnly=TRUE, fitInputs=inputList)
     
     # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
     #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
@@ -703,7 +716,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      transform=logit, invTransform=expit, prefPar=prefPar, 
                      samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
                      repelType=repelType, bwRepel=bwRepel, 
-                     rbf="uniform", repelAmount=Inf, batchSize=batchSize, isWatson=isWatson, 
+                     rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
                      seed=seed, int.strategy="eb", strategy="gaussian", getProbsNoRepOnly=TRUE)
     
   }
@@ -2307,7 +2320,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   # copy only the figures we will actually keep for the manuscript
   copyDirFiltered(srcDir=paste0("figures/simStudy/", thisDirRoot), 
                   dstDir=paste0("~/fig/simStudy/", adaptScen), 
-                  includeSubstr = c("agg", "par", "mean.*Coverage"), excludeSubstr = c("80", "_Var", "RMSE"))
+                  includeSubstr = c("agg", "par", "mean.*Coverage95"), excludeSubstr = c("80", "_Var", "RMSE"))
   
   browser()
   
@@ -2318,7 +2331,7 @@ refreshManuscriptFigDir = function() {
   
   copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
                   dstDir=paste0("~/fig/simStudy/"), 
-                  includeSubstr = c("agg", "par", "mean.*Coverage"), excludeSubstr = c("80", "_Var", "RMSE"))
+                  includeSubstr = c("agg", "par", "mean.*Coverage95"), excludeSubstr = c("80", "_Var", "RMSE"))
   
 }
 
