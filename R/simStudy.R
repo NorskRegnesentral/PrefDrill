@@ -556,7 +556,8 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
 # generates sequentially-sampled well data for the simulation study
 # anisFac: only used in the adaptive case as model parameter
 simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                               regenData=FALSE, verbose=FALSE, batchSize=5, anisFac=3) {
+                               regenData=FALSE, verbose=FALSE, batchSize=5, anisFac=3, 
+                               doPlot=FALSE) {
   adaptScen = match.arg(adaptScen)
   
   if(verbose) {
@@ -719,6 +720,12 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                      repelType=repelType, bwRepel=bwRepel, 
                      rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
                      seed=seed, int.strategy="eb", strategy="gaussian", getProbsNoRepOnly=TRUE)
+    
+  }
+  
+  if(doPlot) {
+    
+    browser()
     
   }
   
