@@ -540,6 +540,11 @@ setupSimStudy = function(adaptScen=c("batch", "adaptPref", "adaptVar")) {
 simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
                                   regenData=FALSE, verbose=FALSE, batchSize=5) {
   
+  tmplogfile <- paste0("savedOutput/simStudy/well_", adaptScen, "_", i, "_tmp.txt")
+  sink(tmplogfile)
+  cat("Started wells job i =", i, ":\n")
+  sink()
+  
   tryCatch(simStudyWellSampler(i, adaptScen, regenData, verbose, batchSize), 
            error = function(e) {
              logfile <- paste0("savedOutput/simStudy/well_", adaptScen, "_", i, "_err.txt")
@@ -550,6 +555,9 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
              sink()
              stop("error")
            })
+  
+  # remove the tmp log file to indicate the job is complete
+  system(paste0("rm ", tmplogfile))
   
 }
 
@@ -626,7 +634,6 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     } else if (sampModFunI == 3) {
       inputList = list(prefMean=prefPar, mesh=mesh)
     } else if (sampModFunI == 4) {
-      repDist = repAreaToDist(repelAreaProp)
       inputList = list(repelDist=repDist, prefMean=prefPar, mesh=mesh, anisFac=anisFac)
     }
     
