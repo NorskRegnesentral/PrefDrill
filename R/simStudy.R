@@ -612,7 +612,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
   
   if(adaptScen != "batch") {
     
-    truthFac = getNormFac(seismicDat=1, truthDat=truth, indepDat=1, 
+    truthFac = getNormFac(seismicDat=1, truthDat=truthDat, indepDat=1, 
                           subsampled=TRUE, goodCoords=goodCoords, truthFacOnly=TRUE)
     
     # use the same preferentiality prior as the realistic non-adaptive case
