@@ -2084,6 +2084,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                      color = "black", aes(fill = Model),
                      position = position_dodge(width = 0.75)) + 
+        stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
+                     position = position_dodge(width = 0.75)) +
         # scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
         scale_fill_manual(values = thisModCols) + 
         labs(
@@ -2275,7 +2277,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         for(i in 1:length(repelAreaPropUnique)) {
           thisRepelAreaProp = repelAreaPropUnique[i]
           
-          thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 0.5]
+          thisUniqueNs = nUnique[(thisRepelAreaProp * nUnique) <= 1.2]
           # if(thisRepelAreaProp != 0) {
           #   thisUniqueNs = thisUniqueNs[thisUniqueNs < 200]
           # }
