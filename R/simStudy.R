@@ -554,8 +554,9 @@ simStudyWellSamplerPar = function(i=1, adaptScen=c("batch", "adaptPref", "adaptV
 }
 
 # generates sequentially-sampled well data for the simulation study
+# anisFac: only used in the adaptive case as model parameter
 simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"), 
-                               regenData=FALSE, verbose=FALSE, batchSize=5) {
+                               regenData=FALSE, verbose=FALSE, batchSize=5, anisFac=3) {
   adaptScen = match.arg(adaptScen)
   
   if(verbose) {
