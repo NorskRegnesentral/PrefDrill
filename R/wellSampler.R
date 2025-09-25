@@ -81,6 +81,10 @@ basicWellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, m
                             rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
                             seed=NULL, fitInputs=NULL, ...) {
   
+  if(!is.null(modelFitter)) {
+    stop("need to account for anisotropy in this case")
+  }
+  
   if(!is.null(seed)) {
     set.seed(seed)
   }
@@ -245,7 +249,7 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
                        rbf=c("uniform", "gaussian", "exp"), repelAmount=NULL, 
                        seed=NULL, batchSize=1, minN=4, verbose=FALSE, 
                        saveAllPredsProbs=TRUE, getProbsNoRepOnly=TRUE, 
-                       fitInputs=NULL, doDebug=FALSE, ...) {
+                       fitInputs=NULL, doDebug=FALSE, anisFac=3, ...) {
   
   # set up defaults
   if(!is.null(seed)) {
@@ -281,6 +285,14 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
   deltaX = diff(sort(unique(predGrid[,1])))[1]
   deltaY = diff(sort(unique(predGrid[,2])))[1]
   delta = c(deltaX, deltaY)
+  
+  # account for anisotropy
+  seismicDatAnis = seismicDat
+  seismicDatAnis[,1] = seismicDatAnis[,1] * (1/anisFac)
+  truthDatAnis = truthDat
+  truthDatAnis[,1] = truthDatAnis[,1] * (1/anisFac)
+  predGridAnis = predGrid
+  predGridAnis[,1] = predGridAnis[,1] * (1/anisFac)
   
   # precompute sampling probabilities based on preds if given as input
   if(!is.null(preds)) {
@@ -362,8 +374,11 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
     if(!is.null(wellDat) && !is.null(modelFitter)) {
       wellDatDF = as.data.frame(wellDat)
       
+      # make sure to account for anisotropy in model fitter
+      wellDatDF[,1] = wellDatDF[,1]/anisFac
+      
       # base sampling intensity on model predictions
-      fit = do.call("modelFitter", c(list(wellDat=wellDatDF, seismicDat=seismicDat, predGrid=predGrid, 
+      fit = do.call("modelFitter", c(list(wellDat=wellDatDF, seismicDat=seismicDatAnis, predGrid=predGridAnis, 
                                           transform=transform, invTransform=invTransform, previousFit=prevFit), 
                                      fitInputs, list(...)))
       
@@ -531,6 +546,11 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
     if(doDebug) {
       
       browser()
+      
+      if(FALSE) {
+        # save.image(paste0("savedOutput/testWells/well_batchI_", i, "_", nbatch, ".RData"))
+        save(list=ls(), file=paste0("savedOutput/testWells/well_batchI_", i, "_", nbatch, ".RData"))
+      }
       
     }
   }

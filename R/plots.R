@@ -175,7 +175,21 @@ makeAllRepulsionPlots = function(regenData=TRUE) {
 }
 
 
-
+plotSeisGrid = function(seismicDat, n=64, seqCols = function(n) {blueSeqCols(n, rev = TRUE)}, 
+                        xlab="Easting", ylab="Northing", 
+                        ...) {
+  
+  
+  gEast = seismicDat[,1]
+  gNorth = seismicDat[,2]
+  eastGrid = sort(unique(gEast))
+  northGrid = sort(unique(gNorth))
+  
+  # top row
+  squilt(gEast, gNorth, seismicDat[,3], grid=list(x=eastGrid, y=northGrid), colScale=seqCols, 
+         xlab=xlab, ylab=ylab, ...)
+  
+}
 
 
 
