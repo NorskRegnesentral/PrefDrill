@@ -655,7 +655,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
                           repelAmount=repelAmount, seed=seed, 
                           int.strategy="eb", strategy="gaussian", 
                           getProbsNoRepOnly=TRUE, fitInputs=inputList, 
-                          verbose=extraVerbose, doDebug=doDebug)
+                          verbose=extraVerbose, doDebug=doDebug, anisFac=anisFac)
     
     # profvis(wellDat <- wellSampler(truthDat, seismicDat, modelFitter, nWells=5, minN=4,
     #                                predGrid=cbind(east=seismicDat$east, north=seismicDat$north),
