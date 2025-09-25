@@ -634,7 +634,7 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     } else if (sampModFunI == 3) {
       inputList = list(prefMean=prefPar, mesh=mesh)
     } else if (sampModFunI == 4) {
-      inputList = list(repelDist=repDist, prefMean=prefPar, mesh=mesh, anisFac=anisFac)
+      inputList = list(repelDist=repelDist, prefMean=prefPar, mesh=mesh, anisFac=anisFac)
     }
     
     if(doPlot && (sampModFunI %in% c(3, 4))) {
