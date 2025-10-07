@@ -550,6 +550,21 @@ wellSampler = function(nWells=1, wellDat=NULL, seismicDat, truthDat=NULL, modelF
       if(FALSE) {
         # save.image(paste0("savedOutput/testWells/well_batchI_", i, "_", nbatch, ".RData"))
         save(list=ls(), file=paste0("savedOutput/testWells/well_batchI_", i, "_", nbatch, ".RData"))
+        
+        if(FALSE) {
+          seisGrid = truthDat
+          seisGrid[,3] = allLogProbsNoRep[,1]
+          plotSeisGrid(seisGrid)
+          points(wellDatDF[,1], wellDatDF[,2])
+          
+          print(summary(fit$mod))
+          
+          obsPreds = fit$predEst[wellDatDF$gridI]
+          plot(obsPreds, wellDatDF$volFrac)
+          abline(0, 1)
+          
+          splot(wellDatDF[,1], wellDatDF[,2], wellDatDF$volFrac-obsPreds)
+        }
       }
       
     }
