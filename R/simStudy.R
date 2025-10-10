@@ -721,15 +721,15 @@ simStudyWellSampler = function(i=1, adaptScen=c("batch", "adaptPref", "adaptVar"
     
     # do batch sampling
     wellDat = wellSampler(nWells=nWells, wellDat=NULL, seismicDat=seismicDat, 
-                     predGrid=as.matrix(sampleDat[,1:2]), truthDat=truthDat, 
-                     preds=sampleDat[,3], 
-                     transform=logit, invTransform=expit, prefPar=prefPar, 
-                     samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
-                     repelType=repelType, bwRepel=bwRepel, 
-                     rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
-                     seed=seed, int.strategy="eb", strategy="gaussian", 
-                     getProbsNoRepOnly=TRUE, verbose=extraVerbose, 
-                     doDebug=doDebug)
+                          predGrid=as.matrix(sampleDat[,1:2]), truthDat=truthDat, 
+                          preds=sampleDat[,3], 
+                          transform=logit, invTransform=expit, prefPar=prefPar, 
+                          samplingModel=c("ipp"), sigmaSqErr=sigmaSqErr, 
+                          repelType=repelType, bwRepel=bwRepel, 
+                          rbf="uniform", repelAmount=Inf, batchSize=batchSize, 
+                          seed=seed, int.strategy="eb", strategy="gaussian", 
+                          getProbsNoRepOnly=TRUE, verbose=extraVerbose, 
+                          doDebug=doDebug)
     
   }
   
@@ -880,7 +880,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
   if(!file.exists(scoresFile) || regenData) {
     
     truthFac = getNormFac(seismicDat=1, truthDat=truth, indepDat=1, 
-                                    subsampled=TRUE, goodCoords=goodCoords, truthFacOnly=TRUE)
+                          subsampled=TRUE, goodCoords=goodCoords, truthFacOnly=TRUE)
     
     if(propVarCase %in% c("uniform", "cluster", "seismic")) {
       # make sure priors are centered around the truth in this case
@@ -1614,12 +1614,12 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
     
     out = list(pwScoresMeanAll=pwScoresMeanAll, pwScoresWorstAll=pwScoresWorstAll, 
-         aggScoresAll=aggScoresAll, pwScoresMaxAll=pwScoresMaxAll, 
-         pwScoresMinAll=pwScoresMinAll, corSeisTruthWellsAll=corSeisTruthWellsAll, 
-         corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
-         varSeisAll=varSeisAll, varEstAll=varEstAll, 
-         corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
-         totTAll=totTAll, repIAll=repIAll, parEstsAll=parEstsAll, otherParAll=otherParAll)
+               aggScoresAll=aggScoresAll, pwScoresMaxAll=pwScoresMaxAll, 
+               pwScoresMinAll=pwScoresMinAll, corSeisTruthWellsAll=corSeisTruthWellsAll, 
+               corSeisTruthTrueAll=corSeisTruthTrueAll, varTruthAll=varTruthAll, 
+               varSeisAll=varSeisAll, varEstAll=varEstAll, 
+               corEstTruthWellsAll=corEstTruthWellsAll, corEstTruthTrueAll=corEstTruthTrueAll, 
+               totTAll=totTAll, repIAll=repIAll, parEstsAll=parEstsAll, otherParAll=otherParAll)
   }
   
   collectScoreTab = function(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, designScores=NULL, 
@@ -1808,7 +1808,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       tab = collectScoreTab(seisScores, spdeScores, spdeKernScores, diggleScores, watsonScores, 
                             type=type, adaptType="spde")
       tabSelf = collectScoreTab(seisScores, spdeScoresSelf, spdeKernScoresSelf, diggleScoresSelf, watsonScoresSelf, 
-                            type=type, adaptType="self")
+                                type=type, adaptType="self")
       tempTab = tabSelf
       tempTab = tempTab[!(tempTab$Model %in% c("SPDE->SPDE", "Seismic")),]
       tabComb = rbind(tab, tempTab)
@@ -1818,8 +1818,8 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
     }
     
     
-    # plot each score
-    makeThisBoxplot = function(thisTab, adaptType=c("spde", "self", "comb")) {
+    # plots for each score
+    makeThisScorePlots = function(thisTab, adaptType=c("spde", "self", "comb")) {
       adaptType = match.arg(adaptType)
       
       # Ensure the number of colors matches the number of unique models
@@ -1867,7 +1867,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
       fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", thisVar, ".pdf")
       pdf(fname, width=5, height=5)
       
-      # Create the plot
+      # Create the boxplot
       p = ggplot(thisTab, aes(x = factor(n), y = .data[[thisVar]], fill = Model))
       if(!(thisVar %in% c("Coverage80", "Coverage95"))) {
         p = p + geom_boxplot()
@@ -1952,7 +1952,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         
         # tab = tab[tab$Model %in% keptsMods]
         
-        makeThisBoxplot(tab)
+        makeThisScorePlots(tab)
       } else {
         
         # # 'Model' variable in adaptive tables is of form [sampleMod->fitMod], 
@@ -1966,9 +1966,9 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
         # afterArrow <- sub(".*->", "", tabComb$Model)
         # tabComb = tabComb[afterArrow %in% keptsMods,]
         
-        makeThisBoxplot(tab)
-        makeThisBoxplot(tabSelf, adaptType="self")
-        makeThisBoxplot(tabComb, adaptType="comb")
+        makeThisScorePlots(tab)
+        makeThisScorePlots(tabSelf, adaptType="self")
+        makeThisScorePlots(tabComb, adaptType="comb")
       }
       
     }
@@ -2345,6 +2345,176 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   browser()
   
 }
+
+
+showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
+                            maxRepI = 100,
+                            regenData = FALSE) {
+  adaptScen = match.arg(adaptScen)
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  load(inputListFile)
+  
+  mergedFile = paste0("savedOutput/simStudy/mergedScores_", adaptScen, ".RData")
+  
+  if (!file.exists(mergedFile) || regenData) {
+    message("Regenerating merged score table...")
+    subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI, ]
+    nTotal = nrow(subModelCombs)
+    startTime = Sys.time()
+    
+    mergedTab = lapply(seq_len(nTotal), function(i) {
+      if (i %% 10 == 0 || i == nTotal) {
+        elapsed = Sys.time() - startTime
+        estTotal = as.numeric(elapsed) / i * nTotal
+        estRemaining = estTotal - as.numeric(elapsed)
+        message(sprintf("Progress: %d/%d (%.1f%%), Estimated time left: %.1fs", i, nTotal, i/nTotal*100, estRemaining))
+      }
+      
+      row = subModelCombs[i, ]
+      modelI = row$modelFitI
+      
+      scoresFile = if (modelI == 0) {
+        paste0("savedOutput/simStudy/scores/scores_seismic_rep", i, ".RData")
+      } else {
+        paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", modelI, ".RData")
+      }
+      
+      if (!file.exists(scoresFile)) return(NULL)
+      
+      load(scoresFile)
+      
+      if (row$propVarCase == "uniform") row$prefPar = 0
+      row$repelAreaProp = row$repelAreaProp / 4 # reparameterize to the new one
+      
+      scoreRow = cbind(
+        row,
+        setNames(as.data.frame(pwScoresMean), paste0(colnames(pwScoresMean), "_pwMean")),
+        setNames(as.data.frame(pwScoresWorst), paste0(colnames(pwScoresWorst), "_pwWorst")),
+        setNames(as.data.frame(aggScores), paste0(colnames(aggScores), "_agg")),
+        setNames(as.data.frame(pwScoresMax), paste0(colnames(pwScoresMax), "_pwMax")),
+        setNames(as.data.frame(pwScoresMin), paste0(colnames(pwScoresMin), "_pwMin")),
+        corSeisTruthWells = corSeisTruthWells,
+        corSeisTruthTrue = corSeisTruthTrue,
+        varTruth = varTruth,
+        varSeis = varSeis,
+        varEst = varEst,
+        corEstTruthWells = corEstTruthWells,
+        corEstTruthTrue = corEstTruthTrue,
+        totT = totT,
+        if (modelI != 0) {
+          setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_fixed"))
+        } else {
+          NULL
+        },
+        if (modelI != 0) {
+          setNames(data.frame(t(parameterSummaryTable[, 1])), paste0(rownames(parameterSummaryTable), "_param"))
+        } else {
+          NULL
+        }
+      )
+      
+      return(scoreRow)
+    })
+    
+    mergedTab = do.call(rbind, Filter(Negate(is.null), mergedTab))
+    save(mergedTab, subModelCombs, file = mergedFile)
+  } else {
+    message("Loading existing merged score table...")
+    load(mergedFile)
+  }
+  
+  browser()
+  
+  library(ggplot2)
+  library(dplyr)
+  
+  scoreTypes = c("_pwMean", "_pwWorst", "_agg", "_pwMax", "_pwMin")
+  propVarCases = unique(mergedTab$propVarCase)
+  
+  for (case in propVarCases) {
+    tabBase = mergedTab %>% filter(propVarCase == case)
+    tabUniform = mergedTab %>% filter(propVarCase == "uniform" & prefPar == 0)
+    
+    # Boxplots vs n: loop over sampleParI
+    for (sampI in sort(unique(tabBase$sampleParI))) {
+      tab = tabBase %>% filter(sampleParI == sampI)
+      tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
+      figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/boxplot_n_sampleParI", sampI)
+      dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
+      
+      for (scoreType in scoreTypes) {
+        scoreCols = grep(scoreType, names(tab), value = TRUE)
+        for (scoreCol in scoreCols) {
+          pdf(file = file.path(figDir, paste0(scoreCol, "_vs_n.pdf")), width = 6, height = 5)
+          p = ggplot(tab, aes(x = factor(n), y = .data[[scoreCol]], fill = factor(fitModFunI))) +
+            geom_boxplot() +
+            facet_wrap(~propVarCase) +
+            labs(title = paste(scoreCol, "vs n -", adaptScenCap, "[", case, "]"),
+                 x = "Sample Size (n)", y = scoreCol, fill = "Model") +
+            theme_minimal()
+          print(p)
+          dev.off()
+        }
+      }
+    }
+    
+    # Plot vs prefPar: outer loop over repelVal
+    for (repelVal in sort(unique(tabBase$repelAreaProp))) {
+      validNs = sort(unique(tabBase$n[tabBase$repelAreaProp == repelVal & repelVal * tabBase$n <= 0.3]))
+      for (nVal in validNs) {
+        tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal)
+        tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
+        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/prefPar_n", nVal, "_repA", repelVal)
+        dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
+        
+        for (scoreType in scoreTypes) {
+          scoreCols = grep(scoreType, names(tab), value = TRUE)
+          for (scoreCol in scoreCols) {
+            pdf(file = file.path(figDir, paste0(scoreCol, "_vs_prefPar.pdf")), width = 6, height = 5)
+            p = ggplot(tab, aes(x = factor(prefPar), y = .data[[scoreCol]], fill = factor(fitModFunI))) +
+              geom_boxplot() +
+              facet_wrap(~propVarCase) +
+              labs(title = paste(scoreCol, "vs prefPar -", adaptScenCap, "[", case, "]"),
+                   x = "Preference Parameter", y = scoreCol, fill = "Model") +
+              theme_minimal()
+            print(p)
+            dev.off()
+          }
+        }
+      }
+    }
+    
+    # Plot vs repelAreaProp: loop over n and prefPar
+    for (nVal in sort(unique(tabBase$n))) {
+      for (prefVal in sort(unique(tabBase$prefPar))) {
+        tab = tabBase %>% filter(n == nVal & prefPar == prefVal)
+        tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
+        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/repelAreaProp_n", nVal, "_pref", prefVal)
+        dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
+        
+        for (scoreType in scoreTypes) {
+          scoreCols = grep(scoreType, names(tab), value = TRUE)
+          for (scoreCol in scoreCols) {
+            pdf(file = file.path(figDir, paste0(scoreCol, "_vs_repelAreaProp.pdf")), width = 6, height = 5)
+            p = ggplot(tab, aes(x = factor(repelAreaProp), y = .data[[scoreCol]], fill = factor(fitModFunI))) +
+              geom_boxplot() +
+              facet_wrap(~propVarCase) +
+              labs(title = paste(scoreCol, "vs repelAreaProp -", adaptScenCap, "[", case, "]"),
+                   x = "Repel Area Proportion", y = scoreCol, fill = "Model") +
+              theme_minimal()
+            print(p)
+            dev.off()
+          }
+        }
+      }
+    }
+  }
+  
+  message("All plots saved.")
+}
+
+
 
 # call on the cluster to copy figures we need into the manuscript directory ~/fig
 refreshManuscriptFigDir = function() {
