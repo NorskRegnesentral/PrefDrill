@@ -2437,8 +2437,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     load(mergedFile)
   }
   
-  browser()
-  
   # plots and tables setup ----
   print("plotting...")
   
@@ -2490,7 +2488,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   library(ggplot2)
   library(dplyr)
   
-  scoreTypes = c("_pwMean", "_pwWorst", "_agg", "_pwMax", "_pwMin", "_param")
+  scoreTypes = c("_agg", "_pwMax", "_pwMin", "_pwMean", "_pwWorst", "_param")
   
   scoreTypesNamed = list(
     agg = "Aggregate",
@@ -2674,7 +2672,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     tabUniform = mergedTab %>% filter(propVarCase == "uniform" & phi == 0)
     
     # Boxplots vs n: ----
-    browser()
     print("boxplots vs n...")
     for (sampI in sort(unique(tabBase$sampleParI))) {
       tab = tabBase %>% filter(sampleParI == sampI)
@@ -2692,8 +2689,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         # scoreCols = grep(scoreType, names(tab), value = TRUE)
         # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
         scoreType = scoreTypes[scoreTypeI]
-        scoreTypeName = scoreTypesNamed[scoreTypeI]
-        scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
+        scoreTypeName = scoreTypesNamed[[scoreTypeI]]
+        scoreTypeNameRoot = scoreTypesNameRoot[[scoreTypeI]]
         scoreCols = grep(scoreType, names(tab), value = TRUE)
         
         if(scoreTypeNameRoot == "par") {
@@ -2805,8 +2802,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           # scoreCols = grep(scoreType, names(tab), value = TRUE)
           # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
           scoreType = scoreTypes[scoreTypeI]
-          scoreTypeName = scoreTypesNamed[scoreTypeI]
-          scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
+          scoreTypeName = scoreTypesNamed[[scoreTypeI]]
+          scoreTypeNameRoot = scoreTypesNameRoot[[scoreTypeI]]
           scoreCols = grep(scoreType, names(tab), value = TRUE)
           
           if(scoreTypeNameRoot == "par") {
@@ -2931,8 +2928,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           # scoreCols = grep(scoreType, names(tab), value = TRUE)
           # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
           scoreType = scoreTypes[scoreTypeI]
-          scoreTypeName = scoreTypesNamed[scoreTypeI]
-          scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
+          scoreTypeName = scoreTypesNamed[[scoreTypeI]]
+          scoreTypeNameRoot = scoreTypesNameRoot[[scoreTypeI]]
           scoreCols = grep(scoreType, names(tab), value = TRUE)
           
           if(scoreTypeNameRoot == "par") {
@@ -3056,8 +3053,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
             # scoreCols = grep(scoreType, names(tab), value = TRUE)
             # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
             scoreType = scoreTypes[scoreTypeI]
-            scoreTypeName = scoreTypesNamed[scoreTypeI]
-            scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
+            scoreTypeName = scoreTypesNamed[[scoreTypeI]]
+            scoreTypeNameRoot = scoreTypesNameRoot[[scoreTypeI]]
             scoreCols = grep(scoreType, names(tab), value = TRUE)
             
             if(scoreTypeNameRoot == "par") {
