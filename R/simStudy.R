@@ -103,19 +103,7 @@ getFitModFuns = function() {
 }
 
 getFitModName = function(ind) {
-  if(ind == 0) {
-    "Seismic"
-  } else if(ind == 1) {
-    "SPDE"
-  } else if(ind == 2) {
-    "SPDEK"
-  } else if(ind == 3) {
-    "Diggle"
-  } else if(ind == 4) {
-    "Watson"
-  } else if(ind == 5) {
-    "SPDED"
-  }
+  c("Seismic", "SPDE", "SPDEK", "Diggle", "Watson", "SPDED")[ind+1]
 }
 
 
