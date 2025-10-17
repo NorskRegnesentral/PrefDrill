@@ -102,6 +102,22 @@ getFitModFuns = function() {
   funs
 }
 
+getFitModName = function(ind) {
+  if(ind == 0) {
+    "Seismic"
+  } else if(ind == 1) {
+    "SPDE"
+  } else if(ind == 2) {
+    "SPDEK"
+  } else if(ind == 3) {
+    "Diggle"
+  } else if(ind == 4) {
+    "Watson"
+  } else if(ind == 5) {
+    "SPDED"
+  }
+}
+
 
 # proportion of domain area -> repel radius bandwidth
 repAreaToDist = function(repArea=.01, anisFac=1) {
@@ -2436,6 +2452,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     message("Loading existing merged score table...")
     load(mergedFile)
   }
+  
+  # process table ----
+  mergedTab$Model = getFitModName(mergedTab$fitModFunI)
   
   # plots and tables setup ----
   print("plotting...")
