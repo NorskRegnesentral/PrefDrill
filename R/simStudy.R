@@ -2932,6 +2932,11 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           tab = tabBase %>% filter(n == nVal & phi == prefVal)
           tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
           
+          if(nrow(tab) == 0) {
+            print(paste0("no values to plot for n=", nVal, ", phi=", prefVal))
+            next
+          }
+          
           
           figDir = paste0("figures/simStudy/", adaptScen, "/", case, "_repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
           dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
@@ -3058,6 +3063,11 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           
           tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal & phi == prefVal)
           tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
+          
+          if(nrow(tab) == 0) {
+            print(paste0("no values to plot for n=", nVal, ", phi=", prefVal, ", prep=", repelVal))
+            next
+          }
           
           thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
           
