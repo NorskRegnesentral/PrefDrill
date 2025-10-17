@@ -3057,7 +3057,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       print("scatterplots vs gamma...")
       
       # plot prefEst vs Bias ----
-      browser()
       for (repelVal in sort(unique(tabBase$repelAreaProp))) {
         validNs = sort(unique(tabBase$n[tabBase$repelAreaProp == repelVal & repelVal * tabBase$n <= 0.3]))
         
