@@ -2672,7 +2672,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     invisible(NULL)
   }
   
-  browser()
+  
   
   for (case in propVarCases) {
     tabBase = mergedTab %>% filter(propVarCase == case)
@@ -2800,7 +2800,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal)
         tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
         
-        thisFileRoot = paste0(propVarCase, "_phiAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+        thisFileRoot = paste0(case, "_phiAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
         
         figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/phiAll_repelAreaProp", repelVal, "n", nVal)
         dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
@@ -2929,7 +2929,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
         dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
         
-        thisFileRoot = paste0(propVarCase, "_repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
+        thisFileRoot = paste0(case, "_repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
         
         for (scoreTypeI in 1:length(scoreTypesNamed)) {
           # scoreCols = grep(scoreType, names(tab), value = TRUE)
@@ -3051,7 +3051,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal & phi == prefVal)
           tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
           
-          thisFileRoot = paste0(propVarCase, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+          thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
           
           figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal)
           dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
