@@ -2139,7 +2139,7 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
   
   if(adaptScen != "batch") {
     # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
-    # JP: I don'tt think the above TODO is necessary?
+    # JP: I don't think the above TODO is necessary?
   }
   subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
   
@@ -2349,13 +2349,18 @@ showSimStudyRes = function(adaptScen=c("batch", "adaptPref", "adaptVar"), maxRep
 
 showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                             maxRepI = 100,
-                            regenData = FALSE) {
+                            regenData = FALSE, 
+                            adaptType=c("spde", "self", "comb")) {
   adaptScen = match.arg(adaptScen)
+  adaptType = match.arg(adaptType)
   adaptScenCap = str_to_title(adaptScen)
+  adaptTypeCap = str_to_title(adaptType)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   load(inputListFile)
   
-  mergedFile = paste0("savedOutput/simStudy/mergedScores_", adaptScen, ".RData")
+  # make score/par table ----
+  
+  mergedFile = paste0("savedOutput/simStudy/mergedScores_", adaptScen, adaptTypeCap, ".RData")
   
   if (!file.exists(mergedFile) || regenData) {
     message("Regenerating merged score table...")
@@ -2364,7 +2369,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     startTime = Sys.time()
     
     mergedTab = lapply(seq_len(nTotal), function(i) {
-      if (i %% 10 == 0 || i == nTotal) {
+      if (i %% 500 == 0 || i == nTotal) {
         elapsed = Sys.time() - startTime
         estTotal = as.numeric(elapsed) / i * nTotal
         estRemaining = estTotal - as.numeric(elapsed)
@@ -2403,7 +2408,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         corEstTruthTrue = corEstTruthTrue,
         totT = totT,
         if (modelI != 0) {
-          setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_fixed"))
+          setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_param"))
         } else {
           NULL
         },
@@ -2417,7 +2422,13 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       return(scoreRow)
     })
     
-    mergedTab = do.call(rbind, Filter(Negate(is.null), mergedTab))
+    # mergedTab = do.call(rbind, Filter(Negate(is.null), mergedTab))
+    mergedTab = do.call(dplyr::bind_rows, Filter(Negate(is.null), mergedTab))
+    
+    # rename from old names to names in writeup
+    names(mergedTab)[names(mergedTab) == "prefPar_param"] = "gamma_param"
+    names(mergedTab)[names(mergedTab) == "prefPar"] = "phi"
+    
     save(mergedTab, subModelCombs, file = mergedFile)
   } else {
     message("Loading existing merged score table...")
@@ -2426,85 +2437,648 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   browser()
   
+  # plots and tables setup ----
+  print("plotting...")
+  
+  mean_se <- function(x) {
+    x <- na.omit(x)
+    if (length(x) == 0) return(c(y = NA, ymin = NA, ymax = NA))
+    m <- mean(x)
+    se <- sd(x) / sqrt(length(x))
+    return(c(y = m, ymin = m - qnorm(.975)*se, ymax = m + qnorm(.975)*se))
+  }
+  
+  # make sure computer knows uniform case has no preferentiality
+  modelFitCombs$prefPar[modelFitCombs$propVarCase == "uniform"] = 0
+  wellDatCombs$prefPar[wellDatCombs$propVarCase == "uniform"] = 0
+  sampleParCombs$prefPar[sampleParCombs$propVarCase == "uniform"] = 0
+  
+  # figure out which parameter sets have repI <= maxRepI
+  is = 1:nrow(modelFitCombs)
+  is = is[modelFitCombs$repI <= maxRepI]
+  
+  if(adaptScen != "batch") {
+    # TODO: subset modelFitCombs below (via subModelCombs) based on adaptScen
+    # JP: I don't think the above TODO is necessary?
+  }
+  subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI,]
+  
+  thisDirRoot = paste0(adaptScen, "/")
+  if(adaptScen == "batch") {
+    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", Watson="maroon2", SPDED="seagreen")
+  } else {
+    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", Watson="maroon2")
+    modColsSelf = c("grey", "turquoise1", "steelblue1", "violet", "palevioletred1")
+    modColsComb = c("grey", "turquoise1", "blue", "purple", "maroon2", "steelblue1", "violet", "palevioletred1")
+    # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
+    names(modColsSelf) = c("SPDE->SPDE", "SPDE->SPDEK", "SPDE->Diggle", "SPDE->Watson")
+    names(modColsComb) = c("SPDE->SPDE", "SPDEK->SPDEK", "Diggle->Diggle", "Watson->Watson")
+  }
+  
+  pch = c(5, 15:19)
+  allTypes = c("agg", "max", "min", "mean", "worst", "par")
+  
+  if(adaptScen == "batch") {
+    nUnique = c(20, 40, 60, 250)
+  } else {
+    # nUnique = c(10, 20, 30)
+    nUnique = c(20, 40, 60)
+  }
+  
   library(ggplot2)
   library(dplyr)
   
-  scoreTypes = c("_pwMean", "_pwWorst", "_agg", "_pwMax", "_pwMin")
+  scoreTypes = c("_pwMean", "_pwWorst", "_agg", "_pwMax", "_pwMin", "_param")
+  
+  scoreTypesNamed = list(
+    agg = "Aggregate",
+    max = "Max",
+    min = "Min",
+    mean = "Mean",
+    worst = "Worst", 
+    par = "Param"
+  )
+  scoreTypesNameRoot = list(
+    agg = "agg",
+    max = "max",
+    min = "min",
+    mean = "mean",
+    worst = "worst", 
+    par = "par"
+  )
+  
   propVarCases = unique(mergedTab$propVarCase)
+  
+  # Automatically make boxplots of the format we want consistently
+  # Inputs:
+  # thisTab: data.frame with the information to boxplot
+  # parName: name of variable on the horizontal axis
+  # scoreCol: column name of variable to plot
+  # fixedParNames: names of the fixed variables (with one value in thisTab)
+  # fname: name of the file to save the plot to
+  # adaptType: if adaptScen isn't batch, this represents which sampling/fitting 
+  #            model combinations to plot
+  makeBoxplot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
+    scoreColName = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", scoreCol)
+    parTitle = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", parName)
+    thisTab = thisTab[!is.na(thisTab[[scoreCol]]), ]
+    thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
+    
+    unique_models = unique(thisTab$Model)
+    if (adaptScen == "batch") {
+      baseCols = modCols
+    } else {
+      if (adaptType == "spde") {
+        baseCols = modCols
+      } else if (adaptType == "self") {
+        baseCols = modColsSelf
+      } else {
+        baseCols = modColsComb
+      }
+    }
+    presentModels = intersect(names(baseCols), as.character(thisTab$Model))
+    thisModCols = baseCols[presentModels]
+    thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
+    
+    pdf(fname, width = 5, height = 5)
+    p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model)) +
+      geom_boxplot() +
+      stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
+                   color = "black", aes(fill = Model),
+                   position = position_dodge(width = 0.75)) +
+      stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
+                   position = position_dodge(width = 0.75)) +
+      scale_fill_manual(values = thisModCols) +
+      # labs(title = paste0(myTitleCase(scoreColName), " vs. ", parName,
+      #                     " (", fixedParName, "=", unique(thisTab[[fixedParName]]), ")"),
+      #      x = parName, y = myTitleCase(scoreColName), fill = "Model") +
+      labs(
+        title = paste0(
+          myTitleCase(scoreColName), " vs. ", parTitle, " (",
+          paste(paste0(fixedParNames, "=", sapply(fixedParNames, function(nm) unique(thisTab[[nm]]))), collapse = ", "),
+          ")"),
+        x = parTitle, y = myTitleCase(scoreColName), fill = "Model") + 
+      theme_minimal()
+    
+    if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
+                             "pref", "seismic_y", "seismic_p", "design")) {
+      p = p + scale_y_log10()
+    }
+    if (grepl("Coverage", scoreColName)) {
+      cvg = as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+      p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed")
+    }
+    print(p)
+    dev.off()
+    
+    invisible(NULL)
+  }
+  
+  # Automatically make pairplots of the format we want consistently
+  # Inputs:
+  # thisTab: data.frame with the information to boxplot
+  # parName: name of variable on the horizontal axis
+  # scoreCol: column name of variable to plot
+  # fixedParNames: names of the fixed variables (with one value in thisTab)
+  # fname: name of the file to save the plot to
+  # adaptType: if adaptScen isn't batch, this represents which sampling/fitting 
+  #            model combinations to plot
+  makeScatterplot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
+    scoreColName = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", scoreCol)
+    parTitle = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", parName)
+    thisTab = thisTab[!is.na(thisTab[[scoreCol]]), ]
+    thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
+    
+    unique_models = unique(thisTab$Model)
+    if (adaptScen == "batch") {
+      baseCols = modCols
+    } else {
+      if (adaptType == "spde") {
+        baseCols = modCols
+      } else if (adaptType == "self") {
+        baseCols = modColsSelf
+      } else {
+        baseCols = modColsComb
+      }
+    }
+    presentModels = intersect(names(baseCols), as.character(thisTab$Model))
+    thisModCols = baseCols[presentModels]
+    thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
+    
+    
+    pdf(fname, width = 5, height = 5)
+    p = ggplot(thisTab, aes(x = .data[[parName]], y = .data[[scoreCol]], color = Model)) +
+      geom_point(position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75), alpha = 0.7) +
+      scale_color_manual(values = thisModCols) +
+      labs(
+        title = paste0(
+          myTitleCase(scoreColName), " vs. ", parTitle, " (",
+          paste(paste0(fixedParNames, "=", sapply(fixedParNames, 
+                                                  function(nm) unique(thisTab[[nm]]))), collapse = ", "),
+          ")"),
+        x = parTitle, y = myTitleCase(scoreColName), color = "Model") +
+      theme_minimal()
+    
+    if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
+                             "pref", "seismic_y", "seismic_p", "design")) {
+      p = p + scale_y_log10()
+    }
+    if (grepl("Coverage", scoreColName)) {
+      cvg = as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+      p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed")
+    }
+    print(p)
+    dev.off()
+    
+    
+    # pdf(fname, width = 5, height = 5)
+    # p = ggplot(thisTab, aes(x = .data[[parName]], y = .data[[scoreCol]], fill = Model)) +
+    #   geom_boxplot() +
+    #   stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
+    #                color = "black", aes(fill = Model),
+    #                position = position_dodge(width = 0.75)) +
+    #   stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
+    #                position = position_dodge(width = 0.75)) +
+    #   scale_fill_manual(values = thisModCols) +
+    #   # labs(title = paste0(myTitleCase(scoreColName), " vs. ", parName,
+    #   #                     " (", fixedParName, "=", unique(thisTab[[fixedParName]]), ")"),
+    #   #      x = parName, y = myTitleCase(scoreColName), fill = "Model") +
+    #   labs(
+    #     title = paste0(
+    #       myTitleCase(scoreColName), " vs. ", parName, " (",
+    #       paste(paste0(fixedParNames, "=", sapply(fixedParNames, function(nm) unique(thisTab[[nm]]))), collapse = ", "),
+    #       ")"),
+    #     x = parName, y = myTitleCase(scoreColName), fill = "Model") + 
+    #   theme_minimal()
+    # 
+    # if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
+    #                          "pref", "seismic_y", "seismic_p", "design")) {
+    #   p = p + scale_y_log10()
+    # }
+    # if (grepl("Coverage", scoreColName)) {
+    #   cvg = as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+    #   p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed")
+    # }
+    # print(p)
+    # dev.off()
+    
+    invisible(NULL)
+  }
+  
+  browser()
   
   for (case in propVarCases) {
     tabBase = mergedTab %>% filter(propVarCase == case)
-    tabUniform = mergedTab %>% filter(propVarCase == "uniform" & prefPar == 0)
+    tabUniform = mergedTab %>% filter(propVarCase == "uniform" & phi == 0)
     
-    # Boxplots vs n: loop over sampleParI
+    # Boxplots vs n: ----
+    browser()
+    print("boxplots vs n...")
     for (sampI in sort(unique(tabBase$sampleParI))) {
       tab = tabBase %>% filter(sampleParI == sampI)
       tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
-      figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/boxplot_n_sampleParI", sampI)
+      
+      thisDirRoot = adaptScen
+      adaptFRoot = ""  # for now. Will be changed later depending on the type of plots
+      
+      fileRoot = paste0("i", sampI, "_", case, "_repA", unique(tab$repelAreaProp), "_pref", unique(tab$phi), "_", adaptScen)
+      figDir = file.path("figures/simStudy", thisDirRoot, fileRoot)
+      
       dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
       
-      for (scoreType in scoreTypes) {
+      for (scoreTypeI in 1:length(scoreTypesNamed)) {
+        # scoreCols = grep(scoreType, names(tab), value = TRUE)
+        # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
+        scoreType = scoreTypes[scoreTypeI]
+        scoreTypeName = scoreTypesNamed[scoreTypeI]
+        scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
         scoreCols = grep(scoreType, names(tab), value = TRUE)
+        
+        if(scoreTypeNameRoot == "par") {
+          # only include plots for these parameters
+          scoreCols = scoreCols[greplAny(c("pref", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design"), scoreCols)]
+        }
+        
         for (scoreCol in scoreCols) {
-          pdf(file = file.path(figDir, paste0(scoreCol, "_vs_n.pdf")), width = 6, height = 5)
-          p = ggplot(tab, aes(x = factor(n), y = .data[[scoreCol]], fill = factor(fitModFunI))) +
-            geom_boxplot() +
-            facet_wrap(~propVarCase) +
-            labs(title = paste(scoreCol, "vs n -", adaptScenCap, "[", case, "]"),
-                 x = "Sample Size (n)", y = scoreCol, fill = "Model") +
-            theme_minimal()
-          print(p)
-          dev.off()
+          
+          thisTab = tab[!is.na(tab[[scoreCol]]),]
+          
+          scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
+          adaptFRoot = ""
+          if(adaptScen != "batch") {
+            adaptFRoot = paste0("_", adaptType)
+          }
+          fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
+          
+          makeBoxplot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
+          
+          # 
+          # 
+          # unique_models = unique(tab$Model)
+          # 
+          # 
+          # # restrict to models actually present in thisTab, 
+          # # but preserve the order from baseCols
+          # presentModels = intersect(names(baseCols), as.character(thisTab$Model))
+          # thisModCols = baseCols[presentModels]
+          # 
+          # # set factor levels of Model in the same order as colors
+          # thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
+          # 
+          # # pdf(paste0("figures/simStudy/", fileRoot, "/", type, thisVar, "_", fileRoot, ".pdf"), width=5, height=5)
+          # adaptFRoot = ""
+          # if(adaptScen != "batch") {
+          #   adaptFRoot = paste0("_", adaptType)
+          # }
+          # 
+          # thisTab = thisTab[!is.na(thisTab[[scoreCol]]),]
+          # thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
+          # levelsN = sort(unique(as.numeric(thisTab$n)))
+          # thisTab$n = factor(thisTab$n, levels = as.character(levelsN))
+          # 
+          # # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileSubRoot, "/", fileRoot, "/", type, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
+          # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
+          # pdf(fname, width=5, height=5)
+          # 
+          # # Create the boxplot
+          # p = ggplot(thisTab, aes(x = factor(n), y = .data[[scoreCol]], fill = Model))
+          # if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
+          #   p = p + geom_boxplot()
+          # }
+          # p = p +
+          #   # stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
+          #   #              position = position_dodge(width = 0.75)) +
+          #   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+          #                color = "black", aes(fill = Model),
+          #                position = position_dodge(width = 0.75)) + 
+          #   stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
+          #                position = position_dodge(width = 0.75)) +
+          #   # scale_fill_manual(values = setNames(thisModCols[1:length(unique_models)], unique_models)) +
+          #   scale_fill_manual(values = thisModCols) + 
+          #   labs(
+          #     # title = paste0(myTitleCase(scoreColName), " vs. n (", typeName, ")"),
+          #     title = paste0(myTitleCase(scoreColName), " vs. n"),
+          #     x = "n",
+          #     y = myTitleCase(scoreColName),
+          #     fill = "Model"
+          #   ) +
+          #   theme_minimal()
+          # if(!(scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
+          #                          "pref", "seismic_y", "seismic_p", "design"))) {
+          #   # seismic estimates have 0 variance
+          #   p = p + scale_y_log10()
+          # }
+          # if(grepl("Coverage", scoreColName)) {
+          #   cvg = as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+          #   p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
+          # }
+          # 
+          # print(p)
+          # 
+          # dev.off()
         }
       }
     }
     
-    # Plot vs prefPar: outer loop over repelVal
+    # Plot vs phi ----
+    browser()
+    print("boxplots vs phi...")
+    
+    fixedParName = "repelAreaProp"
+    parName = "phi"
+    
     for (repelVal in sort(unique(tabBase$repelAreaProp))) {
       validNs = sort(unique(tabBase$n[tabBase$repelAreaProp == repelVal & repelVal * tabBase$n <= 0.3]))
+      
       for (nVal in validNs) {
         tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal)
         tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
-        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/prefPar_n", nVal, "_repA", repelVal)
+        
+        thisFileRoot = paste0(propVarCase, "_phiAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+        
+        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/phiAll_repelAreaProp", repelVal, "n", nVal)
         dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
         
-        for (scoreType in scoreTypes) {
+        for (scoreTypeI in 1:length(scoreTypesNamed)) {
+          # scoreCols = grep(scoreType, names(tab), value = TRUE)
+          # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
+          scoreType = scoreTypes[scoreTypeI]
+          scoreTypeName = scoreTypesNamed[scoreTypeI]
+          scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
           scoreCols = grep(scoreType, names(tab), value = TRUE)
+          
+          if(scoreTypeNameRoot == "par") {
+            # only include plots for these parameters
+            scoreCols = scoreCols[greplAny(c("gamma", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design"), scoreCols)]
+          }
+          
           for (scoreCol in scoreCols) {
-            pdf(file = file.path(figDir, paste0(scoreCol, "_vs_prefPar.pdf")), width = 6, height = 5)
-            p = ggplot(tab, aes(x = factor(prefPar), y = .data[[scoreCol]], fill = factor(fitModFunI))) +
-              geom_boxplot() +
-              facet_wrap(~propVarCase) +
-              labs(title = paste(scoreCol, "vs prefPar -", adaptScenCap, "[", case, "]"),
-                   x = "Preference Parameter", y = scoreCol, fill = "Model") +
-              theme_minimal()
-            print(p)
-            dev.off()
+            scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
+            
+            thisTab = tab[!is.na(tab[[scoreCol]]),]
+            
+            adaptFRoot = ""
+            if(adaptScen != "batch") {
+              adaptFRoot = paste0("_", adaptType)
+            }
+            # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
+            fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
+            
+            makeBoxplot(thisTab, parName=parName, scoreCol=scoreCol, fixedParNames=c("n", fixedParName), fname=fname)
+            
+            
+            # # Ensure the number of colors matches the number of unique models
+            # unique_models <- unique(tab$Model)
+            # if (adaptScen == "batch") {
+            #   baseCols = modCols
+            # } else {
+            #   if (adaptType == "spde") {
+            #     baseCols = modCols
+            #   } else if (adaptType == "self") {
+            #     baseCols = modColsSelf
+            #   } else {
+            #     baseCols = modColsComb
+            #   }
+            # }
+            # 
+            # # restrict to models actually present in thisTab, 
+            # # but preserve the order from baseCols
+            # presentModels = intersect(names(baseCols), as.character(thisTab$Model))
+            # thisModCols = baseCols[presentModels]
+            # 
+            # # set factor levels of Model in the same order as colors
+            # thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
+            # 
+            # 
+            # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))) {
+            #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))
+            # }
+            # 
+            # thisTab = thisTab[!is.na(thisTab[[scoreCol]]),]
+            # thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
+            # 
+            # pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf"), width=5, height=5)
+            # 
+            # # Create the plot
+            # if(parName == "prefPar") {
+            #   p = ggplot(thisTab, aes(x = factor(prefPar), y = .data[[scoreCol]], fill = Model))
+            # } else {
+            #   p = ggplot(thisTab, aes(x = factor(repelAreaProp), y = .data[[scoreCol]], fill = Model))
+            # }
+            # if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
+            #   p = p + geom_boxplot()
+            # }
+            # p = p +
+            #   # stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
+            #   #              position = position_dodge(width = 0.75)) +
+            #   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+            #                color = "black", aes(fill = Model),
+            #                position = position_dodge(width = 0.75)) + 
+            #   stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
+            #                position = position_dodge(width = 0.75)) +
+            #   # scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
+            #   scale_fill_manual(values = thisModCols) + 
+            #   labs(
+            #     # title = paste0(myTitleCase(scoreColName), " vs. ", parName, 
+            #     #                " (", adaptScenCap, ", ", typeName, ", ", 
+            #     #                fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
+            #     title = paste0(myTitleCase(scoreColName), " vs. ", parName, 
+            #                    " (", fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
+            #     x = parName,
+            #     y = myTitleCase(scoreColName),
+            #     fill = "Model"
+            #   ) +
+            #   theme_minimal()
+            # if(!(scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
+            #                     "pref", "seismic_y", "seismic_p", "design"))) {
+            #   # seismic estimates have 0 variance
+            #   p = p + scale_y_log10()
+            # }
+            # if(grepl("Coverage", scoreColName)) {
+            #   cvg <- as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+            #   p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
+            # }
+            # 
+            # print(p)
+            # 
+            # dev.off()
           }
         }
       }
     }
     
-    # Plot vs repelAreaProp: loop over n and prefPar
+    # Plot vs repelAreaProp ----
+    browser()
+    print("boxplots vs repelAreaProp...")
+    
+    fixedParName = "phi"
+    parName = "repelAreaProp"
+    
     for (nVal in sort(unique(tabBase$n))) {
-      for (prefVal in sort(unique(tabBase$prefPar))) {
-        tab = tabBase %>% filter(n == nVal & prefPar == prefVal)
+      for (prefVal in sort(unique(tabBase$phi))) {
+        tab = tabBase %>% filter(n == nVal & phi == prefVal)
         tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
-        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/repelAreaProp_n", nVal, "_pref", prefVal)
+        
+        
+        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
         dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
         
-        for (scoreType in scoreTypes) {
+        thisFileRoot = paste0(propVarCase, "_repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
+        
+        for (scoreTypeI in 1:length(scoreTypesNamed)) {
+          # scoreCols = grep(scoreType, names(tab), value = TRUE)
+          # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
+          scoreType = scoreTypes[scoreTypeI]
+          scoreTypeName = scoreTypesNamed[scoreTypeI]
+          scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
           scoreCols = grep(scoreType, names(tab), value = TRUE)
+          
+          if(scoreTypeNameRoot == "par") {
+            # only include plots for these parameters
+            scoreCols = scoreCols[greplAny(c("gamma", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design"), scoreCols)]
+          }
+          
           for (scoreCol in scoreCols) {
-            pdf(file = file.path(figDir, paste0(scoreCol, "_vs_repelAreaProp.pdf")), width = 6, height = 5)
-            p = ggplot(tab, aes(x = factor(repelAreaProp), y = .data[[scoreCol]], fill = factor(fitModFunI))) +
-              geom_boxplot() +
-              facet_wrap(~propVarCase) +
-              labs(title = paste(scoreCol, "vs repelAreaProp -", adaptScenCap, "[", case, "]"),
-                   x = "Repel Area Proportion", y = scoreCol, fill = "Model") +
-              theme_minimal()
-            print(p)
-            dev.off()
+            scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
+            
+            thisTab = tab[!is.na(tab[[scoreCol]]),]
+            
+            adaptFRoot = ""
+            if(adaptScen != "batch") {
+              adaptFRoot = paste0("_", adaptType)
+            }
+            
+            fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
+            
+            makeBoxplot(thisTab, parName=parName, scoreCol=scoreCol, fixedParNames=c("n", fixedParName), fname=fname)
+            
+            # # Ensure the number of colors matches the number of unique models
+            # unique_models <- unique(tab$Model)
+            # if (adaptScen == "batch") {
+            #   baseCols = modCols
+            # } else {
+            #   if (adaptType == "spde") {
+            #     baseCols = modCols
+            #   } else if (adaptType == "self") {
+            #     baseCols = modColsSelf
+            #   } else {
+            #     baseCols = modColsComb
+            #   }
+            # }
+            # 
+            # # restrict to models actually present in thisTab, 
+            # # but preserve the order from baseCols
+            # presentModels = intersect(names(baseCols), as.character(thisTab$Model))
+            # thisModCols = baseCols[presentModels]
+            # 
+            # # set factor levels of Model in the same order as colors
+            # thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
+            # 
+            # 
+            # if(!dir.exists(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))) {
+            #   dir.create(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot))
+            # }
+            # 
+            # thisTab = thisTab[!is.na(thisTab[[scoreCol]]),]
+            # thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
+            # 
+            # pdf(paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf"), width=5, height=5)
+            # 
+            # # Create the plot
+            # if(parName == "prefPar") {
+            #   p = ggplot(thisTab, aes(x = factor(prefPar), y = .data[[scoreCol]], fill = Model))
+            # } else {
+            #   p = ggplot(thisTab, aes(x = factor(repelAreaProp), y = .data[[scoreCol]], fill = Model))
+            # }
+            # if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
+            #   p = p + geom_boxplot()
+            # }
+            # p = p +
+            #   # stat_summary(fun = mean, geom = "point", shape = 20, size = 1, color = "black", 
+            #   #              position = position_dodge(width = 0.75)) +
+            #   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+            #                color = "black", aes(fill = Model),
+            #                position = position_dodge(width = 0.75)) + 
+            #   stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black", 
+            #                position = position_dodge(width = 0.75)) +
+            #   # scale_fill_manual(values = setNames(modCols[1:length(unique_models)], unique_models)) +
+            #   scale_fill_manual(values = thisModCols) + 
+            #   labs(
+            #     # title = paste0(myTitleCase(scoreColName), " vs. ", parName, 
+            #     #                " (", adaptScenCap, ", ", typeName, ", ", 
+            #     #                fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
+            #     title = paste0(myTitleCase(scoreColName), " vs. ", parName, 
+            #                    " (", fixedParName, "=", fixedParVal, ", n=", thisN, ")"),
+            #     x = parName,
+            #     y = myTitleCase(scoreColName),
+            #     fill = "Model"
+            #   ) +
+            #   theme_minimal()
+            # if(!(scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95", 
+            #                          "pref", "seismic_y", "seismic_p", "design"))) {
+            #   # seismic estimates have 0 variance
+            #   p = p + scale_y_log10()
+            # }
+            # if(grepl("Coverage", scoreColName)) {
+            #   cvg <- as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+            #   p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed") 
+            # }
+            # 
+            # print(p)
+            # 
+            # dev.off()
+          }
+        }
+      }
+    }
+    
+    
+    # plot prefEst vs Bias ----
+    browser()
+    for (repelVal in sort(unique(tabBase$repelAreaProp))) {
+      validNs = sort(unique(tabBase$n[tabBase$repelAreaProp == repelVal & repelVal * tabBase$n <= 0.3]))
+      
+      for (nVal in validNs) {
+        
+        for (prefVal in sort(unique(tabBase$phi))) {
+          
+          tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal & phi == prefVal)
+          tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
+          
+          thisFileRoot = paste0(propVarCase, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+          
+          figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal)
+          dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
+          
+          for (scoreTypeI in 1:length(scoreTypesNamed)) {
+            # scoreCols = grep(scoreType, names(tab), value = TRUE)
+            # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
+            scoreType = scoreTypes[scoreTypeI]
+            scoreTypeName = scoreTypesNamed[scoreTypeI]
+            scoreTypeNameRoot = scoreTypesNameRoot[scoreTypeI]
+            scoreCols = grep(scoreType, names(tab), value = TRUE)
+            
+            if(scoreTypeNameRoot == "par") {
+              # skip this case
+              next
+            }
+            
+            for (scoreCol in scoreCols) {
+              scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
+              
+              thisTab = tab[!is.na(tab[[scoreCol]]),]
+              
+              adaptFRoot = ""
+              if(adaptScen != "batch") {
+                adaptFRoot = paste0("_", adaptType)
+              }
+              
+              fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
+              
+              # make the scatterplot
+              makeScatterplot(thisTab, parName="gamma_param", scoreCol=scoreCol, fixedParNames=c("n", "phi", "repelAreaProp"), 
+                              fname=fname)
+            }
           }
         }
       }
