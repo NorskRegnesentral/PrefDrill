@@ -2934,7 +2934,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
           
           
-          figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
+          figDir = paste0("figures/simStudy/", adaptScen, "/", case, "_repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
           dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
           
           thisFileRoot = paste0(case, "_repelAreaPropAll_prefPar", prefVal, "_n", nVal, "_", adaptScen)
@@ -3062,7 +3062,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           
           thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
           
-          figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal)
+          figDir = paste0("figures/simStudy/", adaptScen, "/", case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
           dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
           
           for (scoreTypeI in 1:length(scoreTypesNamed)) {
