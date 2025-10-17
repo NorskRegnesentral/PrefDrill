@@ -2674,11 +2674,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     invisible(NULL)
   }
   
-  
+  # precompute special cases: seismic model, uniform sampling
+  tabSeismic = mergedTab %>% filter(modelFitI == 0)
+  tabUniform = mergedTab %>% filter(propVarCase == "uniform")
   
   for (case in propVarCases) {
-    tabBase = mergedTab %>% filter(propVarCase == case)
-    tabUniform = mergedTab %>% filter(propVarCase == "uniform" & phi == 0)
+    tabBase = mergedTab %>% filter(propVarCase %in% c(case, "uniform"))
     
     # Boxplots vs n: ----
     if(doBoxN) {
@@ -2803,7 +2804,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         
         for (nVal in validNs) {
           tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal)
-          tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
+          tab = bind_rows(tab, 
+                          tabSeismic)
           
           thisFileRoot = paste0(case, "_prefParAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
           
@@ -2923,7 +2925,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     # Plot vs repelAreaProp ----
     if(doBoxRep) {
       print("boxplots vs repelAreaProp...")
-      browser()
       
       fixedParName = "phi"
       parName = "repelAreaProp"
@@ -2931,7 +2932,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       for (nVal in sort(unique(tabBase$n))) {
         for (prefVal in sort(unique(tabBase$phi))) {
           tab = tabBase %>% filter(n == nVal & phi == prefVal)
-          tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
+          tab = bind_rows(tab, tabSeismic)
           
           if(nrow(tab) == 0) {
             print(paste0("no values to plot for n=", nVal, ", phi=", prefVal))
@@ -3065,7 +3066,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           for (prefVal in sort(unique(tabBase$phi))) {
             
             tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal & phi == prefVal)
-            tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
             
             if(nrow(tab) == 0) {
               print(paste0("no values to plot for n=", nVal, ", phi=", prefVal, ", prep=", repelVal))
