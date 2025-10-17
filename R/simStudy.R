@@ -2595,6 +2595,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     scoreColName = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", scoreCol)
     parTitle = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", parName)
     thisTab = thisTab[!is.na(thisTab[[scoreCol]]), ]
+    thisTab = thisTab[!is.na(thisTab[[parName]]), ]
     thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
     
     unique_models = unique(thisTab$Model)
@@ -2615,8 +2616,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     
     pdf(fname, width = 5, height = 5)
-    p = ggplot(thisTab, aes(x = .data[[parName]], y = .data[[scoreCol]], color = Model)) +
-      geom_point(position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75), alpha = 0.7) +
+    p = ggplot(thisTab, aes(x = .data[[parName]], y = .data[[scoreCol]], color = Model, shape=Model)) +
+      geom_point(alpha = 0.7) +
       scale_color_manual(values = thisModCols) +
       labs(
         title = paste0(
@@ -2920,9 +2921,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     
     # Plot vs repelAreaProp ----
-    browser()
     if(doBoxRep) {
       print("boxplots vs repelAreaProp...")
+      browser()
       
       fixedParName = "phi"
       parName = "repelAreaProp"
@@ -3051,62 +3052,66 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       }
     }
     
-    
-    # plot prefEst vs Bias ----
-    browser()
-    for (repelVal in sort(unique(tabBase$repelAreaProp))) {
-      validNs = sort(unique(tabBase$n[tabBase$repelAreaProp == repelVal & repelVal * tabBase$n <= 0.3]))
+    if(doScatterGamma) {
+      print("scatterplots vs gamma...")
       
-      for (nVal in validNs) {
+      # plot prefEst vs Bias ----
+      browser()
+      for (repelVal in sort(unique(tabBase$repelAreaProp))) {
+        validNs = sort(unique(tabBase$n[tabBase$repelAreaProp == repelVal & repelVal * tabBase$n <= 0.3]))
         
-        for (prefVal in sort(unique(tabBase$phi))) {
+        for (nVal in validNs) {
           
-          tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal & phi == prefVal)
-          tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
-          
-          if(nrow(tab) == 0) {
-            print(paste0("no values to plot for n=", nVal, ", phi=", prefVal, ", prep=", repelVal))
-            next
-          }
-          
-          thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
-          
-          figDir = paste0("figures/simStudy/", adaptScen, "/", case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
-          dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
-          
-          for (scoreTypeI in 1:length(scoreTypesNamed)) {
-            # scoreCols = grep(scoreType, names(tab), value = TRUE)
-            # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
-            scoreType = scoreTypes[scoreTypeI]
-            scoreTypeName = scoreTypesNamed[[scoreTypeI]]
-            scoreTypeNameRoot = scoreTypesNameRoot[[scoreTypeI]]
-            scoreCols = grep(scoreType, names(tab), value = TRUE)
+          for (prefVal in sort(unique(tabBase$phi))) {
             
-            if(scoreTypeNameRoot == "par") {
-              # skip this case
+            tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal & phi == prefVal)
+            tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
+            
+            if(nrow(tab) == 0) {
+              print(paste0("no values to plot for n=", nVal, ", phi=", prefVal, ", prep=", repelVal))
               next
             }
             
-            for (scoreCol in scoreCols) {
-              scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
+            thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+            
+            figDir = paste0("figures/simStudy/", adaptScen, "/", case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+            dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
+            
+            for (scoreTypeI in 1:length(scoreTypesNamed)) {
+              # scoreCols = grep(scoreType, names(tab), value = TRUE)
+              # scoreCols = grep(paste0("_", scoreType), names(tab), value = TRUE)
+              scoreType = scoreTypes[scoreTypeI]
+              scoreTypeName = scoreTypesNamed[[scoreTypeI]]
+              scoreTypeNameRoot = scoreTypesNameRoot[[scoreTypeI]]
+              scoreCols = grep(scoreType, names(tab), value = TRUE)
               
-              thisTab = tab[!is.na(tab[[scoreCol]]),]
-              
-              adaptFRoot = ""
-              if(adaptScen != "batch") {
-                adaptFRoot = paste0("_", adaptType)
+              if(scoreTypeNameRoot == "par") {
+                # skip this case
+                next
               }
               
-              fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
-              
-              # make the scatterplot
-              makeScatterplot(thisTab, parName="gamma_param", scoreCol=scoreCol, fixedParNames=c("n", "phi", "repelAreaProp"), 
-                              fname=fname)
+              for (scoreCol in scoreCols) {
+                scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
+                
+                thisTab = tab[!is.na(tab[[scoreCol]]),]
+                
+                adaptFRoot = ""
+                if(adaptScen != "batch") {
+                  adaptFRoot = paste0("_", adaptType)
+                }
+                
+                fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
+                
+                # make the scatterplot
+                makeScatterplot(thisTab, parName="gamma_param", scoreCol=scoreCol, fixedParNames=c("n", "phi", "repelAreaProp"), 
+                                fname=fname)
+              }
             }
           }
         }
       }
     }
+    
   }
   
   message("All plots saved.")
