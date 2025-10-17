@@ -2569,7 +2569,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       theme_minimal()
     
     if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
-                             "pref", "seismic_y", "seismic_p", "design")) {
+                             "gamma", "seismic_y", "seismic_p", "design")) {
       p = p + scale_y_log10()
     }
     if (grepl("Coverage", scoreColName)) {
@@ -2628,7 +2628,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       theme_minimal()
     
     if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
-                             "pref", "seismic_y", "seismic_p", "design")) {
+                             "gamma", "seismic_y", "seismic_p", "design")) {
       p = p + scale_y_log10()
     }
     if (grepl("Coverage", scoreColName)) {
@@ -2704,7 +2704,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           
           if(scoreTypeNameRoot == "par") {
             # only include plots for these parameters
-            scoreCols = scoreCols[greplAny(c("pref", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design"), scoreCols)]
+            scoreCols = scoreCols[greplAny(c("gamma", "spatialRange", "spatialVar", "errorVar", "seismic_y", "seismic_p", "design"), scoreCols)]
           }
           
           for (scoreCol in scoreCols) {
