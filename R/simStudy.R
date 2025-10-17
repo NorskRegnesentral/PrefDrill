@@ -2800,9 +2800,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal)
         tab = bind_rows(tab, tabUniform, mergedTab %>% filter(modelFitI == 0))
         
-        thisFileRoot = paste0(case, "_phiAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+        thisFileRoot = paste0(case, "_prefParAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
         
-        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/phiAll_repelAreaProp", repelVal, "n", nVal)
+        figDir = paste0("figures/simStudy/", adaptScen, "/", case, "/prefParAll_repelAreaProp", repelVal, "n", nVal)
         dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
         
         for (scoreTypeI in 1:length(scoreTypesNamed)) {
