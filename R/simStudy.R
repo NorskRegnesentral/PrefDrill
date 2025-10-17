@@ -2359,7 +2359,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   load(inputListFile)
   
   # make score/par table ----
-  
+  if(adaptScen == "batch") {
+    adaptTypeCap = ""
+  }
   mergedFile = paste0("savedOutput/simStudy/mergedScores_", adaptScen, adaptTypeCap, ".RData")
   
   if (!file.exists(mergedFile) || regenData) {
