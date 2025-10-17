@@ -2791,7 +2791,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     
     # Plot vs phi ----
-    browser()
     if(doBoxPhi) {
       print("boxplots vs phi...")
       
