@@ -3071,8 +3071,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
               next
             }
             
-            thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
-            
             figDir = paste0("figures/simStudy/", adaptScen, "/", case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
             dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
             
@@ -3099,11 +3097,32 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                   adaptFRoot = paste0("_", adaptType)
                 }
                 
-                fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
+                # prefEst
+                thisFileRoot = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+                thisFileRoot2 = paste0(case, "_prefPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+                fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot2, "_", scoreColName, ".pdf")
                 
-                # make the scatterplot
                 makeScatterplot(thisTab, parName="gamma_param", scoreCol=scoreCol, fixedParNames=c("n", "phi", "repelAreaProp"), 
                                 fname=fname)
+                
+                # corWells
+                thisFileRoot2 = paste0(case, "_corWellsPairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+                fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot2, "_", scoreColName, ".pdf")
+                
+                # make the scatterplot
+                makeScatterplot(thisTab, parName="corSeisTruthWells", scoreCol=scoreCol, fixedParNames=c("n", "phi", "repelAreaProp"), 
+                                fname=fname)
+                
+                # corTruth
+                thisFileRoot2 = paste0(case, "_corTruePairs", "_prefPar", prefVal, "_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
+                fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot2, "_", scoreColName, ".pdf")
+                
+                # make the scatterplot
+                makeScatterplot(thisTab, parName="corSeisTruthTrue", scoreCol=scoreCol, fixedParNames=c("n", "phi", "repelAreaProp"), 
+                                fname=fname)
+                
+                
+                
               }
             }
           }
