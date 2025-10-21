@@ -2549,11 +2549,13 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
     
     pdf(fname, width = 5, height = 5)
-    p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model)) +
-      geom_boxplot() +
-      stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
-                   color = "black", aes(fill = Model),
-                   position = position_dodge(width = 0.75)) +
+    p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model))
+    if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
+      p = p + geom_boxplot()
+    }
+    p = p + stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
+                         color = "black", aes(fill = Model),
+                         position = position_dodge(width = 0.75)) +
       stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
                    position = position_dodge(width = 0.75)) +
       scale_fill_manual(values = thisModCols) +
