@@ -3144,7 +3144,7 @@ refreshManuscriptFigDir = function() {
   
   copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
                   dstDir=paste0("~/fig/simStudy/"), 
-                  includeSubstr = c("agg", "par", "mean.*Coverage95"), excludeSubstr = c("80", "_Var", "RMSE", "prefPairs"))
+                  includeSubstr = c("agg", "par", "mean.*Coverage95"), excludeSubstr = c("80", "_Var", "RMSE", "Pairs"))
   
   copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
                   dstDir=paste0("~/fig/simStudy/"), 
