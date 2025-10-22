@@ -2392,7 +2392,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         row$repI = i
         row$fitModFunI = 0
       }
-      modelI = row$modelFitI
+      modelI = row$fitModFunI
       
       
       scoresFile = if (modelI == 0) {
