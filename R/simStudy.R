@@ -2408,32 +2408,44 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       if (row$propVarCase == "uniform") row$prefPar = 0
       row$repelAreaProp = row$repelAreaProp / 4 # reparameterize to the new one
       
-      scoreRow = cbind(
-        row,
-        setNames(as.data.frame(pwScoresMean), paste0(colnames(pwScoresMean), "_pwMean")),
-        setNames(as.data.frame(pwScoresWorst), paste0(colnames(pwScoresWorst), "_pwWorst")),
-        setNames(as.data.frame(aggScores), paste0(colnames(aggScores), "_agg")),
-        setNames(as.data.frame(pwScoresMax), paste0(colnames(pwScoresMax), "_pwMax")),
-        setNames(as.data.frame(pwScoresMin), paste0(colnames(pwScoresMin), "_pwMin")),
-        corSeisTruthWells = corSeisTruthWells,
-        corSeisTruthTrue = corSeisTruthTrue,
-        varTruth = varTruth,
-        varSeis = varSeis,
-        varEst = varEst,
-        corEstTruthWells = corEstTruthWells,
-        corEstTruthTrue = corEstTruthTrue,
-        totT = totT,
-        if (modelI != 0) {
-          setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_param"))
-        } else {
-          NA
-        },
-        if (modelI != 0) {
+      if(modelI != 0) {
+        scoreRow = cbind(
+          row,
+          setNames(as.data.frame(pwScoresMean), paste0(colnames(pwScoresMean), "_pwMean")),
+          setNames(as.data.frame(pwScoresWorst), paste0(colnames(pwScoresWorst), "_pwWorst")),
+          setNames(as.data.frame(aggScores), paste0(colnames(aggScores), "_agg")),
+          setNames(as.data.frame(pwScoresMax), paste0(colnames(pwScoresMax), "_pwMax")),
+          setNames(as.data.frame(pwScoresMin), paste0(colnames(pwScoresMin), "_pwMin")),
+          corSeisTruthWells = corSeisTruthWells,
+          corSeisTruthTrue = corSeisTruthTrue,
+          varTruth = varTruth,
+          varSeis = varSeis,
+          varEst = varEst,
+          corEstTruthWells = corEstTruthWells,
+          corEstTruthTrue = corEstTruthTrue,
+          totT = totT,
+          setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_param")), 
           setNames(data.frame(t(parameterSummaryTable[, 1])), paste0(rownames(parameterSummaryTable), "_param"))
-        } else {
-          NA
-        }
-      )
+        )
+      } else {
+        scoreRow = cbind(
+          row,
+          setNames(as.data.frame(pwScoresMean), paste0(colnames(pwScoresMean), "_pwMean")),
+          setNames(as.data.frame(pwScoresWorst), paste0(colnames(pwScoresWorst), "_pwWorst")),
+          setNames(as.data.frame(aggScores), paste0(colnames(aggScores), "_agg")),
+          setNames(as.data.frame(pwScoresMax), paste0(colnames(pwScoresMax), "_pwMax")),
+          setNames(as.data.frame(pwScoresMin), paste0(colnames(pwScoresMin), "_pwMin")),
+          corSeisTruthWells = corSeisTruthWells,
+          corSeisTruthTrue = corSeisTruthTrue,
+          varTruth = varTruth,
+          varSeis = varSeis,
+          varEst = varEst,
+          corEstTruthWells = corEstTruthWells,
+          corEstTruthTrue = corEstTruthTrue,
+          totT = totT
+        )
+      }
+      
       
       return(scoreRow)
     })
@@ -2712,12 +2724,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   }
   
   # precompute special cases: seismic model, uniform sampling
-  tabSeismic = mergedTab %>% filter(modelFitI == 0)
+  tabSeismic = mergedTab %>% filter(fitModFunI == 0)
   tabUniform = mergedTab %>% filter(propVarCase == "uniform")
   
   
   # adjust mergedTab to not include seismic results (they will be added in later)
-  mergedTab = mergedTab %>% filter(modelFitI != 0)
+  mergedTab = mergedTab %>% filter(fitModFunI != 0)
   
   # Make plots: ----
   for (case in propVarCases) {
