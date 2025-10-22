@@ -3144,7 +3144,11 @@ refreshManuscriptFigDir = function() {
   
   copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
                   dstDir=paste0("~/fig/simStudy/"), 
-                  includeSubstr = c("agg", "par", "mean.*Coverage95"), excludeSubstr = c("80", "_Var", "RMSE"))
+                  includeSubstr = c("agg", "par", "mean.*Coverage95"), excludeSubstr = c("80", "_Var", "RMSE", "prefPairs"))
+  
+  copyDirFiltered(srcDir=paste0("figures/simStudy/"), 
+                  dstDir=paste0("~/fig/simStudy/"), 
+                  includeSubstr = c("agg_cluster_prefPairs.*Bias"))
   
 }
 
