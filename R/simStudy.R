@@ -2392,13 +2392,14 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         row$repI = i
         row$fitModFunI = 0
       }
-      modelI = row$fitModFunI
+      fitModFunI = row$fitModFunI
+      modelFitI = row$modelFitI
       
       
-      scoresFile = if (modelI == 0) {
+      scoresFile = if (fitModFunI == 0) {
         paste0("savedOutput/simStudy/scores/scores_seismic_rep", i, ".RData")
       } else {
-        paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", modelI, ".RData")
+        paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", modelFitI, ".RData")
       }
       
       if (!file.exists(scoresFile)) return(NULL)
@@ -2408,7 +2409,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       if (row$propVarCase == "uniform") row$prefPar = 0
       row$repelAreaProp = row$repelAreaProp / 4 # reparameterize to the new one
       
-      if(modelI != 0) {
+      if(fitModFunI != 0) {
+        fixEffs = setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_param"))
+        parInfo = setNames(data.frame(t(parameterSummaryTable[, 1])), paste0(rownames(parameterSummaryTable), "_param"))
         scoreRow = cbind(
           row,
           setNames(as.data.frame(pwScoresMean), paste0(colnames(pwScoresMean), "_pwMean")),
@@ -2424,8 +2427,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           corEstTruthWells = corEstTruthWells,
           corEstTruthTrue = corEstTruthTrue,
           totT = totT,
-          setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_param")), 
-          setNames(data.frame(t(parameterSummaryTable[, 1])), paste0(rownames(parameterSummaryTable), "_param"))
+          fixEffs, 
+          parInfo
         )
       } else {
         scoreRow = cbind(
@@ -2445,7 +2448,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           totT = totT
         )
       }
-      
       
       return(scoreRow)
     })
