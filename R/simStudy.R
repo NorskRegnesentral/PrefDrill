@@ -956,6 +956,8 @@ runSimStudyI = function(i, significance=c(.8, .95),
       
       browser()
       
+      plotSeisGrid(cbind(out$predCoords, out$xPred[,3]))
+      points(out$obsCoords[,1], out$obsCoords[,2])
       
       # plot some figures for testing purposes
       
@@ -1344,7 +1346,7 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
 
 # fits models based on generated well data for the simulation study
 fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100, 
-                           doPar=TRUE, regenData=FALSE) {
+                           doPar=TRUE, regenData=FALSE, fitModFunIs=1:5) {
   adaptScen = match.arg(adaptScen)
   
   startT = proc.time()[3]
@@ -1356,7 +1358,7 @@ fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar
   
   # figure out which parameter sets have repI <= maxRepI
   is = 1:nrow(modelFitCombs)
-  is = is[modelFitCombs$repI <= maxRepI]
+  is = is[(modelFitCombs$repI <= maxRepI) & (modelFitCombs$fitModFunI %in% fitModFunIs)]
   
   if(doPar) {
     # start parallel cluster

@@ -194,7 +194,7 @@ fitSPDEsimDat = function(wellDat, seismicDat,
                          control.fixed = list(prec=list(default=0, X2=1/.5^2, X3=1), mean=list(default=0, X2=1)), 
                          transform=logit, invTransform=expit, 
                          mesh=getSPDEmeshSimStudy(), prior=getSPDEprior(mesh), 
-                         addKDE=FALSE, esthFromSeismic=TRUE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
+                         addKDE=FALSE, esthFromSeismic=FALSE, kde.args=NULL, pProcMethod=c("kde", "inlabru"), 
                          significanceCI=.8, int.strategy="ccd", strategy="simplified.laplace", 
                          nPostSamples=1000, useSeismic=TRUE, verbose=FALSE, seed=NULL, 
                          family="normal", doModAssess=FALSE, previousFit=NULL, 
@@ -234,6 +234,11 @@ fitSPDEsimDat = function(wellDat, seismicDat,
       } else {
         kde.args$H = diag(rep(hEst, 2))
       }
+    } else if (is.null(kde.args)) {
+      
+      # Hpi.diag(cbind(wellDat[,1], wellDat[,2]))
+      kde.args = list(H=Hns.diag(cbind(wellDat[,1], wellDat[,2])))
+      
     }
     
     # fit the density estimator
