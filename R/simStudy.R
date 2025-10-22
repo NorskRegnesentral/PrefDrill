@@ -2372,7 +2372,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   if (!file.exists(mergedFile) || regenData) {
     message("Regenerating merged score table...")
     subModelCombs = modelFitCombs[modelFitCombs$repI <= maxRepI, ]
-    nTotal = nrow(subModelCombs)
+    nTotal = nrow(subModelCombs) + maxRepI
     startTime = Sys.time()
     
     mergedTab = lapply(seq_len(nTotal), function(i) {
@@ -2383,8 +2383,17 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         message(sprintf("Progress: %d/%d (%.1f%%), Estimated time left: %.1fs", i, nTotal, i/nTotal*100, estRemaining))
       }
       
-      row = subModelCombs[i, ]
+      if(i <= nrow(subModelCombs)) {
+        row = subModelCombs[i, ]
+      } else {
+        # seismic model cases. Doesn't matter what the main variables are since we will overwrite them later
+        i = i - nrow(subModelCombs)
+        row = subModelCombs[1, ]
+        row$repI = i
+        row$fitModFunI = 0
+      }
       modelI = row$modelFitI
+      
       
       scoresFile = if (modelI == 0) {
         paste0("savedOutput/simStudy/scores/scores_seismic_rep", i, ".RData")
@@ -2529,6 +2538,27 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   makeBoxplot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
     scoreColName = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", scoreCol)
     parTitle = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", parName)
+    
+    # add in seismic data:
+    # copy tabSeismic, once per unique combination of n, repelAreaProp, and phi
+    nVals = sort(unique(thisTab$n))
+    repelVals = sort(unique(thisTab$repelAreaProp))
+    phiVals = sort(unique(thisTab$phi))
+    
+    parCombs = expand.grid(n = nVals, repelAreaProp = repelVals, phi = phiVals)
+    
+    tabList = lapply(1:nrow(parCombs), function(i) {
+      parRow = parCombs[i, ]
+      tab = tabSeismic
+      tab$n = parRow$n
+      tab$repelAreaProp = row$repelAreaProp
+      tab$phi = row$phi
+      tab
+    })
+    tabSeisFull = do.call(rbind, tabList)
+    thisTab = rbind(thisTab, tabSeisFull)
+    
+    # filter out NAs
     thisTab = thisTab[!is.na(thisTab[[scoreCol]]), ]
     thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
     
@@ -2685,26 +2715,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   tabSeismic = mergedTab %>% filter(modelFitI == 0)
   tabUniform = mergedTab %>% filter(propVarCase == "uniform")
   
-  # copy tabSeismic, once per unique combination of n, repelAreaProp, and phi
-  nVals = sort(unique(mergedTab$n))
-  repelVals = sort(unique(mergedTab$repelAreaProp))
-  phiVals = sort(unique(mergedTab$phi))
   
-  parCombs = expand.grid(n = nVals, repelAreaProp = repelVals, phi = phiVals)
-  
-  tabList = lapply(1:nrow(parCombs), function(i) {
-    parRow = parCombs[i, ]
-    tab = tabSeismic
-    tab$n = parRow$n
-    tab$repelAreaProp = row$repelAreaProp
-    tab$phi = row$phi
-    tab
-  })
-  tabSeisFull = do.call(rbind, tabList)
-  
-  # adjust mergedTab to include tabSeisFull
+  # adjust mergedTab to not include seismic results (they will be added in later)
   mergedTab = mergedTab %>% filter(modelFitI != 0)
-  mergedTab = bind_rows(mergedTab, tabSeisFull)
   
   # Make plots: ----
   for (case in propVarCases) {
