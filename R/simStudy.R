@@ -2563,8 +2563,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       parRow = parCombs[i, ]
       tab = tabSeismic
       tab$n = parRow$n
-      tab$repelAreaProp = row$repelAreaProp
-      tab$phi = row$phi
+      tab$repelAreaProp = parRow$repelAreaProp
+      tab$phi = parRow$phi
       tab
     })
     tabSeisFull = do.call(rbind, tabList)
