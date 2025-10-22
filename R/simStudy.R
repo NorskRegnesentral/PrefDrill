@@ -2532,6 +2532,11 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisTab = thisTab[!is.na(thisTab[[scoreCol]]), ]
     thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
     
+    # don't include seismic model for uncertainty related scores/metrics
+    if(greplAny(c("Coverage", "IS", "Width"), scoreColName)) {
+      thisTab = thisTab[thisTab$Model != "Seismic",]
+    }
+    
     unique_models = unique(thisTab$Model)
     if (adaptScen == "batch") {
       baseCols = modCols
@@ -2553,10 +2558,10 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
       p = p + geom_boxplot()
     }
-    p = p + stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
-                         color = "black", aes(fill = Model),
+    p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
                          position = position_dodge(width = 0.75)) +
-      stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
+      stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
+                   color = "black", aes(fill = Model),
                    position = position_dodge(width = 0.75)) +
       scale_fill_manual(values = thisModCols) +
       # labs(title = paste0(myTitleCase(scoreColName), " vs. ", parName,
@@ -2680,6 +2685,28 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   tabSeismic = mergedTab %>% filter(modelFitI == 0)
   tabUniform = mergedTab %>% filter(propVarCase == "uniform")
   
+  # copy tabSeismic, once per unique combination of n, repelAreaProp, and phi
+  nVals = sort(unique(mergedTab$n))
+  repelVals = sort(unique(mergedTab$repelAreaProp))
+  phiVals = sort(unique(mergedTab$phi))
+  
+  parCombs = expand.grid(n = nVals, repelAreaProp = repelVals, phi = phiVals)
+  
+  tabList = lapply(1:nrow(parCombs), function(i) {
+    parRow = parCombs[i, ]
+    tab = tabSeismic
+    tab$n = parRow$n
+    tab$repelAreaProp = row$repelAreaProp
+    tab$phi = row$phi
+    tab
+  })
+  tabSeisFull = do.call(rbind, tabList)
+  
+  # adjust mergedTab to include tabSeisFull
+  mergedTab = mergedTab %>% filter(modelFitI != 0)
+  mergedTab = bind_rows(mergedTab, tabSeisFull)
+  
+  # Make plots: ----
   for (case in propVarCases) {
     tabBase = mergedTab %>% filter(propVarCase %in% c(case, "uniform"))
     
@@ -2688,7 +2715,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       print("boxplots vs n...")
       for (sampI in sort(unique(tabBase$sampleParI))) {
         tab = tabBase %>% filter(sampleParI == sampI)
-        tab = bind_rows(tab, mergedTab %>% filter(modelFitI == 0))
+        # tab = bind_rows(tab, tabSeismic)
         
         thisDirRoot = adaptScen
         adaptFRoot = ""  # for now. Will be changed later depending on the type of plots
@@ -2806,8 +2833,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         
         for (nVal in validNs) {
           tab = tabBase %>% filter(n == nVal & repelAreaProp == repelVal)
-          tab = bind_rows(tab, 
-                          tabSeismic)
+          # tab = bind_rows(tab, tabSeismic)
           
           thisFileRoot = paste0(case, "_prefParAll_repelAreaProp", repelVal, "_n", nVal, "_", adaptScen)
           
@@ -2934,7 +2960,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       for (nVal in sort(unique(tabBase$n))) {
         for (prefVal in sort(unique(tabBase$phi))) {
           tab = tabBase %>% filter(n == nVal & phi == prefVal)
-          tab = bind_rows(tab, tabSeismic)
+          # tab = bind_rows(tab, tabSeismic)
           
           if(nrow(tab) == 0) {
             print(paste0("no values to plot for n=", nVal, ", phi=", prefVal))
