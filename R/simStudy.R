@@ -2403,7 +2403,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       
       if (!file.exists(scoresFile)) return(NULL)
       
-      load(scoresFile)
+      out = load(scoresFile)
       
       if (row$propVarCase == "uniform") row$prefPar = 0
       row$repelAreaProp = row$repelAreaProp / 4 # reparameterize to the new one
@@ -2426,12 +2426,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
         if (modelI != 0) {
           setNames(data.frame(t(fixedEffectSummary[, 1])), paste0(rownames(fixedEffectSummary), "_param"))
         } else {
-          NULL
+          NA
         },
         if (modelI != 0) {
           setNames(data.frame(t(parameterSummaryTable[, 1])), paste0(rownames(parameterSummaryTable), "_param"))
         } else {
-          NULL
+          NA
         }
       )
       
