@@ -193,7 +193,8 @@ getPrefDrillLoc = function(seismicDat,
 # given simulation replicate, i.e. if normLgtTruth = fac * (Lgttruth - meanLgtTruth), 
 # returns fac, meanLgtTruth, and normLgtTruth
 getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
-                      goodCoords=NULL, subsampled=TRUE, truthFacOnly=FALSE, takeLogit=TRUE) {
+                      goodCoords=NULL, subsampled=TRUE, truthFacOnly=FALSE, takeLogit=TRUE, 
+                      getResidSD=FALSE) {
   
   if(is.null(seismicDat)) {
     # seismic data
@@ -244,6 +245,11 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
       truthDatStd[,3] = logit(truthDatStd[,3])
       indepDatStd[,3] = logit(indepDatStd[,3])
     }
+    if(getResidSD) {
+      residSD = resid(lm(truthDatStd[,3] ~ seismicDatStd[,3]))
+    } else {
+      residSD = NULL
+    }
     seismicMean = mean(seismicDatStd[,3])
     truthMean = mean(truthDatStd[,3])
     indepMean = mean(indepDatStd[,3])
@@ -256,7 +262,7 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
     
     list(seismicDatStd=seismicDatStd, truthDatStd=truthDatStd, indepDatStd=indepDatStd, 
          seismicMean=seismicMean, truthMean=truthMean, indepMean=indepMean, 
-         seismicSD=seismicSD, truthSD=truthSD, indepSD=indepSD)
+         seismicSD=seismicSD, truthSD=truthSD, indepSD=indepSD, residSD=residSD)
   }
 }
 
