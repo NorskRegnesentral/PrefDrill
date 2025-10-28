@@ -246,7 +246,7 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
       indepDatStd[,3] = logit(indepDatStd[,3])
     }
     if(getResidSD) {
-      residSD = resid(lm(truthDatStd[,3] ~ seismicDatStd[,3]))
+      residSD = sd(resid(lm(truthDatStd[,3] ~ seismicDatStd[,3])))
     } else {
       residSD = NULL
     }
