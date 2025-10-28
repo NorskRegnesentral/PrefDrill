@@ -12,7 +12,7 @@
 # medianRange: by default, one fifth of the domain diameter
 # 
 # Outputs: prior to give to INLA
-getSPDEprior = function(mesh, U=0.1, alpha=0.5, medianRange=NULL) {
+getSPDEprior = function(mesh, U=0.33, alpha=0.5, medianRange=NULL) {
   size <- max(c(diff(range(mesh$loc[, 1])), diff(range(mesh$loc[, 2]))))
   
   # set default median range
