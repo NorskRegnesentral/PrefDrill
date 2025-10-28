@@ -267,7 +267,7 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
 }
 
 # returns all normalizing factors for the truth (1/sigma_eta)
-getAllNormFacs = function(takeLogit=TRUE, val=NULL) {
+getAllNormFacs = function(takeLogit=TRUE, val=NULL, ...) {
   
   allFacs = numeric(100)
   for(i in 1:100) {
@@ -275,11 +275,11 @@ getAllNormFacs = function(takeLogit=TRUE, val=NULL) {
     if(is.null(val)) {
       allFacs[i] = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
                               goodCoords=NULL, subsampled=FALSE, truthFacOnly=TRUE, 
-                              takeLogit=takeLogit)
+                              takeLogit=takeLogit, ...)
     } else {
       tmp = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
                               goodCoords=NULL, subsampled=FALSE, truthFacOnly=FALSE, 
-                              takeLogit=takeLogit)
+                              takeLogit=takeLogit, ...)
       allFacs[i] = tmp[[val]]
     }
     
