@@ -261,14 +261,22 @@ getNormFac = function(repI=NULL, seismicDat=NULL, truthDat=NULL, indepDat=NULL,
 }
 
 # returns all normalizing factors for the truth (1/sigma_eta)
-getAllNormFacs = function(takeLogit=TRUE) {
+getAllNormFacs = function(takeLogit=TRUE, val=NULL) {
   
   allFacs = numeric(100)
   for(i in 1:100) {
     print(paste0("i = ", i, "/100"))
-    allFacs[i] = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
-                            goodCoords=NULL, subsampled=FALSE, truthFacOnly=TRUE, 
-                            takeLogit=takeLogit)
+    if(is.null(val)) {
+      allFacs[i] = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
+                              goodCoords=NULL, subsampled=FALSE, truthFacOnly=TRUE, 
+                              takeLogit=takeLogit)
+    } else {
+      tmp = getNormFac(repI=i, seismicDat=NULL, truthDat=NULL, indepDat=NULL, 
+                              goodCoords=NULL, subsampled=FALSE, truthFacOnly=FALSE, 
+                              takeLogit=takeLogit)
+      allFacs[i] = tmp[[val]]
+    }
+    
   }
   
   allFacs
@@ -2579,7 +2587,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
     
     # don't include seismic model for uncertainty related scores/metrics
-    if(greplAny(c("Coverage", "IS", "Width"), scoreColName)) {
+    if(greplAny(c("Coverage", "IntervalScore", "Width"), scoreColName)) {
       thisTab = thisTab[thisTab$Model != "Seismic",]
     }
     
