@@ -2757,7 +2757,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     # Compute mean and SE for each group
     summaryTab = tab %>%
-      group_by(phi, prep, n) %>%
+      group_by(prefPar, repelAreaProp, n) %>%
       summarise(across(all_of(thisScoreNames), list(
         mean = ~mean(.),
         se = ~sd(.) / sqrt(length(.))
