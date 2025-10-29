@@ -2854,6 +2854,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   mergedTab = mergedTab %>% filter(fitModFunI != 0)
   
   # Make tables: ----
+  allTabs = ""
   for (case in propVarCases) {
     tabBase = mergedTab %>% filter(propVarCase %in% c(case, "uniform"))
     
@@ -2862,9 +2863,11 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
     }
     
-    cat(getLatexLongtable(tabBase))
-    browser()
+    # cat(getLatexLongtable(tabBase))
+    allTabs = paste0(allTabs, "getLatexLongtable(tabBase) \n \n \n")
   }
+  writeLines(allTabs, "savedOutput/simStudy/resTabs.tex")
+  browser()
   
   # Make plots: ----
   for (case in propVarCases) {
