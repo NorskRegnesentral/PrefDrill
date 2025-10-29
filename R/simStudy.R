@@ -2750,7 +2750,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisScoreNames = names(tab)[grepl("_agg", names(tab))]
     
     # exclude scores we don't care about
-    thisScoreNames = thisScoreNames[!greplAny(c("80", "Var", "MSE", "RMSE"))]
+    thisScoreNames = thisScoreNames[!greplAny(c("80", "Var", "MSE", "RMSE"), thisScoreNames)]
     
     thisScoreTitles = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", thisScoreNames)
     thisScoreTitles = gsub("IntervalScore", "IS", thisScoreTitles)
@@ -2861,7 +2861,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
     }
     
-    print(getLatexLongtable(tabBase))
+    cat(getLatexLongtable(tabBase))
     browser()
   }
   
