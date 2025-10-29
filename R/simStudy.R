@@ -2754,6 +2754,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     thisScoreTitles = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", thisScoreNames)
     thisScoreTitles = gsub("IntervalScore", "IS", thisScoreTitles)
+    thisScoreTitles = gsub("Coverage", "Cvg", thisScoreTitles)
     
     
     # Define model order
@@ -2836,7 +2837,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       })
       
       # Print row with conditional setting values
-      latex = paste0(latex, phiPrint, " & ", prepPrint, " & ", nPrint, " & \\hspace{1em}", row$Model, " & ", paste(values, collapse = " & "), " \\\\\n")
+      latex = paste0(latex, phiPrint, " & ", prepPrint, " & ", nPrint, " & ", row$Model, " & ", paste(values, collapse = " & "), " \\\\\n")
     }
     
     
