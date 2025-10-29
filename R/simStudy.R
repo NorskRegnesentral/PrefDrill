@@ -2864,7 +2864,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     }
     
     # cat(getLatexLongtable(tabBase))
-    allTabs = paste0(allTabs, "getLatexLongtable(tabBase) \n \n \n")
+    allTabs = paste0(allTabs, getLatexLongtable(tabBase), " \n\n\n")
   }
   writeLines(allTabs, "savedOutput/simStudy/resTabs.tex")
   browser()
