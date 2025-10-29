@@ -2741,6 +2741,104 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     invisible(NULL)
   }
   
+  getLatexLongtable = function(tab) {
+    if (!requireNamespace("dplyr", quietly = TRUE)) stop("Please install the 'dplyr' package.")
+    
+    require(dplyr)
+    
+    # get names of scores to put in table
+    thisScoreNames = names(tab)[grepl("_agg", names(tab))]
+    thisScoreTitles = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", thisScoreNames)
+    
+    
+    # Define model order
+    modelOrder = c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
+    
+    
+    # Compute mean and SE for each group
+    summaryTab = tab %>%
+      group_by(phi, prep, n) %>%
+      summarise(across(all_of(thisScoreNames), list(
+        mean = ~mean(.),
+        se = ~sd(.) / sqrt(length(.))
+      ), .names = "{.col}{.fn}"), .groups = "drop")
+    
+    # Start LaTeX longtable
+    latex = "\\begin{longtable}{l" 
+    latex = paste0(latex, strrep("c", length(thisScoreNames)), "}\n")
+    latex = paste0(latex, "\\caption{Mean ± 2SE of aggregate NTG scores and metrics for the ", tab$propVarCase[1], " sampling scenario.} \\\\\n")
+    latex = paste0(latex, "\\label{tab:", tab$propVarCase[1], "}\n")
+    latex = paste0(latex, "\\toprule\n")
+    latex = paste0(latex, "$\\phi$ & $p_{\\tiny \\mbox{rep}}$ & $n$ & Model & ", paste(thisScoreTitles, collapse = " & "), " \\\\\n")
+    latex = paste0(latex, "\\midrule\n")
+    latex = paste0(latex, "\\endfirsthead\n")
+    latex = paste0(latex, "\\toprule\n")
+    latex = paste0(latex, "$\\phi$ & $p_{\\tiny \\mbox{rep}}$ & $n$ & Model & ", paste(thisScoreTitles, collapse = " & "), " \\\\\n")
+    latex = paste0(latex, "\\midrule\n")
+    latex = paste0(latex, "\\endhead\n")
+    
+    
+    # # Add rows
+    # for (i in seq_len(nrow(summaryTab))) {
+    #   row = summaryTab[i, ]
+    #   # setting = paste0("phi=", row$phi, ", prep=", row$prep, ", n=", row$n)
+    #   setting = paste0("$\\phi$ & $p_{\\tiny \\mbox{rep}}$ & $n$ & ", paste(thisScoreTitles, collapse = " & "), " \\\\\n")
+    #   values = sapply(thisScoreNames, function(score) {
+    #     meanVal = row[[paste0(score, "mean")]]
+    #     seVal = row[[paste0(score, "se")]]
+    #     if (grepl("Coverage", score)) {
+    #       meanVal = round(meanVal * 100)
+    #       seVal = round(qnorm(.975) * seVal * 100)
+    #       sprintf("%d (%d)", meanVal, seVal)
+    #     } else {
+    #       sprintf("%.3f (%.3f)", meanVal, qnorm(.975) * seVal)
+    #     }
+    #   })
+    #   latex = paste0(latex, setting, " & ", paste(values, collapse = " & "), " \\\\\n")
+    # }
+    
+    
+    # Initialize previous values
+    prevPhi = prevPrep = prevN = NA
+    
+    for (i in seq_len(nrow(summaryTab))) {
+      row = summaryTab[i, ]
+      phiVal = row$prefPar
+      prepVal = row$repelAreaProp
+      nVal = row$n
+      
+      # Determine whether to print setting values
+      phiPrint = if (!identical(phiVal, prevPhi)) phiVal else ""
+      prepPrint = if (!identical(prepVal, prevPrep)) prepVal else ""
+      nPrint = if (!identical(nVal, prevN)) nVal else ""
+      
+      # Update previous values
+      prevPhi = phiVal
+      prevPrep = prepVal
+      prevN = nVal
+      
+      # Format score values
+      values = sapply(thisScoreNames, function(score) {
+        meanVal = row[[paste0(score, "mean")]]
+        seVal = row[[paste0(score, "se")]]
+        if (grepl("Coverage", score)) {
+          meanVal = round(meanVal * 100)
+          seVal = round(qnorm(.975) * seVal * 100)
+          sprintf("%d (%d)", meanVal, seVal)
+        } else {
+          sprintf("%.3f (%.3f)", meanVal, qnorm(.975) * seVal)
+        }
+      })
+      
+      # Print row with conditional setting values
+      latex = paste0(latex, phiPrint, " & ", prepPrint, " & ", nPrint, " & \\hspace{1em}", row$Model, " & ", paste(values, collapse = " & "), " \\\\\n")
+    }
+    
+    
+    latex = paste0(latex, "\\bottomrule\n\\end{longtable}\n")
+    return(latex)
+  }
+  
   # precompute special cases: seismic model, uniform sampling
   tabSeismic = mergedTab %>% filter(fitModFunI == 0)
   tabUniform = mergedTab %>% filter(propVarCase == "uniform")
@@ -2749,11 +2847,29 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   # adjust mergedTab to not include seismic results (they will be added in later)
   mergedTab = mergedTab %>% filter(fitModFunI != 0)
   
+  # Make tables: ----
+  for (case in propVarCases) {
+    tabBase = mergedTab %>% filter(propVarCase %in% c(case, "uniform"))
+    
+    # filter out SPDED and SPDEK models from seismic case
+    if(case == "seismic") {
+      tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
+    }
+    
+    print(getLatexLongtable(tabBase))
+    browser()
+  }
+  
   # Make plots: ----
   for (case in propVarCases) {
     tabBase = mergedTab %>% filter(propVarCase %in% c(case, "uniform"))
     
-    # Boxplots vs n: ----
+    # filter out SPDED and SPDEK models from seismic case
+    if(case == "seismic") {
+      tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
+    }
+    
+    # Boxplots and tables vs n: ----
     if(doBoxN) {
       print("boxplots vs n...")
       for (sampI in sort(unique(tabBase$sampleParI))) {
@@ -2793,6 +2909,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
             fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
             
             makeBoxplot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
+            
             
             # 
             # 
