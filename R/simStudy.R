@@ -2748,7 +2748,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     # get names of scores to put in table
     thisScoreNames = names(tab)[grepl("_agg", names(tab))]
+    
+    # exclude scores we don't care about
+    thisScoreNames = thisScoreNames[!greplAny(c("80", "Var", "MSE", "RMSE"))]
+    
     thisScoreTitles = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", thisScoreNames)
+    thisScoreTitles = gsub("IntervalScore", "IS", thisScoreTitles)
     
     
     # Define model order
