@@ -2832,7 +2832,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           meanVal = round(meanVal * 100)
           seVal = round(qnorm(.975) * seVal * 100)
           sprintf("%d (%d)", meanVal, seVal)
-        } else if(grepl("IS", score)) {
+        } else if(grepl("IntervalScore", score)) {
           sprintf("%.3f (%.3f)", meanVal, qnorm(.975) * seVal)
         } else {
           sprintf("%.4f (%.4f)", meanVal, qnorm(.975) * seVal)
