@@ -2770,9 +2770,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       ), .names = "{.col}{.fn}"), .groups = "drop")
     
     # Start LaTeX longtable
-    latex = "\\begin{longtable}{rrrl" 
-    latex = paste0(latex, strrep("c", length(thisScoreNames)), "}\n")
-    latex = paste0(latex, "\\caption{Mean ± 2SE of aggregate NTG scores and metrics for the ", 
+    latex = "\\begin{longtable}{@{}r@{\\hspace{6pt}}r@{\\hspace{6pt}}r@{\\hspace{6pt}}l" 
+    latex = paste0(latex, strrep("c", length(thisScoreNames)), "@{}}\n")
+    latex = paste0(latex, "\\caption{Mean (and margin of error) of aggregate NTG scores and metrics for the ", 
                    tab$propVarCase[1], " sampling scenario.} \\label{tab:", tab$propVarCase[1], "}\\\\\n")
     latex = paste0(latex, "\\toprule\n")
     latex = paste0(latex, "$\\phi$ & $p_{\\tiny \\mbox{rep}}$ & $n$ & Model & ", paste(thisScoreTitles, collapse = " & "), " \\\\\n")
@@ -2831,8 +2831,10 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           meanVal = round(meanVal * 100)
           seVal = round(qnorm(.975) * seVal * 100)
           sprintf("%d (%d)", meanVal, seVal)
-        } else {
+        } else if(grepl("IS", score)) {
           sprintf("%.3f (%.3f)", meanVal, qnorm(.975) * seVal)
+        } else {
+          sprintf("%.4f (%.4f)", meanVal, qnorm(.975) * seVal)
         }
       })
       
