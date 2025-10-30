@@ -2773,8 +2773,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     # Start LaTeX longtable
     latex = "\\begin{longtable}{@{}r@{\\hspace{6pt}}r@{\\hspace{6pt}}r@{\\hspace{6pt}}l" 
     latex = paste0(latex, strrep("c", length(thisScoreNames)), "@{}}\n")
-    latex = paste0(latex, "\\caption{Mean (and margin of error) of aggregate NTG scores and metrics for the ", 
-                   tab$propVarCase[1], " sampling scenario.} \\label{tab:", tab$propVarCase[1], "}\\\\\n")
+    latex = paste0(latex, "\\caption{", tools::toTitleCase(tab$propVarCase[1]), 
+                   " sampling scenario mean (margin of error) of aggregate NTG scores and metrics.", 
+                   "} \\label{tab:", tab$propVarCase[1], "}\\\\\n")
     latex = paste0(latex, "\\toprule\n")
     latex = paste0(latex, "$\\phi$ & $p_{\\tiny \\mbox{rep}}$ & $n$ & Model & ", paste(thisScoreTitles, collapse = " & "), " \\\\\n")
     latex = paste0(latex, "\\midrule\n")
