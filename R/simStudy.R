@@ -2755,6 +2755,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisScoreTitles = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", thisScoreNames)
     thisScoreTitles = gsub("IntervalScore", "IS", thisScoreTitles)
     thisScoreTitles = gsub("Coverage", "Cvg", thisScoreTitles)
+    thisScoreTitles = gsub("95", "", thisScoreTitles)
     
     
     # Define model order
