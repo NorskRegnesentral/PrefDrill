@@ -2384,6 +2384,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   modelOrderAll = c("Seismic", "SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
   modelOrder = c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
   excludeModelsI = match(excludeModels, modelOrderAll) - 1
+  modelOrderAll = modelOrderAll[!(modelOrderAll %in% excludeModels)]
+  modelOrder = modelOrder[!(modelOrder %in% excludeModels)]
   
   # make score/par table ----
   if(adaptScen == "batch") {
