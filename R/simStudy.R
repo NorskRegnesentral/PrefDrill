@@ -2381,8 +2381,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   load(inputListFile)
   
   # define unique models and their order in plotting. Find index of excluded models
+  modelOrderAll = c("Seismic", "SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
   modelOrder = c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
-  excludeModelsI = match(excludeModels, modelOrder)
+  excludeModelsI = match(excludeModels, modelOrderAll) - 1
   
   # make score/par table ----
   if(adaptScen == "batch") {
@@ -2528,7 +2529,11 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
     names(modColsSelf) = c("SPDE->SPDE", "SPDE->SPDEK", "SPDE->Diggle", "SPDE->Watson")
     names(modColsComb) = c("SPDE->SPDE", "SPDEK->SPDEK", "Diggle->Diggle", "Watson->Watson")
+    modColsSelf = modCols[!grepl(excludeModels, names(modColsSelf))]
+    modColsComb = modCols[!grepl(excludeModels, names(modColsComb))]
   }
+  modCols = modCols[!grepl(excludeModels, names(modCols))]
+  
   
   pch = c(5, 15:19)
   allTypes = c("agg", "max", "min", "mean", "worst", "par")
