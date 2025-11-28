@@ -2863,7 +2863,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   mergedTab = mergedTab %>% filter(fitModFunI != 0)
   
   # adjust mergedTab to not include excluded models
-  mergedTab = mergedTab %>% filter((fitModFunI %in% excludeModelsI))
+  mergedTab = mergedTab %>% filter(!(fitModFunI %in% excludeModelsI))
   
   # Make tables: ----
   allTabs = ""
