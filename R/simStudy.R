@@ -2489,6 +2489,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   # process table ----
   mergedTab$Model = getFitModName(mergedTab$fitModFunI)
   
+  # adjust mergedTab to not include excluded models
+  mergedTab = mergedTab %>% filter(!(fitModFunI %in% excludeModelsI))
+  
   # plots and tables setup ----
   print("plotting...")
   
@@ -2861,9 +2864,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   # adjust mergedTab to not include seismic results (they will be added in later)
   mergedTab = mergedTab %>% filter(fitModFunI != 0)
-  
-  # adjust mergedTab to not include excluded models
-  mergedTab = mergedTab %>% filter(!(fitModFunI %in% excludeModelsI))
   
   # Make tables: ----
   allTabs = ""
