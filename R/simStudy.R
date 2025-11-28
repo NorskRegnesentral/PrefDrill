@@ -2531,10 +2531,10 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
     names(modColsSelf) = c("SPDE->SPDE", "SPDE->SPDEK", "SPDE->Diggle", "SPDE->Watson")
     names(modColsComb) = c("SPDE->SPDE", "SPDEK->SPDEK", "Diggle->Diggle", "Watson->Watson")
-    modColsSelf = modCols[!grepl(excludeModels, names(modColsSelf))]
-    modColsComb = modCols[!grepl(excludeModels, names(modColsComb))]
+    modColsSelf = modCols[!(names(modColsSelf) %in% excludeModels)]
+    modColsComb = modCols[!(names(modColsComb) %in% excludeModels)]
   }
-  modCols = modCols[!grepl(excludeModels, names(modCols))]
+  modCols = modCols[!grepl(names(modCols) %in% excludeModels)]
   
   
   pch = c(5, 15:19)
@@ -2580,7 +2580,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   # fname: name of the file to save the plot to
   # adaptType: if adaptScen isn't batch, this represents which sampling/fitting 
   #            model combinations to plot
-  makeBoxplot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
+  makeViolinPlot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
     scoreColName = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", scoreCol)
     parTitle = sub("(_pwMean|_pwWorst|_agg|_pwMax|_pwMin|_param)$", "", parName)
     
@@ -2631,7 +2631,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     pdf(fname, width = 5, height = 5)
     p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model))
     if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
-      p = p + geom_boxplot()
+      # p = p + geom_boxplot()
+      p = p + geom_violin(trim = FALSE)
     }
     p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
                          position = position_dodge(width = 0.75)) +
@@ -2936,7 +2937,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
             }
             fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
             
-            makeBoxplot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
+            makeViolinPlot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
             
             
             # 
@@ -3053,7 +3054,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
               # fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
               fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
               
-              makeBoxplot(thisTab, parName=parName, scoreCol=scoreCol, fixedParNames=c("n", fixedParName), fname=fname)
+              makeViolinPlot(thisTab, parName=parName, scoreCol=scoreCol, fixedParNames=c("n", fixedParName), fname=fname)
               
               
               # # Ensure the number of colors matches the number of unique models
@@ -3186,7 +3187,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
               
               fname = paste0("figures/simStudy/", thisDirRoot, "/", thisFileRoot, "/", scoreTypeNameRoot, "_", thisFileRoot, "_", scoreColName, ".pdf")
               
-              makeBoxplot(thisTab, parName=parName, scoreCol=scoreCol, fixedParNames=c("n", fixedParName), fname=fname)
+              makeViolinPlot(thisTab, parName=parName, scoreCol=scoreCol, fixedParNames=c("n", fixedParName), fname=fname)
               
               # # Ensure the number of colors matches the number of unique models
               # unique_models <- unique(tab$Model)
