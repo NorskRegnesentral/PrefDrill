@@ -2534,7 +2534,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     modColsSelf = modCols[!(names(modColsSelf) %in% excludeModels)]
     modColsComb = modCols[!(names(modColsComb) %in% excludeModels)]
   }
-  modCols = modCols[!grepl(names(modCols) %in% excludeModels)]
+  modCols = modCols[!(names(modCols) %in% excludeModels)]
   
   
   pch = c(5, 15:19)
