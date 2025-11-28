@@ -2371,6 +2371,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                             maxRepI = 100,
                             regenData = FALSE, 
                             adaptType=c("spde", "self", "comb"), 
+                            excludeModels=c("SPDED"), 
                             doBoxN=TRUE, doBoxPhi=TRUE, doBoxRep=TRUE, doScatterGamma=TRUE) {
   adaptScen = match.arg(adaptScen)
   adaptType = match.arg(adaptType)
@@ -2378,6 +2379,10 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   adaptTypeCap = str_to_title(adaptType)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   load(inputListFile)
+  
+  # define unique models and their order in plotting. Find index of excluded models
+  modelOrder = c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
+  excludeModelsI = match(excludeModels, modelOrder)
   
   # make score/par table ----
   if(adaptScen == "batch") {
@@ -2758,8 +2763,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisScoreTitles = gsub("95", "", thisScoreTitles)
     
     
-    # Define model order
-    modelOrder = c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
+    # Define model order in factors
+    modelOrder = modelOrder[-grepl(excludeModels, modelOrder)]
     tab$Model = factor(tab$Model, levels=modelOrder)
     
     # Compute mean and SE for each group
@@ -2856,6 +2861,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   # adjust mergedTab to not include seismic results (they will be added in later)
   mergedTab = mergedTab %>% filter(fitModFunI != 0)
+  
+  # adjust mergedTab to not include excluded models
+  mergedTab = mergedTab %>% filter((fitModFunI %in% excludeModelsI))
   
   # Make tables: ----
   allTabs = ""
