@@ -2774,7 +2774,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     
     # Define model order in factors
-    modelOrder = modelOrder[-grepl(excludeModels, modelOrder)]
+    modelOrder = modelOrder[!grepl(excludeModels, modelOrder)]
     tab$Model = factor(tab$Model, levels=modelOrder)
     
     # Compute mean and SE for each group
