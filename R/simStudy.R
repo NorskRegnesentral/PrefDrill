@@ -2372,7 +2372,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                             regenData = FALSE, 
                             adaptType=c("spde", "self", "comb"), 
                             excludeModels=c("SPDED"), 
-                            doBoxN=TRUE, doBoxPhi=TRUE, doBoxRep=TRUE, doScatterGamma=TRUE) {
+                            doViolinN=TRUE, doViolinPhi=TRUE, doViolinRep=TRUE, doScatterGamma=TRUE) {
   adaptScen = match.arg(adaptScen)
   adaptType = match.arg(adaptType)
   adaptScenCap = str_to_title(adaptScen)
@@ -2571,9 +2571,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   propVarCases = unique(mergedTab$propVarCase)
   
-  # Automatically make boxplots of the format we want consistently
+  # Automatically make violinplots of the format we want consistently
   # Inputs:
-  # thisTab: data.frame with the information to boxplot
+  # thisTab: data.frame with the information to violinplot
   # parName: name of variable on the horizontal axis
   # scoreCol: column name of variable to plot
   # fixedParNames: names of the fixed variables (with one value in thisTab)
@@ -2629,16 +2629,17 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
     
     pdf(fname, width = 5, height = 5)
+    # pd <- position_dodge(width = 1)
     p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model))
     if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
       # p = p + geom_boxplot()
-      p = p + geom_violin(trim = FALSE)
+      p = p + geom_violin(trim = TRUE, position=position_dodge(width = 1), width=.7)
     }
     p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
-                         position = position_dodge(width = 0.75)) +
+                         position = position_dodge(width = 1)) +
       stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
                    color = "black", aes(fill = Model),
-                   position = position_dodge(width = 0.75)) +
+                   position = position_dodge(width = 1)) +
       scale_fill_manual(values = thisModCols) +
       # labs(title = paste0(myTitleCase(scoreColName), " vs. ", parName,
       #                     " (", fixedParName, "=", unique(thisTab[[fixedParName]]), ")"),
@@ -2667,7 +2668,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   # Automatically make pairplots of the format we want consistently
   # Inputs:
-  # thisTab: data.frame with the information to boxplot
+  # thisTab: data.frame with the information to violinplot
   # parName: name of variable on the horizontal axis
   # scoreCol: column name of variable to plot
   # fixedParNames: names of the fixed variables (with one value in thisTab)
@@ -2898,9 +2899,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
     }
     
-    # Boxplots and tables vs n: ----
-    if(doBoxN) {
-      print("boxplots vs n...")
+    # Violinplots and tables vs n: ----
+    if(doViolinN) {
+      print("violinplots vs n...")
       for (sampI in sort(unique(tabBase$sampleParI))) {
         tab = tabBase %>% filter(sampleParI == sampI)
         # tab = bind_rows(tab, tabSeismic)
@@ -3011,8 +3012,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     
     # Plot vs phi ----
-    if(doBoxPhi) {
-      print("boxplots vs phi...")
+    if(doViolinPhi) {
+      print("violinplots vs phi...")
       
       fixedParName = "repelAreaProp"
       parName = "phi"
@@ -3140,8 +3141,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     
     # Plot vs repelAreaProp ----
-    if(doBoxRep) {
-      print("boxplots vs repelAreaProp...")
+    if(doViolinRep) {
+      print("violinplots vs repelAreaProp...")
       
       fixedParName = "phi"
       parName = "repelAreaProp"
