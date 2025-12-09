@@ -2628,22 +2628,67 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     thisModCols = baseCols[presentModels]
     thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
     
+    
+    # # A) Insert spacer levels after 20, 40, 60
+    # # -----------------------------
+    # # Build ordered x levels (as character) with interleaved spacer tags
+    # x_vals <- sort(unique(thisTab[[parName]]))
+    # x_chr  <- as.character(x_vals)
+    # gaps_at <- x_chr  # change if parName is not 'n' or values differ
+    # 
+    # spacerLevels <- character(0)
+    # for (lv in x_chr) {
+    #   spacerLevels <- c(spacerLevels, lv)
+    #   if (lv %in% gaps_at) {
+    #     # Add ONE spacer; to make wider gaps, add more spacer levels here
+    #     spacerLevels <- c(spacerLevels, paste0("gap_", lv, "_1"))
+    #   }
+    # }
+    # 
+    # # Map x to this factor with spacer levels
+    # thisTab$.xFac <- factor(as.character(thisTab[[parName]]), levels = spacerLevels)
+    
+    xVals <- sort(unique(thisTab[[parName]]))
+    xChar  <- as.character(xVals)
+    thisTab$.xFac <- factor(as.character(thisTab[[parName]]), levels = xChar)
+    
+    # levels(thisTab$Model) = c(levels(thisTab$Model), "Spacer")
+    # spacerRows = thisTab[1,]
+    # spacerRows[[scoreCol]] = NA
+    # spacerRows$Model = "Spacer"
+    
+    # thisTab = rbind(thisTab, spacerRows)
+    
+    
+    
     pdf(fname, width = 5, height = 5)
     # pd <- position_dodge(width = 1)
-    p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model))
+    # p = ggplot(thisTab, aes(x = factor(.data[[parName]]), y = .data[[scoreCol]], fill = Model))
+    p = ggplot(thisTab, aes(x = .xFac, y = .data[[scoreCol]], fill = Model))
     if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
       # p = p + geom_boxplot()
-      p = p + geom_violin(trim = TRUE, position=position_dodge(width = 1), width=.7)
+      p = p + geom_violin(trim = TRUE, position=position_dodge(width = .8), width=.7)
+      # p = p + geom_violin(trim = TRUE, scale="width", width=5)
+      # p = p + geom_violin(trim = TRUE, position="identity", width=.7)
     }
     p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
-                         position = position_dodge(width = 1)) +
+                         position = position_dodge(width = .8)) +
+    # p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black") +
       stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
                    color = "black", aes(fill = Model),
-                   position = position_dodge(width = 1)) +
+                   position = position_dodge(width = .8)) +
+      # stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
+      #              color = "black", aes(fill = Model)) +
       scale_fill_manual(values = thisModCols) +
       # labs(title = paste0(myTitleCase(scoreColName), " vs. ", parName,
       #                     " (", fixedParName, "=", unique(thisTab[[fixedParName]]), ")"),
       #      x = parName, y = myTitleCase(scoreColName), fill = "Model") +
+      
+      # Keep spacer levels, but render them with blank labels
+      # scale_x_discrete(
+      #   drop = FALSE,
+      #   labels = function(lv) ifelse(grepl("^gap_", lv), "", lv)
+      # ) +
       labs(
         title = paste0(
           myTitleCase(scoreColName), " vs. ", parTitle, " (",
@@ -2879,9 +2924,9 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   for (case in propVarCases) {
     tabBase = mergedTab %>% filter(propVarCase %in% c(case, "uniform"))
     
-    # filter out SPDED and SPDEK models from seismic case
+    # filter out SPDED models from seismic case
     if(case == "seismic") {
-      tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
+      tabBase = tabBase %>% filter(!(Model %in% c("SPDED")))
     }
     
     # cat(getLatexLongtable(tabBase))
