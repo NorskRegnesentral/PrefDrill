@@ -2667,7 +2667,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     p = ggplot(thisTab, aes(x = .xFac, y = .data[[scoreCol]], fill = Model))
     if(!(scoreColName %in% c("Coverage80", "Coverage95"))) {
       # p = p + geom_boxplot()
-      p = p + geom_violin(trim = TRUE, position=position_dodge(width = .8), width=.7)
+      p = p + geom_violin(trim = TRUE, scale="width", position=position_dodge(width = .8), width=.7)
       # p = p + geom_violin(trim = TRUE, scale="width", width=5)
       # p = p + geom_violin(trim = TRUE, position="identity", width=.7)
     }
