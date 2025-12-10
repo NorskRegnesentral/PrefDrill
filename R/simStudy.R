@@ -2671,7 +2671,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
       # p = p + geom_violin(trim = TRUE, scale="width", width=5)
       # p = p + geom_violin(trim = TRUE, position="identity", width=.7)
     }
-    p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black",
+    p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5, color = "black",
                          position = position_dodge(width = .8)) +
     # p = p + stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black") +
       stat_summary(fun = mean, geom = "point", shape = 21, size = 2,
