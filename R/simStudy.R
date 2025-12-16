@@ -2496,6 +2496,45 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   # adjust mergedTab to not include excluded models
   mergedTab = mergedTab %>% filter(!(fitModFunI %in% excludeModelsI))
   
+  # rename parameters to have interprettable names:
+  # set names of parameters to be interprettable, particularly fixed effects
+  
+  createNewColVec = function(models, oldPar, newPar) {
+    # Initialize new column with NA
+    mergedTab[[newPar]] <- NA
+    
+    # Loop over oldPar (and its corresponding model)
+    for (j in seq_along(oldPar)) {
+      mask = mergedTab$Model == models[j]  # Logical vector for matching rows
+      colName = oldPar[j]
+      mergedTab[[newPar]][mask] <- mergedTab[[colName]][mask] # add to new column
+    }
+    
+    # Remove old columns
+    for (j in seq_along(oldPar)) {
+      colName = oldPar[j]
+      mergedTab[[colName]] <- NULL # remove old column
+    }
+    
+    invisible(mergedTab)
+  }
+  mergedTab = createNewColVec(c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED"), 
+                              c("X2_param", "X2_param", "X_y_param", "X.y2_param", "X2_param"), 
+                              "seismic_y_param")
+  mergedTab = createNewColVec(c("Diggle", "Watson"), 
+                  c("X_pp_param", "X1.pp_param"), 
+                  "seismic_p_param")
+  mergedTab = createNewColVec(c("SPDEK", "SPDED"), 
+                  c("X3_param", "X3_param"), 
+                  "design_param")
+  mergedTab = createNewColVec(c("Watson"), 
+                  c("X1_param"), 
+                  "X1_param")
+  mergedTab = createNewColVec(c("Watson"), 
+                  c("X.pp1_param"), 
+                  "X1.pp_param")
+  
+  
   # plots and tables setup ----
   print("plotting...")
   
