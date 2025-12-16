@@ -2971,7 +2971,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     # filter out SPDED models from seismic case
     if(case == "seismic") {
-      tabBase = tabBase %>% filter(!(Model %in% c("SPDED")))
+      tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
+      # tabBase = tabBase %>% filter(!(Model %in% c("SPDED")))
     }
     
     # cat(getLatexLongtable(tabBase))
@@ -2986,8 +2987,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     # filter out SPDED and SPDEK models from seismic case
     if(case == "seismic") {
-      # tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
-      tabBase = tabBase %>% filter(!(Model %in% c("SPDED")))
+      tabBase = tabBase %>% filter(!(Model %in% c("SPDED", "SPDEK")))
+      # tabBase = tabBase %>% filter(!(Model %in% c("SPDED")))
     }
     
     # Violinplots and tables vs n: ----
