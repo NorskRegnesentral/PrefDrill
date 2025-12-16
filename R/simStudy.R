@@ -2522,17 +2522,17 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                               c("X2_param", "X2_param", "X_y_param", "X.y2_param", "X2_param"), 
                               "seismic_y_param")
   mergedTab = createNewColVec(c("Diggle", "Watson"), 
-                  c("X_pp_param", "X1.pp_param"), 
+                  c("X_pp_param", "X.pp2_param"), 
                   "seismic_p_param")
   mergedTab = createNewColVec(c("SPDEK", "SPDED"), 
                   c("X3_param", "X3_param"), 
                   "design_param")
-  mergedTab = createNewColVec(c("Watson"), 
-                  c("X1_param"), 
+  mergedTab = createNewColVec(c("Watson"),
+                  c("X.y1_param"),
                   "X1_param")
-  mergedTab = createNewColVec(c("Watson"), 
-                  c("X.pp1_param"), 
-                  "X1.pp_param")
+  mergedTab = createNewColVec(c("Watson"),
+                              c("X.pp1_param"),
+                              "X1.pp_param")
   
   
   # plots and tables setup ----
