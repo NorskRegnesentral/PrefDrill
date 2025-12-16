@@ -2372,6 +2372,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                             regenData = FALSE, 
                             adaptType=c("spde", "self", "comb"), 
                             excludeModels=c("SPDED"), 
+                            focusPropVarCase="all", 
                             doViolinN=TRUE, doViolinPhi=TRUE, doViolinRep=TRUE, doScatterGamma=TRUE) {
   adaptScen = match.arg(adaptScen)
   adaptType = match.arg(adaptType)
@@ -2918,6 +2919,11 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   # adjust mergedTab to not include seismic results (they will be added in later)
   mergedTab = mergedTab %>% filter(fitModFunI != 0)
+  
+  # filter out only the focus propVarCases if need be
+  if(focusPropVarCase != "all") {
+    propVarCases = propVarCases[propVarCases %in% focusPropVarCase]
+  }
   
   # Make tables: ----
   allTabs = ""
