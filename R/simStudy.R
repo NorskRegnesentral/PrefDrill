@@ -93,7 +93,7 @@ getFitModFuns = function() {
   # Diggle model
   funs = c(funs, list(fitDigglesimDat))
   
-  # Watson et al. model
+  # SeqWatson
   funs = c(funs, list(fitWatsonSimDat))
   
   # SPDE with design sampling probabilities accounted for
@@ -2524,7 +2524,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   mergedTab = createNewColVec(c("Diggle", "SeqWatson"), 
                   c("X_pp_param", "X.pp2_param"), 
                   "seismic_p_param")
-  browser()
   mergedTab = createNewColVec(c("SPDEK", "SPDED"), 
                   c("X3_param", "X3_param"), 
                   "design_param")
@@ -2564,14 +2563,14 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   
   thisDirRoot = paste0(adaptScen, "/")
   if(adaptScen == "batch") {
-    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", Watson="maroon2", SPDED="seagreen")
+    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", SeqWatson="maroon2", SPDED="seagreen")
   } else {
-    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", Watson="maroon2")
+    modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple", SeqWatson="maroon2")
     modColsSelf = c("grey", "turquoise1", "steelblue1", "violet", "palevioletred1")
     modColsComb = c("grey", "turquoise1", "blue", "purple", "maroon2", "steelblue1", "violet", "palevioletred1")
     # modColsSelf = c("skyblue", "mediumorchid1", "palevioletred1")
-    names(modColsSelf) = c("SPDE->SPDE", "SPDE->SPDEK", "SPDE->Diggle", "SPDE->Watson")
-    names(modColsComb) = c("SPDE->SPDE", "SPDEK->SPDEK", "Diggle->Diggle", "Watson->Watson")
+    names(modColsSelf) = c("SPDE->SPDE", "SPDE->SPDEK", "SPDE->Diggle", "SPDE->SeqWatson")
+    names(modColsComb) = c("SPDE->SPDE", "SPDEK->SPDEK", "Diggle->Diggle", "SeqWatson->SeqWatson")
     modColsSelf = modCols[!(names(modColsSelf) %in% excludeModels)]
     modColsComb = modCols[!(names(modColsComb) %in% excludeModels)]
   }
