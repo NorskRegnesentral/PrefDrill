@@ -2757,8 +2757,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     print(p)
     dev.off()
     
-    browser()
-    
     invisible(NULL)
   }
   
