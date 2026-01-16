@@ -2804,7 +2804,13 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                                                   function(nm) unique(thisTab[[nm]]))), collapse = ", "),
           ")"),
         x = parTitle, y = myTitleCase(scoreColName), color = "Model") +
-      theme_minimal()
+      theme_minimal() + 
+      theme(
+        legend.position = "right",
+        # Shrink the margin around the entire legend box
+        legend.box.margin = margin(t = 0, r = 0, b = 0, l = -3), 
+        legend.margin = margin(t = 0, r = 0, b = 0, l = -3)
+      )
     
     if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
                              "gamma", "seismic_y", "seismic_p", "design")) {
