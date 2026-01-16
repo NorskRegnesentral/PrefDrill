@@ -2735,7 +2735,16 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
           paste(paste0(fixedParNames, "=", sapply(fixedParNames, function(nm) unique(thisTab[[nm]]))), collapse = ", "),
           ")"),
         x = parTitle, y = myTitleCase(scoreColName), fill = "Model") + 
-      theme_minimal()
+      theme_minimal() + 
+      theme(
+        legend.position = "right",
+        # Shrink the margin around the entire legend box
+        legend.box.margin = margin(t = 0, r = 0, b = 0, l = -3), 
+        legend.margin = margin(t = 0, r = 0, b = 0, l = -3)
+        # plot.margin = margin(t = 5, r = 1, b = 5, l = 5)
+      ) +
+      scale_x_discrete(expand = expansion(mult = c(0.1, 0.1)))
+    
     
     if (!scoreColName %in% c("Bias", "Var", "Width80", "Width95", "Coverage80", "Coverage95",
                              "gamma", "seismic_y", "seismic_p", "design")) {
@@ -2809,6 +2818,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     }
     print(p)
     dev.off()
+    
+    browser()
     
     
     # pdf(fname, width = 5, height = 5)
