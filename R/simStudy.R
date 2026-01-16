@@ -2524,6 +2524,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   mergedTab = createNewColVec(c("Diggle", "SeqWatson"), 
                   c("X_pp_param", "X.pp2_param"), 
                   "seismic_p_param")
+  browser()
   mergedTab = createNewColVec(c("SPDEK", "SPDED"), 
                   c("X3_param", "X3_param"), 
                   "design_param")
