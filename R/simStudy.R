@@ -103,7 +103,7 @@ getFitModFuns = function() {
 }
 
 getFitModName = function(ind) {
-  c("Seismic", "SPDE", "SPDEK", "Diggle", "Watson", "SPDED")[ind+1]
+  c("Seismic", "SPDE", "SPDEK", "Diggle", "SeqWatson", "SPDED")[ind+1]
 }
 
 
@@ -2382,8 +2382,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
   load(inputListFile)
   
   # define unique models and their order in plotting. Find index of excluded models
-  modelOrderAll = c("Seismic", "SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
-  modelOrder = c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED")
+  modelOrderAll = c("Seismic", "SPDE", "SPDEK", "Diggle", "SeqWatson", "SPDED")
+  modelOrder = c("SPDE", "SPDEK", "Diggle", "SeqWatson", "SPDED")
   excludeModelsI = match(excludeModels, modelOrderAll) - 1
   modelOrderAll = modelOrderAll[!(modelOrderAll %in% excludeModels)]
   modelOrder = modelOrder[!(modelOrder %in% excludeModels)]
@@ -2518,19 +2518,19 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     
     invisible(mergedTab)
   }
-  mergedTab = createNewColVec(c("SPDE", "SPDEK", "Diggle", "Watson", "SPDED"), 
+  mergedTab = createNewColVec(c("SPDE", "SPDEK", "Diggle", "SeqWatson", "SPDED"), 
                               c("X2_param", "X2_param", "X_y_param", "X.y2_param", "X2_param"), 
                               "seismic_y_param")
-  mergedTab = createNewColVec(c("Diggle", "Watson"), 
+  mergedTab = createNewColVec(c("Diggle", "SeqWatson"), 
                   c("X_pp_param", "X.pp2_param"), 
                   "seismic_p_param")
   mergedTab = createNewColVec(c("SPDEK", "SPDED"), 
                   c("X3_param", "X3_param"), 
                   "design_param")
-  mergedTab = createNewColVec(c("Watson"),
+  mergedTab = createNewColVec(c("SeqWatson"),
                   c("X.y1_param"),
                   "X1_param")
-  mergedTab = createNewColVec(c("Watson"),
+  mergedTab = createNewColVec(c("SeqWatson"),
                               c("X.pp1_param"),
                               "X1.pp_param")
   
