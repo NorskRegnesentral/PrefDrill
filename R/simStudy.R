@@ -2373,7 +2373,8 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                             adaptType=c("spde", "self", "comb"), 
                             excludeModels=c("SPDED"), 
                             focusPropVarCase="all", 
-                            doViolinN=TRUE, doViolinPhi=TRUE, doViolinRep=TRUE, doScatterGamma=TRUE) {
+                            doViolinN=TRUE, doViolinPhi=TRUE, doViolinRep=TRUE, doScatterGamma=TRUE, 
+                            saveFinalMergedTab=TRUE) {
   adaptScen = match.arg(adaptScen)
   adaptType = match.arg(adaptType)
   adaptScenCap = str_to_title(adaptScen)
@@ -2534,6 +2535,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                               c("X.pp1_param"),
                               "X1.pp_param")
   
+  write.csv(mergedTab, file="savedOutput/simStudy/simStudyResults_all.csv")
   
   # plots and tables setup ----
   print("plotting...")
