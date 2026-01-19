@@ -2825,8 +2825,6 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
     print(p)
     dev.off()
     
-    browser()
-    
     
     # pdf(fname, width = 5, height = 5)
     # p = ggplot(thisTab, aes(x = .data[[parName]], y = .data[[scoreCol]], fill = Model)) +
