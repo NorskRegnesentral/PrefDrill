@@ -3047,7 +3047,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
             }
             fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
             
-            makeViolinPlot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
+            if(nrow(thisTab) > 0) {
+              makeViolinPlot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
+            } else {
+              # do nothing. For example, the design_param column is only not NA for SPDEK and SPDED models, which 
+              # aren't used in the seismic case
+            }
             
             
             # 
