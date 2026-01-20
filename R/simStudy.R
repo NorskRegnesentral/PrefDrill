@@ -3040,6 +3040,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
             
             thisTab = tab[!is.na(tab[[scoreCol]]),]
             
+            if(nrow(thisTab) == 0) {
+              # do nothing. For example, the design_param column is only not NA for SPDEK and SPDED models, which 
+              # aren't used in the seismic case
+              next
+            }
+            
             scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
             adaptFRoot = ""
             if(adaptScen != "batch") {
@@ -3047,12 +3053,7 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
             }
             fname = paste0("figures/simStudy/", thisDirRoot, "/", fileRoot, "/", scoreTypeNameRoot, "_", fileRoot, adaptFRoot, "_", scoreColName, ".pdf")
             
-            if(nrow(thisTab) > 0) {
-              makeViolinPlot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
-            } else {
-              # do nothing. For example, the design_param column is only not NA for SPDEK and SPDED models, which 
-              # aren't used in the seismic case
-            }
+            makeViolinPlot(thisTab, parName="n", scoreCol=scoreCol, fixedParNames=c("phi", "repelAreaProp"), fname=fname)
             
             
             # 
@@ -3161,6 +3162,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
               scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
               
               thisTab = tab[!is.na(tab[[scoreCol]]),]
+              
+              if(nrow(thisTab) == 0) {
+                # do nothing. For example, the design_param column is only not NA for SPDEK and SPDED models, which 
+                # aren't used in the seismic case
+                next
+              }
               
               adaptFRoot = ""
               if(adaptScen != "batch") {
@@ -3295,6 +3302,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
               
               thisTab = tab[!is.na(tab[[scoreCol]]),]
               
+              if(nrow(thisTab) == 0) {
+                # do nothing. For example, the design_param column is only not NA for SPDEK and SPDED models, which 
+                # aren't used in the seismic case
+                next
+              }
+              
               adaptFRoot = ""
               if(adaptScen != "batch") {
                 adaptFRoot = paste0("_", adaptType)
@@ -3423,6 +3436,12 @@ showSimStudyRes2 = function(adaptScen = c("batch", "adaptPref", "adaptVar"),
                 scoreColName = sub(paste0(scoreType, "$"), "", scoreCol)
                 
                 thisTab = tab[!is.na(tab[[scoreCol]]),]
+                
+                if(nrow(thisTab) == 0) {
+                  # do nothing. For example, the design_param column is only not NA for SPDEK and SPDED models, which 
+                  # aren't used in the seismic case
+                  next
+                }
                 
                 adaptFRoot = ""
                 if(adaptScen != "batch") {
