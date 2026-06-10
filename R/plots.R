@@ -191,6 +191,31 @@ plotSeisGrid = function(seismicDat, n=64, seqCols = function(n) {blueSeqCols(n, 
   
 }
 
+plotSeisIllustration = function() {
+  
+  seisDat = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_2.txt"), force01=TRUE)$surfFrame
+  truthDat = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_2.txt"), force01=TRUE)$surfFrame
+  
+  lims = range(c(seisDat[,3], truthDat[,3]))
+  
+  # colScale = function(n) {sequential_hcl(n, h1=82, c1=73, l1=71, h2=98, c2=52, l2=83)}
+  colScale = function(n) {sequential_hcl(n, h1=64, c1=95, l1=71, h2=90, c2=52, l2=83)}
+  
+  
+  pdf(file="figures/illustrations/seis2d.pdf", width=8, height=5)
+  par(mar=c(4.1, 4.1, 1.4, 4.1))
+  plotSeisGrid(seisDat, seqCols=colScale, smallplot=c(.915,.94,.25,.87), 
+               main="Seismic estimate")
+  dev.off()
+  
+  pdf(file="figures/illustrations/truth2d.pdf", width=8, height=5)
+  par(mar=c(4.1, 4.1, 1.4, 4.1))
+  plotSeisGrid(truthDat, seqCols=colScale, smallplot=c(.915,.94,.25,.87), 
+               main="Sand volume fraction")
+  dev.off()
+  
+}
+
 
 
 

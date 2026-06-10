@@ -935,10 +935,14 @@ runSimStudyI = function(i, significance=c(.8, .95),
       predMat = out$predMat.y # doesn't include nugget
       predAggMat = out$pred.yAggMat # doesn't include nugget
       obsMat = out$obsMat.y # doesn't include nugget
+      predAggLower = out$pred.yAggLower
+      predAggUpper = out$pred.yAggUpper
     } else {
       predMat = out$predMat # doesn't include nugget
       predAggMat = out$predAggMat # doesn't include nugget?
       obsMat = out$obsMat # doesn't include nugget
+      predAggLower = out$predAggLower
+      predAggUpper = out$predAggUpper
     }
     fixedEffectSummary = out$fixedEffectSummary
     parameterSummaryTable = out$parameterSummaryTable
@@ -962,6 +966,11 @@ runSimStudyI = function(i, significance=c(.8, .95),
     varEst = var(ests)
     corEstTruthWells = cor(estsWells, truthWells)
     corEstTruthTrue = cor(ests, truth[,3])
+    
+    # save these for RCF correction later if need be
+    estAgg = mean(predAggMat)
+    lowerAgg = predAggLower
+    upperAgg = predAggUpper
     
     endT = proc.time()[3]
     totT = endT - startT
@@ -1254,10 +1263,57 @@ runSimStudyI = function(i, significance=c(.8, .95),
          corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
          varEst, corEstTruthWells, corEstTruthTrue, totT=totT, 
          fixedEffectSummary=fixedEffectSummary, parameterSummaryTable=parameterSummaryTable, 
+         estAgg=estAgg, lowerAgg=lowerAgg, upperAgg=upperAgg, 
          file=scoresFile)
   }
   
   invisible(NULL)
+}
+
+# do leave one out reference class forecasting for the SPDE predictions for the realistic case
+runRCF = function(maxRepI = 100,
+                  significance=c(.8, .95)) {
+    adaptScen = "batch"
+    adaptTypeCap = ""
+    inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+    load(inputListFile)
+    
+    # get score/par table ----
+    mergedFile = paste0("savedOutput/simStudy/mergedScores_", adaptScen, adaptTypeCap, ".RData")
+    out = load(mergedFile)
+    
+    # extract the SPDE realistic case bits
+    spdeTab = mergedTab[(mergedTab$fitModFunI == 1) & (mergedTab$propVarCase == "realistic"),]
+    
+    # for each case, calculate scalar multiples for the mean and CI lowers and uppers
+    repelAreaProps = sort(unique(spdeTab$repelAreaProp))
+    ns = sort(unique(spdeTab$n))
+    phis = sort(unique(spdeTab$phi))
+    for(i in 1:length(repelAreaProps)) {
+      repProp = repelAreaProps[i]
+      repPropL = spdeTab$repelAreaProp == repProp
+      
+      for(j in 1:length(ns)) {
+        thisN = ns[j]
+        
+        if(repelVal * thisN > 0.3) {
+          # invalid combination
+          next
+        }
+        nL = spdeTab$n == thisN
+        
+        for(k in 1:length(phis)) {
+          phi = phis[k]
+          
+          # get this case
+          thisTab = spdeTab[repPropL & nL & (spdeTab$phi == phi),]
+          
+          # TODO: need to regenerate results and save predicted means, CI limits...
+          #       Can't use the mergedTab as is now, must use raw predictions or add those into mergedTab
+          
+        }
+      }
+    }
 }
 
 # get scores from seismic data
@@ -1360,7 +1416,7 @@ getWellDatSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adapt
 
 # fits models based on generated well data for the simulation study
 fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar"), maxRepI=100, 
-                           doPar=TRUE, regenData=FALSE, fitModFunIs=1:5) {
+                           doPar=TRUE, regenData=FALSE, fitModFunIs=1:5, realisticOnly=FALSE) {
   adaptScen = match.arg(adaptScen)
   
   startT = proc.time()[3]
@@ -1372,7 +1428,12 @@ fitModsSimStudy = function(nCores=8, adaptScen=c("batch", "adaptPref", "adaptVar
   
   # figure out which parameter sets have repI <= maxRepI
   is = 1:nrow(modelFitCombs)
-  is = is[(modelFitCombs$repI <= maxRepI) & (modelFitCombs$fitModFunI %in% fitModFunIs)]
+  
+  if(realisticOnly) {
+    is = is[(modelFitCombs$repI <= maxRepI) & (modelFitCombs$fitModFunI %in% fitModFunIs) & (modelFitCombs$propVarCase == "realistic")]
+  } else {
+    is = is[(modelFitCombs$repI <= maxRepI) & (modelFitCombs$fitModFunI %in% fitModFunIs)]
+  }
   
   if(doPar) {
     # start parallel cluster
