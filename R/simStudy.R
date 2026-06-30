@@ -923,7 +923,11 @@ runSimStudyI = function(i, significance=c(.8, .95),
     else if (fitModFunI == 5) {
       inputList = list(wellDat, seismicDat, logProbsNoRep=logProbsNoRep, mesh=mesh)
     }
-    
+
+    # produce aggregate CI limits at every requested significance level (used for
+    # the RCF correction in runRCF)
+    inputList = c(inputList, list(significanceCI=significance))
+
     if(doPlot && (fitModFunI %in% c(3, 4))) {
       # for testing purposes, get the point process results also
       inputList = c(inputList, list(getPPres=TRUE))
@@ -967,10 +971,18 @@ runSimStudyI = function(i, significance=c(.8, .95),
     corEstTruthWells = cor(estsWells, truthWells)
     corEstTruthTrue = cor(ests, truth[,3])
     
-    # save these for RCF correction later if need be
+    # save these for the RCF correction in runRCF. estAgg is the central aggregate
+    # prediction; lowerAgg/upperAgg hold the aggregate CI limits, one per significance
+    # level in the same order as `significance`; aggTruth is the aggregate
+    # (domain-mean) truth being predicted.
+    aggTruth = mean(truth[,3])
     estAgg = mean(predAggMat)
     lowerAgg = predAggLower
     upperAgg = predAggUpper
+    if(length(lowerAgg) != length(significance) || length(upperAgg) != length(significance)) {
+      stop("predAggLower/predAggUpper length does not match the number of significance ",
+           "levels; ensure the model was fit with significanceCI = significance")
+    }
     
     endT = proc.time()[3]
     totT = endT - startT
@@ -1259,61 +1271,247 @@ runSimStudyI = function(i, significance=c(.8, .95),
     }
     
     # save results
-    save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
-         corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-         varEst, corEstTruthWells, corEstTruthTrue, totT=totT, 
-         fixedEffectSummary=fixedEffectSummary, parameterSummaryTable=parameterSummaryTable, 
-         estAgg=estAgg, lowerAgg=lowerAgg, upperAgg=upperAgg, 
+    save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin,
+         corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis,
+         varEst, corEstTruthWells, corEstTruthTrue, totT=totT,
+         fixedEffectSummary=fixedEffectSummary, parameterSummaryTable=parameterSummaryTable,
+         estAgg=estAgg, lowerAgg=lowerAgg, upperAgg=upperAgg,
+         predAggMat=predAggMat, aggTruth=aggTruth,
          file=scoresFile)
   }
   
   invisible(NULL)
 }
 
-# do leave one out reference class forecasting for the SPDE predictions for the realistic case
-runRCF = function(maxRepI = 100,
-                  significance=c(.8, .95)) {
-    adaptScen = "batch"
-    adaptTypeCap = ""
-    inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
-    load(inputListFile)
-    
-    # get score/par table ----
-    mergedFile = paste0("savedOutput/simStudy/mergedScores_", adaptScen, adaptTypeCap, ".RData")
-    out = load(mergedFile)
-    
-    # extract the SPDE realistic case bits
-    spdeTab = mergedTab[(mergedTab$fitModFunI == 1) & (mergedTab$propVarCase == "realistic"),]
-    
-    # for each case, calculate scalar multiples for the mean and CI lowers and uppers
-    repelAreaProps = sort(unique(spdeTab$repelAreaProp))
-    ns = sort(unique(spdeTab$n))
-    phis = sort(unique(spdeTab$phi))
-    for(i in 1:length(repelAreaProps)) {
-      repProp = repelAreaProps[i]
-      repPropL = spdeTab$repelAreaProp == repProp
-      
-      for(j in 1:length(ns)) {
-        thisN = ns[j]
-        
-        if(repelVal * thisN > 0.3) {
-          # invalid combination
-          next
-        }
-        nL = spdeTab$n == thisN
-        
-        for(k in 1:length(phis)) {
-          phi = phis[k]
-          
-          # get this case
-          thisTab = spdeTab[repPropL & nL & (spdeTab$phi == phi),]
-          
-          # TODO: need to regenerate results and save predicted means, CI limits...
-          #       Can't use the mergedTab as is now, must use raw predictions or add those into mergedTab
-          
-        }
-      }
+# Leave-one-out reference class forecasting (RCF) for the realistic-scenario
+# aggregate (domain-mean NTG) predictions.
+#
+# For each set of simulation/sampling design parameters (phi, repelAreaProp, n) and
+# each model there are maxRepI realizations, each with a central aggregate prediction
+# (estAgg), aggregate CI limits at every significance level (lowerAgg/upperAgg), and
+# the aggregate truth (aggTruth) --- all produced and saved by runSimStudyI (fitted
+# models) and getSeismicEsts (seismic baseline).
+#
+# Within each (model, phi, repelAreaProp, n) case the central prediction and each CI
+# limit are debiased by a scalar multiple estimated in a leave-one-out fashion from
+# the other maxRepI-1 realizations:
+#   - central prediction: scalar from no-intercept least squares of truth on the
+#     central prediction (truth ~ estAgg - 1),
+#   - each CI limit: scalar from no-intercept quantile regression of truth on the
+#     limit at the matching quantile (lower at (1-s)/2, upper at 1-(1-s)/2).
+# The debiased central prediction and interval(s) are then scored per realization
+# (bias, MSE, aggregate interval score, aggregate interval width, plus coverage).
+#
+# NOTE: lowerAgg[k]/upperAgg[k] are assumed to correspond to significance[k]; pass
+# the same `significance` used when the scores were generated.
+#
+# Inputs:
+# maxRepI: number of realizations per case (100 in the simulation study)
+# significance: CI significance levels to debias and score
+# adaptScen: scenario; RCF is defined for the realistic batch case
+# fitModFunIs: fitted-model indices to process (default: all present in the realistic
+#              case). Seismic baseline is controlled separately by includeSeismic.
+# includeSeismic: also RCF-correct the seismic-only baseline (fitModFunI 0)
+# regenData: if FALSE and the output already exists, it is loaded and returned
+# verbose: print progress and a running estimate of remaining time
+#
+# Output (also saved to savedOutput/simStudy/rcfScores_<adaptScen>.RData):
+# rcfScores: a data.frame with one row per (model, phi, repelAreaProp, n, repI) giving
+#   the debiased central prediction, debiased CI limits, and the scores Bias, MSE,
+#   IntervalScore/Width/Coverage at each significance level.
+runRCF = function(maxRepI = 100, significance = c(.8, .95),
+                  adaptScen = "batch", fitModFunIs = NULL, includeSeismic = TRUE,
+                  regenData = FALSE, verbose = TRUE) {
+
+  if(!requireNamespace("quantreg", quietly=TRUE)) {
+    stop("runRCF requires the 'quantreg' package (install.packages('quantreg'))")
+  }
+  require(quantreg)
+
+  adaptScenCap = str_to_title(adaptScen)
+  inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
+  load(inputListFile)
+
+  rcfFile = paste0("savedOutput/simStudy/rcfScores_", adaptScen, ".RData")
+  if(file.exists(rcfFile) && !regenData) {
+    if(verbose) message("Loading existing RCF scores...")
+    load(rcfFile)
+    return(invisible(rcfScores))
+  }
+
+  nSig = length(significance)
+  sigNames = as.character(100*significance)
+
+  # load the aggregate quantities saved for one realization's scores file
+  loadAgg = function(f) {
+    e = new.env()
+    load(f, envir=e)
+    needed = c("aggTruth", "estAgg", "lowerAgg", "upperAgg")
+    missingFields = setdiff(needed, ls(e))
+    if(length(missingFields) > 0) {
+      stop("scores file ", f, " is missing RCF fields (", paste(missingFields, collapse=", "),
+           "); regenerate scores with runSimStudyI/getSeismicEsts (regenData=TRUE)")
     }
+    lo = as.numeric(get("lowerAgg", e))
+    up = as.numeric(get("upperAgg", e))
+    if(length(lo) != nSig || length(up) != nSig) {
+      stop("scores file ", f, " has CI limits at ", length(lo), " levels but ", nSig, " requested")
+    }
+    list(y=get("aggTruth", e), central=get("estAgg", e), lower=lo, upper=up)
+  }
+
+  # leave-one-out debiasing scalars times each held-out prediction
+  looCorrect = function(y, x, tau=NULL) {
+    m = length(y)
+    sapply(1:m, function(i) {
+      yo = y[-i]
+      xo = x[-i]
+      if(is.null(tau)) {
+        b = sum(xo*yo) / sum(xo^2) # no-intercept least squares
+      } else {
+        df = data.frame(yy=yo, xx=xo)
+        b = suppressWarnings(unname(coef(rq(yy ~ xx - 1, tau=tau, data=df)))) # no-intercept quantile reg
+      }
+      b * x[i]
+    })
+  }
+
+  # score the debiased central prediction and intervals for one case
+  scoreCase = function(collected, idInfo) {
+    y = collected$y
+    central = collected$central
+    lowerMat = collected$lowerMat
+    upperMat = collected$upperMat
+
+    # debias central prediction (no-intercept least squares)
+    rcfCentral = looCorrect(y, central)
+    Bias = rcfCentral - y
+    MSE = Bias^2
+
+    res = data.frame(idInfo, repI=collected$repIs, aggTruth=y, rcfCentral=rcfCentral,
+                     Bias=Bias, MSE=MSE, stringsAsFactors=FALSE)
+
+    # debias and score each CI limit / interval, one significance level at a time
+    for(k in 1:nSig) {
+      alpha = 1 - significance[k]
+      rcfLower = looCorrect(y, lowerMat[,k], tau=alpha/2)
+      rcfUpper = looCorrect(y, upperMat[,k], tau=1 - alpha/2)
+
+      # enforce lower <= upper
+      swap = rcfLower > rcfUpper
+      if(any(swap)) {
+        tmp = rcfLower[swap]
+        rcfLower[swap] = rcfUpper[swap]
+        rcfUpper[swap] = tmp
+      }
+
+      belowL = y < rcfLower
+      aboveU = y > rcfUpper
+      intScore = (rcfUpper - rcfLower) +
+        (2/alpha)*(rcfLower - y)*belowL +
+        (2/alpha)*(y - rcfUpper)*aboveU
+      width = rcfUpper - rcfLower
+      cvg = (y >= rcfLower) & (y <= rcfUpper)
+
+      res[[paste0("rcfLower", sigNames[k])]] = rcfLower
+      res[[paste0("rcfUpper", sigNames[k])]] = rcfUpper
+      res[[paste0("IntervalScore", sigNames[k])]] = intScore
+      res[[paste0("Width", sigNames[k])]] = width
+      res[[paste0("Coverage", sigNames[k])]] = as.numeric(cvg)
+    }
+
+    res
+  }
+
+  # gather the per-realization aggregate quantities for one case (skipping any
+  # realizations whose scores file is missing)
+  collectCase = function(scoreFiles, repIs) {
+    exists = file.exists(scoreFiles)
+    scoreFiles = scoreFiles[exists]
+    repIs = repIs[exists]
+    if(length(repIs) < 3) {
+      return(NULL)
+    }
+    aggList = lapply(scoreFiles, loadAgg)
+    list(y = sapply(aggList, function(a) a$y),
+         central = sapply(aggList, function(a) a$central),
+         lowerMat = do.call(rbind, lapply(aggList, function(a) a$lower)),
+         upperMat = do.call(rbind, lapply(aggList, function(a) a$upper)),
+         repIs = repIs)
+  }
+
+  # build the list of cases to process ----
+  realCombs = modelFitCombs[modelFitCombs$propVarCase == "realistic" & modelFitCombs$repI <= maxRepI,]
+  if(is.null(fitModFunIs)) {
+    fitModFunIs = sort(unique(realCombs$fitModFunI))
+  }
+  realCombs = realCombs[realCombs$fitModFunI %in% fitModFunIs,]
+
+  caseKeys = unique(realCombs[, c("fitModFunI", "prefPar", "repelAreaProp", "n")])
+  caseKeys = caseKeys[order(caseKeys$fitModFunI, caseKeys$prefPar, caseKeys$repelAreaProp, caseKeys$n),]
+  nCases = nrow(caseKeys) + as.integer(includeSeismic)
+
+  rcfList = vector("list", nCases)
+  startTime = Sys.time()
+  caseIdx = 0
+
+  printProgress = function(label) {
+    elapsed = as.numeric(difftime(Sys.time(), startTime, units="secs"))
+    estRemaining = elapsed / caseIdx * nCases - elapsed
+    message(sprintf("RCF case %d/%d (%.1f%%) [%s], est. time left: %.1fs",
+                    caseIdx, nCases, 100*caseIdx/nCases, label, estRemaining))
+  }
+
+  # fitted models ----
+  for(ck in seq_len(nrow(caseKeys))) {
+    key = caseKeys[ck,]
+    sel = realCombs$fitModFunI == key$fitModFunI & realCombs$prefPar == key$prefPar &
+      realCombs$repelAreaProp == key$repelAreaProp & realCombs$n == key$n
+    caseRows = realCombs[sel,]
+    caseRows = caseRows[order(caseRows$repI),]
+
+    scoreFiles = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", caseRows$modelFitI, ".RData")
+    collected = collectCase(scoreFiles, caseRows$repI)
+
+    caseIdx = caseIdx + 1
+    modelName = getFitModName(key$fitModFunI)
+    if(!is.null(collected)) {
+      # repelAreaProp reparameterized (/4) to match the manuscript / mergedScores tables
+      idInfo = data.frame(Model=modelName, fitModFunI=key$fitModFunI, phi=key$prefPar,
+                          repelAreaProp=key$repelAreaProp/4, n=key$n, stringsAsFactors=FALSE)
+      rcfList[[caseIdx]] = scoreCase(collected, idInfo)
+    }
+    if(verbose) {
+      printProgress(sprintf("model=%s, phi=%s, repArea=%s, n=%s",
+                            modelName, key$prefPar, key$repelAreaProp/4, key$n))
+    }
+  }
+
+  # seismic baseline (scenario-independent, computed once) ----
+  if(includeSeismic) {
+    repIs = 1:maxRepI
+    scoreFiles = paste0("savedOutput/simStudy/scores/scores_seismic_rep", repIs, ".RData")
+    collected = collectCase(scoreFiles, repIs)
+
+    caseIdx = caseIdx + 1
+    if(!is.null(collected)) {
+      idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
+                          repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE)
+      rcfList[[caseIdx]] = scoreCase(collected, idInfo)
+    }
+    if(verbose) {
+      printProgress("model=Seismic")
+    }
+  }
+
+  rcfScores = do.call(dplyr::bind_rows, Filter(Negate(is.null), rcfList))
+
+  save(rcfScores, file=rcfFile)
+  if(verbose) {
+    message(sprintf("Saved %d RCF rows to %s", nrow(rcfScores), rcfFile))
+  }
+
+  invisible(rcfScores)
 }
 
 # get scores from seismic data
@@ -1342,7 +1540,15 @@ getSeismicEsts = function(i, regenData=FALSE, significance=c(.8, .95)) {
     predMat = cbind(seismicDat[,3], seismicDat[,3])
     meanSeis = mean(seismicDat[,3])
     predAggMat = matrix(c(meanSeis, meanSeis), nrow=1)
-    
+
+    # aggregate quantities for the RCF correction in runRCF. The seismic-only
+    # aggregate predictive distribution is degenerate at meanSeis, so the CI limits
+    # collapse to the central estimate at every significance level.
+    aggTruth = mean(truth[,3])
+    estAgg = meanSeis
+    lowerAgg = rep(meanSeis, length(significance))
+    upperAgg = rep(meanSeis, length(significance))
+
     # calculate scoring rules and metrics based on predictions
     system.time(pwScoresMean <- getScores(truth[,3], estMat=predMat, significance=significance))[3] # 33 seconds?!
     pwScoresMean = getScores(truth[,3], estMat=predMat, significance=significance)
@@ -1367,9 +1573,12 @@ getSeismicEsts = function(i, regenData=FALSE, significance=c(.8, .95)) {
     totT = endT - startT
     
     # save results
-    save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin, 
-         corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis, 
-         varEst, corEstTruthWells, corEstTruthTrue, totT=totT, file=scoresFile)
+    save(pwScoresMean, pwScoresWorst, aggScores, pwScoresMax, pwScoresMin,
+         corSeisTruthWells, corSeisTruthTrue, varTruth, varSeis,
+         varEst, corEstTruthWells, corEstTruthTrue, totT=totT,
+         estAgg=estAgg, lowerAgg=lowerAgg, upperAgg=upperAgg,
+         predAggMat=predAggMat, aggTruth=aggTruth,
+         file=scoresFile)
   }
 }
 

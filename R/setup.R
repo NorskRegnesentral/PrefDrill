@@ -27,7 +27,7 @@ if(grepl("linux", inf$platform)) {
   install_github("paigejo/splott")
 }
 
-if(FALSE) {
+if(TRUE) {
   install.packages("Matrix")
   install.packages("INLA",repos=c(getOption("repos"),INLA="https://inla.r-inla-download.org/R/stable"), 
                    dep=TRUE)
@@ -44,6 +44,8 @@ if(FALSE) {
   install.packages("Rcpp")
   install.packages("scoringRules")
   install.packages("ggplot2")
+  install.packages("dplyr")
+  install.packages("quantreg")
 }
 
 library(splott)
@@ -63,6 +65,7 @@ library(Rcpp)
 library(scoringRules)
 library(ggplot2)
 library(dplyr)
+library(quantreg)
 
 # set R and package options ----
 inla.setOption(num.threads=1) # consider raising
