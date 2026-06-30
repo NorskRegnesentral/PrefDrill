@@ -27,7 +27,7 @@ if(grepl("linux", inf$platform)) {
   install_github("paigejo/splott")
 }
 
-if(TRUE) {
+if(FALSE) {
   install.packages("Matrix")
   install.packages("INLA",repos=c(getOption("repos"),INLA="https://inla.r-inla-download.org/R/stable"), 
                    dep=TRUE)
