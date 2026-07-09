@@ -924,10 +924,6 @@ runSimStudyI = function(i, significance=c(.8, .95),
       inputList = list(wellDat, seismicDat, logProbsNoRep=logProbsNoRep, mesh=mesh)
     }
 
-    # produce aggregate CI limits at every requested significance level (used for
-    # the RCF correction in runRCF)
-    inputList = c(inputList, list(significanceCI=significance))
-
     if(doPlot && (fitModFunI %in% c(3, 4))) {
       # for testing purposes, get the point process results also
       inputList = c(inputList, list(getPPres=TRUE))
@@ -974,15 +970,15 @@ runSimStudyI = function(i, significance=c(.8, .95),
     # save these for the RCF correction in runRCF. estAgg is the central aggregate
     # prediction; lowerAgg/upperAgg hold the aggregate CI limits, one per significance
     # level in the same order as `significance`; aggTruth is the aggregate
-    # (domain-mean) truth being predicted.
+    # (domain-mean) truth being predicted. The models are written for a scalar
+    # significanceCI (fitting them at a vector of levels corrupts their marginal
+    # quantiles), so we take the aggregate limits at all requested levels directly
+    # from the saved aggregate predictive draws --- the same computation the models
+    # use internally for predAggLower/predAggUpper.
     aggTruth = mean(truth[,3])
     estAgg = mean(predAggMat)
-    lowerAgg = predAggLower
-    upperAgg = predAggUpper
-    if(length(lowerAgg) != length(significance) || length(upperAgg) != length(significance)) {
-      stop("predAggLower/predAggUpper length does not match the number of significance ",
-           "levels; ensure the model was fit with significanceCI = significance")
-    }
+    lowerAgg = quantile(predAggMat, probs=(1-significance)/2)
+    upperAgg = quantile(predAggMat, probs=1-(1-significance)/2)
     
     endT = proc.time()[3]
     totT = endT - startT
@@ -1376,8 +1372,12 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     })
   }
 
-  # score the debiased central prediction and intervals for one case
-  scoreCase = function(collected, idInfo) {
+  # score the debiased central prediction and intervals for one case.
+  # pointEstimate: if TRUE the model has no predictive interval (e.g. seismic only),
+  #   so the interval is manufactured by scaling the central estimate --- both limits
+  #   are obtained by quantile-regressing the truth on the central estimate (at the
+  #   low and high quantiles), rather than on any reported CI limit.
+  scoreCase = function(collected, idInfo, pointEstimate=FALSE) {
     y = collected$y
     central = collected$central
     lowerMat = collected$lowerMat
@@ -1394,8 +1394,12 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     # debias and score each CI limit / interval, one significance level at a time
     for(k in 1:nSig) {
       alpha = 1 - significance[k]
-      rcfLower = looCorrect(y, lowerMat[,k], tau=alpha/2)
-      rcfUpper = looCorrect(y, upperMat[,k], tau=1 - alpha/2)
+      # for a point-estimate model the interval is a scalar multiple of the central
+      # estimate; otherwise it debiases the model's own reported CI limits
+      lowerPred = if(pointEstimate) central else lowerMat[,k]
+      upperPred = if(pointEstimate) central else upperMat[,k]
+      rcfLower = looCorrect(y, lowerPred, tau=alpha/2)
+      rcfUpper = looCorrect(y, upperPred, tau=1 - alpha/2)
 
       # enforce lower <= upper
       swap = rcfLower > rcfUpper
@@ -1497,7 +1501,8 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     if(!is.null(collected)) {
       idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
                           repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE)
-      rcfList[[caseIdx]] = scoreCase(collected, idInfo)
+      # seismic is a point estimate: build its interval by scaling the central estimate
+      rcfList[[caseIdx]] = scoreCase(collected, idInfo, pointEstimate=TRUE)
     }
     if(verbose) {
       printProgress("model=Seismic")
@@ -1541,9 +1546,11 @@ getSeismicEsts = function(i, regenData=FALSE, significance=c(.8, .95)) {
     meanSeis = mean(seismicDat[,3])
     predAggMat = matrix(c(meanSeis, meanSeis), nrow=1)
 
-    # aggregate quantities for the RCF correction in runRCF. The seismic-only
-    # aggregate predictive distribution is degenerate at meanSeis, so the CI limits
-    # collapse to the central estimate at every significance level.
+    # aggregate quantities for the RCF correction in runRCF. Seismic only is a point
+    # estimate (no predictive interval), so runRCF builds its RCF interval by scaling
+    # the central estimate (pointEstimate=TRUE). lowerAgg/upperAgg are set to the
+    # central estimate here only to satisfy runRCF's field/length checks; they are not
+    # used to form the seismic interval.
     aggTruth = mean(truth[,3])
     estAgg = meanSeis
     lowerAgg = rep(meanSeis, length(significance))
