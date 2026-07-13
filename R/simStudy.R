@@ -1447,6 +1447,31 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
          repIs = repIs)
   }
 
+  # gather the seismic point-estimate aggregates directly from the source surfaces,
+  # so the seismic baseline needs no saved scores file. The central prediction is the
+  # domain-mean seismic value and the truth is the domain-mean sand fraction, per
+  # replicate (exactly what getSeismicEsts would store as estAgg/aggTruth). The CI
+  # limits are unused for a point estimate (scoreCase builds the band from central),
+  # but returned filled with the central estimate for structural consistency.
+  collectSeismic = function(repIs) {
+    y = numeric(length(repIs))
+    central = numeric(length(repIs))
+    for(k in seq_along(repIs)) {
+      i = repIs[k]
+      out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedPred_", i, ".txt"), force01=TRUE)
+      seismicDat = out$surfFrame
+      out = readSurfaceRMS(paste0("data/seisTruthReplicates/RegularizedSand_", i, ".txt"), force01=TRUE)
+      truth = out$surfFrame
+      goodCoords = subsampleSimStudyGrid(seismicDat)
+      central[k] = mean(seismicDat[goodCoords, 3])
+      y[k] = mean(truth[goodCoords, 3])
+    }
+    list(y = y, central = central,
+         lowerMat = matrix(central, nrow=length(repIs), ncol=nSig),
+         upperMat = matrix(central, nrow=length(repIs), ncol=nSig),
+         repIs = repIs)
+  }
+
   # build the list of cases to process ----
   realCombs = modelFitCombs[modelFitCombs$propVarCase == "realistic" & modelFitCombs$repI <= maxRepI,]
   if(is.null(fitModFunIs)) {
@@ -1476,10 +1501,11 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
                          modelName, key$prefPar, key$repelAreaProp/4, key$n))
   })
 
-  # seismic baseline (scenario-independent, computed once)
+  # seismic baseline (scenario-independent, computed once). It is a point estimate
+  # derived directly from the surfaces, so it reads no saved scores file (seismic="direct")
   if(includeSeismic) {
     caseSpecs = c(caseSpecs, list(list(
-      scoreFiles = paste0("savedOutput/simStudy/scores/scores_seismic_rep", 1:maxRepI, ".RData"),
+      seismic = TRUE,
       repIs = 1:maxRepI,
       idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
                           repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE),
@@ -1489,9 +1515,13 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
 
   nCases = length(caseSpecs)
 
-  # process one case: read its scores files, debias, and score
+  # process one case: gather its per-realization aggregates, debias, and score
   processCase = function(spec) {
-    collected = collectCase(spec$scoreFiles, spec$repIs)
+    if(isTRUE(spec$seismic)) {
+      collected = collectSeismic(spec$repIs)
+    } else {
+      collected = collectCase(spec$scoreFiles, spec$repIs)
+    }
     if(is.null(collected)) {
       return(NULL)
     }
