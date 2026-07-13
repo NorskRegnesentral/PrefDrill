@@ -1310,6 +1310,9 @@ runSimStudyI = function(i, significance=c(.8, .95),
 # includeSeismic: also RCF-correct the seismic-only baseline (fitModFunI 0)
 # regenData: if FALSE and the output already exists, it is loaded and returned
 # verbose: print progress and a running estimate of remaining time
+# doPar: process the cases in parallel with parallel::mclapply (per-case work is
+#        independent). Note mclapply forks, so it runs serially on Windows.
+# nCores: number of cores to use when doPar is TRUE
 #
 # Output (also saved to savedOutput/simStudy/rcfScores_<adaptScen>.RData):
 # rcfScores: a data.frame with one row per (model, phi, repelAreaProp, n, repI) giving
@@ -1317,7 +1320,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
 #   IntervalScore/Width/Coverage at each significance level.
 runRCF = function(maxRepI = 100, significance = c(.8, .95),
                   adaptScen = "batch", fitModFunIs = NULL, includeSeismic = TRUE,
-                  regenData = FALSE, verbose = TRUE) {
+                  regenData = FALSE, verbose = TRUE, doPar = FALSE, nCores = 8) {
 
   if(!requireNamespace("quantreg", quietly=TRUE)) {
     stop("runRCF requires the 'quantreg' package (install.packages('quantreg'))")
@@ -1453,59 +1456,76 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
 
   caseKeys = unique(realCombs[, c("fitModFunI", "prefPar", "repelAreaProp", "n")])
   caseKeys = caseKeys[order(caseKeys$fitModFunI, caseKeys$prefPar, caseKeys$repelAreaProp, caseKeys$n),]
-  nCases = nrow(caseKeys) + as.integer(includeSeismic)
 
-  rcfList = vector("list", nCases)
-  startTime = Sys.time()
-  caseIdx = 0
-
-  printProgress = function(label) {
-    elapsed = as.numeric(difftime(Sys.time(), startTime, units="secs"))
-    estRemaining = elapsed / caseIdx * nCases - elapsed
-    message(sprintf("RCF case %d/%d (%.1f%%) [%s], est. time left: %.1fs",
-                    caseIdx, nCases, 100*caseIdx/nCases, label, estRemaining))
-  }
-
-  # fitted models ----
-  for(ck in seq_len(nrow(caseKeys))) {
+  # one spec per case: the scores files to read, the realization ids, the identifying
+  # info, and whether the model is a point estimate (seismic)
+  caseSpecs = lapply(seq_len(nrow(caseKeys)), function(ck) {
     key = caseKeys[ck,]
     sel = realCombs$fitModFunI == key$fitModFunI & realCombs$prefPar == key$prefPar &
       realCombs$repelAreaProp == key$repelAreaProp & realCombs$n == key$n
     caseRows = realCombs[sel,]
     caseRows = caseRows[order(caseRows$repI),]
-
-    scoreFiles = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", caseRows$modelFitI, ".RData")
-    collected = collectCase(scoreFiles, caseRows$repI)
-
-    caseIdx = caseIdx + 1
     modelName = getFitModName(key$fitModFunI)
-    if(!is.null(collected)) {
-      # repelAreaProp reparameterized (/4) to match the manuscript / mergedScores tables
-      idInfo = data.frame(Model=modelName, fitModFunI=key$fitModFunI, phi=key$prefPar,
-                          repelAreaProp=key$repelAreaProp/4, n=key$n, stringsAsFactors=FALSE)
-      rcfList[[caseIdx]] = scoreCase(collected, idInfo)
-    }
-    if(verbose) {
-      printProgress(sprintf("model=%s, phi=%s, repArea=%s, n=%s",
-                            modelName, key$prefPar, key$repelAreaProp/4, key$n))
-    }
+    list(scoreFiles = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", caseRows$modelFitI, ".RData"),
+         repIs = caseRows$repI,
+         # repelAreaProp reparameterized (/4) to match the manuscript / mergedScores tables
+         idInfo = data.frame(Model=modelName, fitModFunI=key$fitModFunI, phi=key$prefPar,
+                             repelAreaProp=key$repelAreaProp/4, n=key$n, stringsAsFactors=FALSE),
+         pointEstimate = FALSE,
+         label = sprintf("model=%s, phi=%s, repArea=%s, n=%s",
+                         modelName, key$prefPar, key$repelAreaProp/4, key$n))
+  })
+
+  # seismic baseline (scenario-independent, computed once)
+  if(includeSeismic) {
+    caseSpecs = c(caseSpecs, list(list(
+      scoreFiles = paste0("savedOutput/simStudy/scores/scores_seismic_rep", 1:maxRepI, ".RData"),
+      repIs = 1:maxRepI,
+      idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
+                          repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE),
+      pointEstimate = TRUE, # build the seismic interval by scaling the central estimate
+      label = "model=Seismic")))
   }
 
-  # seismic baseline (scenario-independent, computed once) ----
-  if(includeSeismic) {
-    repIs = 1:maxRepI
-    scoreFiles = paste0("savedOutput/simStudy/scores/scores_seismic_rep", repIs, ".RData")
-    collected = collectCase(scoreFiles, repIs)
+  nCases = length(caseSpecs)
 
-    caseIdx = caseIdx + 1
-    if(!is.null(collected)) {
-      idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
-                          repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE)
-      # seismic is a point estimate: build its interval by scaling the central estimate
-      rcfList[[caseIdx]] = scoreCase(collected, idInfo, pointEstimate=TRUE)
+  # process one case: read its scores files, debias, and score
+  processCase = function(spec) {
+    collected = collectCase(spec$scoreFiles, spec$repIs)
+    if(is.null(collected)) {
+      return(NULL)
     }
+    scoreCase(collected, spec$idInfo, pointEstimate=spec$pointEstimate)
+  }
+
+  # mclapply forks, which is unavailable on Windows; fall back to serial there
+  if(doPar && .Platform$OS.type == "windows") {
+    warning("doPar=TRUE uses mclapply, which cannot fork on Windows; running serially")
+    doPar = FALSE
+  }
+
+  if(doPar) {
     if(verbose) {
-      printProgress("model=Seismic")
+      message(sprintf("Running %d RCF cases on %d cores...", nCases, nCores))
+    }
+    rcfList = parallel::mclapply(caseSpecs, processCase, mc.cores=nCores)
+    # mclapply returns a try-error per case that failed, rather than stopping
+    failed = sapply(rcfList, function(x) inherits(x, "try-error"))
+    if(any(failed)) {
+      stop(sum(failed), " RCF case(s) failed; first error: ",
+           conditionMessage(attr(rcfList[[which(failed)[1]]], "condition")))
+    }
+  } else {
+    startTime = Sys.time()
+    rcfList = vector("list", nCases)
+    for(ci in seq_len(nCases)) {
+      rcfList[[ci]] = processCase(caseSpecs[[ci]])
+      if(verbose) {
+        elapsed = as.numeric(difftime(Sys.time(), startTime, units="secs"))
+        estRemaining = elapsed / ci * nCases - elapsed
+        message(sprintf("RCF case %d/%d (%.1f%%) [%s], est. time left: %.1fs",
+                        ci, nCases, 100*ci/nCases, caseSpecs[[ci]]$label, estRemaining))
+      }
     }
   }
 
@@ -1517,6 +1537,187 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   }
 
   invisible(rcfScores)
+}
+
+# Violin plots of the aggregate RCF scores by model, mirroring the aggregate-score
+# violin plots in showSimStudyRes2 but for the reference-class-forecasting results
+# produced by runRCF. All scores are aggregate (domain-mean NTG) --- there are no
+# pointwise mean/min/max variants. Produces one pdf per (facet combination, score),
+# faceted vs n, vs phi, and vs repelAreaProp, under figures/simStudy/<adaptScen>/rcf/.
+#
+# Inputs:
+# adaptScen: scenario whose runRCF output to plot (RCF is the realistic batch case)
+# excludeModels: model names to drop from the plots
+# scoreCols: which RCF score columns to plot (default Bias, MSE, interval score and
+#            coverage at each significance level)
+# includeSeismic: include the seismic baseline (runRCF gives it a scaled band, so it
+#                 has a genuine interval score and coverage)
+# doViolinN/doViolinPhi/doViolinRep: which faceting to produce
+showRCFRes = function(adaptScen = "batch",
+                      excludeModels = c("SPDED"),
+                      scoreCols = c("Bias", "MSE", "IntervalScore80", "IntervalScore95",
+                                    "Coverage80", "Coverage95"),
+                      includeSeismic = TRUE,
+                      doViolinN = TRUE, doViolinPhi = TRUE, doViolinRep = TRUE) {
+  require(ggplot2)
+
+  # load the RCF scores produced by runRCF
+  rcfFile = paste0("savedOutput/simStudy/rcfScores_", adaptScen, ".RData")
+  if(!file.exists(rcfFile)) {
+    stop("RCF scores not found at ", rcfFile, "; run runRCF() first")
+  }
+  load(rcfFile)
+
+  # model ordering and colors, matching showSimStudyRes2
+  modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple",
+              SeqWatson="maroon2", SPDED="seagreen")
+  if(!includeSeismic) {
+    excludeModels = union(excludeModels, "Seismic")
+  }
+  modCols = modCols[!(names(modCols) %in% excludeModels)]
+  rcfScores = rcfScores[!(rcfScores$Model %in% excludeModels), ]
+
+  # split off the seismic baseline: it is scenario-independent (phi/repelAreaProp/n
+  # are NA), so it is broadcast onto each parameter combination when plotting
+  tabSeismic = rcfScores[rcfScores$Model == "Seismic", ]
+  tab = rcfScores[rcfScores$Model != "Seismic", ]
+
+  mean_se = function(x) {
+    x = na.omit(x)
+    if(length(x) == 0) return(c(y=NA, ymin=NA, ymax=NA))
+    m = mean(x)
+    se = sd(x) / sqrt(length(x))
+    c(y=m, ymin=m - qnorm(.975)*se, ymax=m + qnorm(.975)*se)
+  }
+
+  # violin plot of one aggregate RCF score, colored by model (based on the
+  # makeViolinPlot helper in showSimStudyRes2)
+  makeViolinPlot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
+    scoreColName = scoreCol
+
+    # broadcast the (scenario-independent) seismic rows onto every parameter
+    # combination present, so seismic appears at each x position
+    if(nrow(tabSeismic) > 0) {
+      parCombs = expand.grid(n = sort(unique(thisTab$n)),
+                             repelAreaProp = sort(unique(thisTab$repelAreaProp)),
+                             phi = sort(unique(thisTab$phi)))
+      tabList = lapply(1:nrow(parCombs), function(i) {
+        s = tabSeismic
+        s$n = parCombs$n[i]
+        s$repelAreaProp = parCombs$repelAreaProp[i]
+        s$phi = parCombs$phi[i]
+        s
+      })
+      thisTab = rbind(thisTab, do.call(rbind, tabList))
+    }
+
+    # drop NA scores
+    thisTab = thisTab[!is.na(thisTab[[scoreCol]]), ]
+    thisTab[[scoreCol]] = as.numeric(thisTab[[scoreCol]])
+    if(nrow(thisTab) == 0) return(invisible(NULL))
+
+    # order models / colors as in modCols
+    presentModels = intersect(names(modCols), as.character(thisTab$Model))
+    thisModCols = modCols[presentModels]
+    thisTab$Model = factor(thisTab$Model, levels = names(thisModCols))
+
+    # x axis as an ordered (numeric-sorted) factor
+    xVals = sort(unique(thisTab[[parName]]))
+    thisTab$.xFac = factor(as.character(thisTab[[parName]]), levels = as.character(xVals))
+
+    pdf(fname, width = 5, height = 5)
+    p = ggplot(thisTab, aes(x = .xFac, y = .data[[scoreCol]], fill = Model))
+    # coverage is a 0/1 indicator, so show only the mean +/- CI, not a violin
+    if(!grepl("Coverage", scoreColName)) {
+      p = p + geom_violin(trim = TRUE, scale = "width",
+                          position = position_dodge(width = .8), width = .7)
+    }
+    p = p +
+      stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5, color = "black",
+                   position = position_dodge(width = .8)) +
+      stat_summary(fun = mean, geom = "point", shape = 21, size = 2, color = "black",
+                   aes(fill = Model), position = position_dodge(width = .8)) +
+      scale_fill_manual(values = thisModCols) +
+      labs(
+        title = paste0(
+          myTitleCase(scoreColName), " vs. ", parName, " (",
+          paste(paste0(fixedParNames, "=",
+                       sapply(fixedParNames, function(nm) unique(thisTab[[nm]]))),
+                collapse = ", "), ")"),
+        x = parName, y = myTitleCase(scoreColName), fill = "Model") +
+      theme_minimal() +
+      theme(legend.position = "right",
+            legend.box.margin = margin(t=0, r=0, b=0, l=-3),
+            legend.margin = margin(t=0, r=0, b=0, l=-3)) +
+      scale_x_discrete(expand = expansion(mult = c(0.1, 0.1)))
+
+    # log scale for strictly-positive magnitude scores; linear for Bias/Coverage
+    if(!grepl("Bias|Coverage|Width", scoreColName)) {
+      p = p + scale_y_log10()
+    }
+    if(grepl("Coverage", scoreColName)) {
+      cvg = as.numeric(substr(scoreColName, nchar(scoreColName)-1, nchar(scoreColName))) / 100
+      p = p + geom_hline(yintercept = cvg, color = "darkgrey", linetype = "dashed")
+    }
+    print(p)
+    dev.off()
+    invisible(NULL)
+  }
+
+  outDirRoot = file.path("figures/simStudy", adaptScen, "rcf")
+
+  # plot all requested scores for one subset / facet
+  plotScores = function(subTab, parName, fixedParNames, fileRoot) {
+    figDir = file.path(outDirRoot, fileRoot)
+    dir.create(figDir, recursive = TRUE, showWarnings = FALSE)
+    for(scoreCol in scoreCols) {
+      if(!(scoreCol %in% names(subTab))) next
+      fname = file.path(figDir, paste0("rcfAgg_", fileRoot, "_", scoreCol, ".pdf"))
+      makeViolinPlot(subTab, parName = parName, scoreCol = scoreCol,
+                     fixedParNames = fixedParNames, fname = fname)
+    }
+  }
+
+  # vs n ----
+  if(doViolinN) {
+    print("RCF violin plots vs n...")
+    combs = unique(tab[, c("phi", "repelAreaProp")])
+    for(i in 1:nrow(combs)) {
+      phiVal = combs$phi[i]; repelVal = combs$repelAreaProp[i]
+      subTab = tab[tab$phi == phiVal & tab$repelAreaProp == repelVal, ]
+      fileRoot = paste0("vsN_phi", phiVal, "_repA", repelVal, "_", adaptScen)
+      plotScores(subTab, parName = "n", fixedParNames = c("phi", "repelAreaProp"),
+                 fileRoot = fileRoot)
+    }
+  }
+
+  # vs phi ----
+  if(doViolinPhi) {
+    print("RCF violin plots vs phi...")
+    combs = unique(tab[, c("n", "repelAreaProp")])
+    for(i in 1:nrow(combs)) {
+      nVal = combs$n[i]; repelVal = combs$repelAreaProp[i]
+      subTab = tab[tab$n == nVal & tab$repelAreaProp == repelVal, ]
+      fileRoot = paste0("vsPhi_n", nVal, "_repA", repelVal, "_", adaptScen)
+      plotScores(subTab, parName = "phi", fixedParNames = c("n", "repelAreaProp"),
+                 fileRoot = fileRoot)
+    }
+  }
+
+  # vs repelAreaProp ----
+  if(doViolinRep) {
+    print("RCF violin plots vs repelAreaProp...")
+    combs = unique(tab[, c("n", "phi")])
+    for(i in 1:nrow(combs)) {
+      nVal = combs$n[i]; phiVal = combs$phi[i]
+      subTab = tab[tab$n == nVal & tab$phi == phiVal, ]
+      fileRoot = paste0("vsRepA_n", nVal, "_phi", phiVal, "_", adaptScen)
+      plotScores(subTab, parName = "repelAreaProp", fixedParNames = c("n", "phi"),
+                 fileRoot = fileRoot)
+    }
+  }
+
+  invisible(NULL)
 }
 
 # get scores from seismic data
