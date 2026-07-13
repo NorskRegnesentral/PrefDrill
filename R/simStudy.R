@@ -1288,18 +1288,21 @@ runSimStudyI = function(i, significance=c(.8, .95),
 # the aggregate truth (aggTruth) --- all produced and saved by runSimStudyI (fitted
 # models) and getSeismicEsts (seismic baseline).
 #
-# Within each (model, phi, repelAreaProp, n) case the central prediction and each CI
-# limit are debiased by a scalar multiple estimated in a leave-one-out fashion from
-# the other maxRepI-1 realizations:
-#   - central prediction: scalar from no-intercept least squares of truth on the
-#     central prediction (truth ~ estAgg - 1),
-#   - each CI limit: scalar from no-intercept quantile regression of truth on the
-#     limit at the matching quantile (lower at (1-s)/2, upper at 1-(1-s)/2).
+# Within each (model, phi, repelAreaProp, n) case each realization is corrected in a
+# leave-one-out fashion from the other maxRepI-1 realizations. debiasMethod controls how:
+#   - "rcf" (default; standard reference class forecasting): form the leave-one-out
+#     distribution of outcome ratios r = truth/central, then scale this realization's
+#     central estimate by the center (centerStat: median or mean) of r for the point
+#     forecast and by the empirical quantiles of r for the interval limits. Uses only the
+#     central estimate; the model's own CI limits are not used, as in canonical RCF.
+#   - "ls": multiplicative (through-origin) debiasing --- central by no-intercept least
+#     squares, the model's own CI limits by no-intercept quantile regression.
+#   - "intercept": with-intercept (scale-and-shift) versions of the "ls" regressions.
 # The debiased central prediction and interval(s) are then scored per realization
 # (bias, MSE, aggregate interval score, aggregate interval width, plus coverage).
 #
-# NOTE: lowerAgg[k]/upperAgg[k] are assumed to correspond to significance[k]; pass
-# the same `significance` used when the scores were generated.
+# Each method writes to its own file / figures folder so results are not overwritten:
+#   rcf -> rcfScoresStd_*, ls -> rcfScores_*, intercept -> rcfScoresInt_*
 #
 # Inputs:
 # maxRepI: number of realizations per case (100 in the simulation study)
@@ -1313,25 +1316,35 @@ runSimStudyI = function(i, significance=c(.8, .95),
 # doPar: process the cases in parallel with parallel::mclapply (per-case work is
 #        independent). Note mclapply forks, so it runs serially on Windows.
 # nCores: number of cores to use when doPar is TRUE
+# debiasMethod: "rcf" (standard ratio-distribution RCF), "ls", or "intercept" (see above)
+# centerStat: for debiasMethod "rcf", center the ratio distribution by its "median" or "mean"
 #
-# Output (also saved to savedOutput/simStudy/rcfScores_<adaptScen>.RData):
+# Output (saved to savedOutput/simStudy/rcfScores{Std,,Int}_<adaptScen>.RData):
 # rcfScores: a data.frame with one row per (model, phi, repelAreaProp, n, repI) giving
 #   the debiased central prediction, debiased CI limits, and the scores Bias, MSE,
 #   IntervalScore/Width/Coverage at each significance level.
 runRCF = function(maxRepI = 100, significance = c(.8, .95),
                   adaptScen = "batch", fitModFunIs = NULL, includeSeismic = TRUE,
-                  regenData = FALSE, verbose = TRUE, doPar = FALSE, nCores = 8) {
+                  regenData = FALSE, verbose = TRUE, doPar = FALSE, nCores = 8,
+                  debiasMethod = c("rcf", "ls", "intercept"),
+                  centerStat = c("median", "mean")) {
+  debiasMethod = match.arg(debiasMethod)
+  centerStat = match.arg(centerStat)
 
-  if(!requireNamespace("quantreg", quietly=TRUE)) {
-    stop("runRCF requires the 'quantreg' package (install.packages('quantreg'))")
+  # only the regression-based methods need quantreg (for the CI-limit quantile regression)
+  if(debiasMethod %in% c("ls", "intercept")) {
+    if(!requireNamespace("quantreg", quietly=TRUE)) {
+      stop("debiasMethod '", debiasMethod, "' requires the 'quantreg' package (install.packages('quantreg'))")
+    }
+    require(quantreg)
   }
-  require(quantreg)
 
   adaptScenCap = str_to_title(adaptScen)
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   load(inputListFile)
 
-  rcfFile = paste0("savedOutput/simStudy/rcfScores_", adaptScen, ".RData")
+  methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int")
+  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, "_", adaptScen, ".RData")
   if(file.exists(rcfFile) && !regenData) {
     if(verbose) message("Loading existing RCF scores...")
     load(rcfFile)
@@ -1341,68 +1354,111 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   nSig = length(significance)
   sigNames = as.character(100*significance)
 
-  # load the aggregate quantities saved for one realization's scores file
+  # load the aggregate quantities saved for one realization's scores file. The standard
+  # "rcf" method needs only the truth and central estimate; the regression methods also
+  # need the model's own aggregate CI limits.
+  needLimits = debiasMethod %in% c("ls", "intercept")
   loadAgg = function(f) {
     e = new.env()
     load(f, envir=e)
-    needed = c("aggTruth", "estAgg", "lowerAgg", "upperAgg")
+    needed = c("aggTruth", "estAgg", if(needLimits) c("lowerAgg", "upperAgg"))
     missingFields = setdiff(needed, ls(e))
     if(length(missingFields) > 0) {
       stop("scores file ", f, " is missing RCF fields (", paste(missingFields, collapse=", "),
            "); regenerate scores with runSimStudyI/getSeismicEsts (regenData=TRUE)")
     }
-    lo = as.numeric(get("lowerAgg", e))
-    up = as.numeric(get("upperAgg", e))
-    if(length(lo) != nSig || length(up) != nSig) {
-      stop("scores file ", f, " has CI limits at ", length(lo), " levels but ", nSig, " requested")
+    out = list(y=get("aggTruth", e), central=get("estAgg", e))
+    if(needLimits) {
+      lo = as.numeric(get("lowerAgg", e))
+      up = as.numeric(get("upperAgg", e))
+      if(length(lo) != nSig || length(up) != nSig) {
+        stop("scores file ", f, " has CI limits at ", length(lo), " levels but ", nSig, " requested")
+      }
+      out$lower = lo
+      out$upper = up
     }
-    list(y=get("aggTruth", e), central=get("estAgg", e), lower=lo, upper=up)
+    out
   }
 
-  # leave-one-out debiasing scalars times each held-out prediction
+  # leave-one-out regression debiasing of each held-out prediction (debiasMethod "ls" or
+  # "intercept"). "ls" is multiplicative (through the origin); "intercept" is a
+  # with-intercept (scale-and-shift) fit. tau=NULL uses least squares (central
+  # prediction), otherwise quantile regression at level tau (CI limits).
+  withIntercept = debiasMethod == "intercept"
   looCorrect = function(y, x, tau=NULL) {
     m = length(y)
     sapply(1:m, function(i) {
       yo = y[-i]
       xo = x[-i]
+      df = data.frame(yy=yo, xx=xo)
       if(is.null(tau)) {
-        b = sum(xo*yo) / sum(xo^2) # no-intercept least squares
+        if(withIntercept) {
+          cf = unname(coef(lm(yy ~ xx, data=df)))        # a + b x
+        } else {
+          cf = c(0, sum(xo*yo) / sum(xo^2))              # no-intercept least squares
+        }
       } else {
-        df = data.frame(yy=yo, xx=xo)
-        b = suppressWarnings(unname(coef(rq(yy ~ xx - 1, tau=tau, data=df)))) # no-intercept quantile reg
+        f = if(withIntercept) (yy ~ xx) else (yy ~ xx - 1)
+        b = suppressWarnings(coef(rq(f, tau=tau, data=df)))
+        cf = if(withIntercept) unname(b) else c(0, unname(b)) # quantile reg, +/- intercept
       }
-      b * x[i]
+      cf[1] + cf[2] * x[i]
     })
   }
 
-  # score the debiased central prediction and intervals for one case.
-  # pointEstimate: if TRUE the model has no predictive interval (e.g. seismic only),
-  #   so the interval is manufactured by scaling the central estimate --- both limits
-  #   are obtained by quantile-regressing the truth on the central estimate (at the
-  #   low and high quantiles), rather than on any reported CI limit.
-  scoreCase = function(collected, idInfo, pointEstimate=FALSE) {
-    y = collected$y
-    central = collected$central
-    lowerMat = collected$lowerMat
-    upperMat = collected$upperMat
+  # debias the central prediction and interval limits for one case, in a leave-one-out
+  # fashion, returning per-realization vectors of the corrected central estimate and,
+  # for each significance level, the corrected lower/upper limits.
+  debiasCase = function(y, central, lowerMat, upperMat) {
+    m = length(y)
+    lowerArr = matrix(NA_real_, m, nSig)
+    upperArr = matrix(NA_real_, m, nSig)
 
-    # debias central prediction (no-intercept least squares)
-    rcfCentral = looCorrect(y, central)
+    if(debiasMethod == "rcf") {
+      # standard reference class forecasting: scale each realization's central estimate
+      # by leave-one-out statistics of the outcome ratio r = truth/central (center for
+      # the point forecast, empirical quantiles for the interval limits)
+      rcfCentral = numeric(m)
+      for(i in 1:m) {
+        r = y[-i] / central[-i]
+        rcfCentral[i] = (if(centerStat == "median") median(r) else mean(r)) * central[i]
+        for(k in 1:nSig) {
+          alpha = 1 - significance[k]
+          qs = quantile(r, probs=c(alpha/2, 1 - alpha/2), names=FALSE)
+          lowerArr[i, k] = qs[1] * central[i]
+          upperArr[i, k] = qs[2] * central[i]
+        }
+      }
+    } else {
+      # regression debiasing: central by least squares, the model's own CI limits by
+      # quantile regression (both +/- intercept per debiasMethod)
+      rcfCentral = looCorrect(y, central)
+      for(k in 1:nSig) {
+        alpha = 1 - significance[k]
+        lowerArr[, k] = looCorrect(y, lowerMat[,k], tau=alpha/2)
+        upperArr[, k] = looCorrect(y, upperMat[,k], tau=1 - alpha/2)
+      }
+    }
+
+    list(central=rcfCentral, lower=lowerArr, upper=upperArr)
+  }
+
+  # score the debiased central prediction and intervals for one case
+  scoreCase = function(collected, idInfo) {
+    y = collected$y
+    deb = debiasCase(y, collected$central, collected$lowerMat, collected$upperMat)
+    rcfCentral = deb$central
+
     Bias = rcfCentral - y
     MSE = Bias^2
-
     res = data.frame(idInfo, repI=collected$repIs, aggTruth=y, rcfCentral=rcfCentral,
                      Bias=Bias, MSE=MSE, stringsAsFactors=FALSE)
 
-    # debias and score each CI limit / interval, one significance level at a time
+    # score each interval, one significance level at a time
     for(k in 1:nSig) {
       alpha = 1 - significance[k]
-      # for a point-estimate model the interval is a scalar multiple of the central
-      # estimate; otherwise it debiases the model's own reported CI limits
-      lowerPred = if(pointEstimate) central else lowerMat[,k]
-      upperPred = if(pointEstimate) central else upperMat[,k]
-      rcfLower = looCorrect(y, lowerPred, tau=alpha/2)
-      rcfUpper = looCorrect(y, upperPred, tau=1 - alpha/2)
+      rcfLower = deb$lower[, k]
+      rcfUpper = deb$upper[, k]
 
       # enforce lower <= upper
       swap = rcfLower > rcfUpper
@@ -1440,19 +1496,23 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       return(NULL)
     }
     aggList = lapply(scoreFiles, loadAgg)
-    list(y = sapply(aggList, function(a) a$y),
-         central = sapply(aggList, function(a) a$central),
-         lowerMat = do.call(rbind, lapply(aggList, function(a) a$lower)),
-         upperMat = do.call(rbind, lapply(aggList, function(a) a$upper)),
-         repIs = repIs)
+    out = list(y = sapply(aggList, function(a) a$y),
+               central = sapply(aggList, function(a) a$central),
+               repIs = repIs)
+    if(needLimits) {
+      out$lowerMat = do.call(rbind, lapply(aggList, function(a) a$lower))
+      out$upperMat = do.call(rbind, lapply(aggList, function(a) a$upper))
+    }
+    out
   }
 
   # gather the seismic point-estimate aggregates directly from the source surfaces,
   # so the seismic baseline needs no saved scores file. The central prediction is the
   # domain-mean seismic value and the truth is the domain-mean sand fraction, per
-  # replicate (exactly what getSeismicEsts would store as estAgg/aggTruth). The CI
-  # limits are unused for a point estimate (scoreCase builds the band from central),
-  # but returned filled with the central estimate for structural consistency.
+  # replicate (exactly what getSeismicEsts would store as estAgg/aggTruth). Seismic has
+  # no CI of its own, so for the regression methods the limit matrices are filled with
+  # the central estimate (scoreCase then builds the band from it); the "rcf" method uses
+  # the central estimate directly and needs no limits.
   collectSeismic = function(repIs) {
     y = numeric(length(repIs))
     central = numeric(length(repIs))
@@ -1466,10 +1526,12 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       central[k] = mean(seismicDat[goodCoords, 3])
       y[k] = mean(truth[goodCoords, 3])
     }
-    list(y = y, central = central,
-         lowerMat = matrix(central, nrow=length(repIs), ncol=nSig),
-         upperMat = matrix(central, nrow=length(repIs), ncol=nSig),
-         repIs = repIs)
+    out = list(y = y, central = central, repIs = repIs)
+    if(needLimits) {
+      out$lowerMat = matrix(central, nrow=length(repIs), ncol=nSig)
+      out$upperMat = matrix(central, nrow=length(repIs), ncol=nSig)
+    }
+    out
   }
 
   # build the list of cases to process ----
@@ -1482,8 +1544,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   caseKeys = unique(realCombs[, c("fitModFunI", "prefPar", "repelAreaProp", "n")])
   caseKeys = caseKeys[order(caseKeys$fitModFunI, caseKeys$prefPar, caseKeys$repelAreaProp, caseKeys$n),]
 
-  # one spec per case: the scores files to read, the realization ids, the identifying
-  # info, and whether the model is a point estimate (seismic)
+  # one spec per case: the scores files to read, the realization ids, and identifying info
   caseSpecs = lapply(seq_len(nrow(caseKeys)), function(ck) {
     key = caseKeys[ck,]
     sel = realCombs$fitModFunI == key$fitModFunI & realCombs$prefPar == key$prefPar &
@@ -1496,7 +1557,6 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
          # repelAreaProp reparameterized (/4) to match the manuscript / mergedScores tables
          idInfo = data.frame(Model=modelName, fitModFunI=key$fitModFunI, phi=key$prefPar,
                              repelAreaProp=key$repelAreaProp/4, n=key$n, stringsAsFactors=FALSE),
-         pointEstimate = FALSE,
          label = sprintf("model=%s, phi=%s, repArea=%s, n=%s",
                          modelName, key$prefPar, key$repelAreaProp/4, key$n))
   })
@@ -1509,7 +1569,6 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       repIs = 1:maxRepI,
       idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
                           repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE),
-      pointEstimate = TRUE, # build the seismic interval by scaling the central estimate
       label = "model=Seismic")))
   }
 
@@ -1525,7 +1584,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     if(is.null(collected)) {
       return(NULL)
     }
-    scoreCase(collected, spec$idInfo, pointEstimate=spec$pointEstimate)
+    scoreCase(collected, spec$idInfo)
   }
 
   # mclapply forks, which is unavailable on Windows; fall back to serial there
@@ -1588,13 +1647,20 @@ showRCFRes = function(adaptScen = "batch",
                       scoreCols = c("Bias", "MSE", "IntervalScore80", "IntervalScore95",
                                     "Coverage80", "Coverage95"),
                       includeSeismic = TRUE,
+                      debiasMethod = c("rcf", "ls", "intercept"),
                       doViolinN = TRUE, doViolinPhi = TRUE, doViolinRep = TRUE) {
   require(ggplot2)
+  debiasMethod = match.arg(debiasMethod)
+
+  # each runRCF debiasMethod writes to its own file and is plotted under its own folder:
+  #   rcf -> rcfScoresStd_* / rcfStd/, ls -> rcfScores_* / rcf/, intercept -> rcfScoresInt_* / rcfInt/
+  methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int")
+  methodFolder = switch(debiasMethod, rcf="rcfStd", ls="rcf", intercept="rcfInt")
 
   # load the RCF scores produced by runRCF
-  rcfFile = paste0("savedOutput/simStudy/rcfScores_", adaptScen, ".RData")
+  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, "_", adaptScen, ".RData")
   if(!file.exists(rcfFile)) {
-    stop("RCF scores not found at ", rcfFile, "; run runRCF() first")
+    stop("RCF scores not found at ", rcfFile, "; run runRCF(debiasMethod=\"", debiasMethod, "\") first")
   }
   load(rcfFile)
 
@@ -1694,7 +1760,7 @@ showRCFRes = function(adaptScen = "batch",
     invisible(NULL)
   }
 
-  outDirRoot = file.path("figures/simStudy", adaptScen, "rcf")
+  outDirRoot = file.path("figures/simStudy", adaptScen, methodFolder)
 
   # plot all requested scores for one subset / facet
   plotScores = function(subTab, parName, fixedParNames, fileRoot) {
@@ -1777,11 +1843,10 @@ getSeismicEsts = function(i, regenData=FALSE, significance=c(.8, .95)) {
     meanSeis = mean(seismicDat[,3])
     predAggMat = matrix(c(meanSeis, meanSeis), nrow=1)
 
-    # aggregate quantities for the RCF correction in runRCF. Seismic only is a point
-    # estimate (no predictive interval), so runRCF builds its RCF interval by scaling
-    # the central estimate (pointEstimate=TRUE). lowerAgg/upperAgg are set to the
-    # central estimate here only to satisfy runRCF's field/length checks; they are not
-    # used to form the seismic interval.
+    # aggregate quantities, kept for consistency with the fitted-model scores files.
+    # Note runRCF computes the seismic aggregates directly from the surfaces (it does
+    # not read these), and seismic only is a point estimate with no predictive interval,
+    # so lowerAgg/upperAgg are just set to the central estimate.
     aggTruth = mean(truth[,3])
     estAgg = meanSeis
     lowerAgg = rep(meanSeis, length(significance))
