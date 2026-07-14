@@ -1424,7 +1424,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       }
     }
     sapply(1:m, function(i) {
-      cf = suppressWarnings(rq.fit.br(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
+      cf = suppressWarnings(rq.fit.fnb(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
       sum(cf * X[i,])
     })
   }
@@ -1440,7 +1440,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     }
     m = length(y)
     sapply(1:m, function(i) {
-      cf = suppressWarnings(rq.fit.br(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
+      cf = suppressWarnings(rq.fit.fnb(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
       sum(cf * X[i,])
     })
   }
@@ -1456,7 +1456,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     }
     m = length(y)
     sapply(1:m, function(i) {
-      cf = suppressWarnings(rq.fit.br(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
+      cf = suppressWarnings(rq.fit.fnb(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
       sum(cf * X[i,])
     })
   }
