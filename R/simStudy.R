@@ -1731,6 +1731,9 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
 # truthMethod: "actual" (default) plots the standard RCF results; "maxSample" plots the
 #              proxy-truth RCF results produced by runRCF(truthMethod="maxSample").
 #              Output goes under a folder with a "Proxy" suffix (e.g. rcfStdProxy).
+# maxNDefault: max n for non-highest repulsion (used to exclude trivial max-n cases from
+#              plots; only applies when truthMethod="maxSample", default 250)
+# maxNHighRep: max n for the highest repulsion level (truthMethod="maxSample", default 60)
 # doViolinN/doViolinPhi/doViolinRep: which faceting to produce
 showRCFRes = function(adaptScen = "batch",
                       excludeModels = c("SPDED"),
@@ -1739,6 +1742,7 @@ showRCFRes = function(adaptScen = "batch",
                       includeSeismic = TRUE,
                       debiasMethod = c("rcf", "ls", "intercept"),
                       truthMethod = c("actual", "maxSample"),
+                      maxNDefault = 250L, maxNHighRep = 60L,
                       doViolinN = TRUE, doViolinPhi = TRUE, doViolinRep = TRUE) {
   require(ggplot2)
   debiasMethod = match.arg(debiasMethod)
@@ -1777,12 +1781,16 @@ showRCFRes = function(adaptScen = "batch",
   tab = rcfScores[rcfScores$Model != "Seismic", ]
 
   if(useMaxSample) {
-    # remove cases where n == the max n for that repelAreaProp: at max n the proxy truth
-    # equals the model's own estimate, so the calibration is trivial and uninformative
-    maxNByRep = tapply(tab$n, tab$repelAreaProp, max)
-    isMaxN = mapply(function(rep, n) isTRUE(n == maxNByRep[[as.character(rep)]]),
-                    tab$repelAreaProp, tab$n)
-    tab = tab[!isMaxN, ]
+    # helper: for each row, determine the max n for its repelAreaProp and drop rows at
+    # that max n. Used per-subTab in each plot loop so that only the relevant x-axis level
+    # is excluded, rather than globally removing rows that may be the only data for some
+    # (phi, repelAreaProp) combinations.
+    maxRepelAreaProp = max(tab$repelAreaProp, na.rm=TRUE)
+    getMaxN = function(rep) if(isTRUE(rep == maxRepelAreaProp)) maxNHighRep else maxNDefault
+    filterMaxN = function(subTab) {
+      maxN_row = sapply(subTab$repelAreaProp, getMaxN)
+      subTab[is.na(subTab$n) | subTab$n != maxN_row, ]
+    }
   }
 
   mean_se = function(x) {
@@ -1903,6 +1911,8 @@ showRCFRes = function(adaptScen = "batch",
     for(i in 1:nrow(combs)) {
       phiVal = combs$phi[i]; repelVal = combs$repelAreaProp[i]
       subTab = tab[tab$phi == phiVal & tab$repelAreaProp == repelVal, ]
+      if(useMaxSample) subTab = filterMaxN(subTab)
+      if(nrow(subTab) == 0) next
       fileRoot = paste0("vsN_phi", phiVal, "_repA", repelVal, "_", adaptScen)
       plotScores(subTab, parName = "n", fixedParNames = c("phi", "repelAreaProp"),
                  fileRoot = fileRoot)
@@ -1916,6 +1926,8 @@ showRCFRes = function(adaptScen = "batch",
     for(i in 1:nrow(combs)) {
       nVal = combs$n[i]; repelVal = combs$repelAreaProp[i]
       subTab = tab[tab$n == nVal & tab$repelAreaProp == repelVal, ]
+      if(useMaxSample) subTab = filterMaxN(subTab)
+      if(nrow(subTab) == 0) next
       fileRoot = paste0("vsPhi_n", nVal, "_repA", repelVal, "_", adaptScen)
       plotScores(subTab, parName = "phi", fixedParNames = c("n", "repelAreaProp"),
                  fileRoot = fileRoot)
@@ -1929,6 +1941,8 @@ showRCFRes = function(adaptScen = "batch",
     for(i in 1:nrow(combs)) {
       nVal = combs$n[i]; phiVal = combs$phi[i]
       subTab = tab[tab$n == nVal & tab$phi == phiVal, ]
+      if(useMaxSample) subTab = filterMaxN(subTab)
+      if(nrow(subTab) == 0) next
       fileRoot = paste0("vsRepA_n", nVal, "_phi", phiVal, "_", adaptScen)
       plotScores(subTab, parName = "repelAreaProp", fixedParNames = c("n", "phi"),
                  fileRoot = fileRoot)
