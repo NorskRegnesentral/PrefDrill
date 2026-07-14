@@ -1333,7 +1333,7 @@ runSimStudyI = function(i, significance=c(.8, .95),
 runRCF = function(maxRepI = 100, significance = c(.8, .95),
                   adaptScen = "batch", fitModFunIs = NULL, includeSeismic = TRUE,
                   regenData = FALSE, verbose = TRUE, doPar = FALSE, nCores = 8,
-                  debiasMethod = c("rcf", "ls", "intercept"),
+                  debiasMethod = c("rcf", "ls", "intercept", "width", "limits"),
                   centerStat = c("median", "mean"),
                   truthMethod = c("actual", "maxSample"),
                   maxNDefault = 250L, maxNHighRep = 60L) {
@@ -1343,7 +1343,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   useMaxSample = truthMethod == "maxSample"
 
   # only the regression-based methods need quantreg (for the CI-limit quantile regression)
-  if(debiasMethod %in% c("ls", "intercept")) {
+  if(debiasMethod %in% c("ls", "intercept", "width", "limits")) {
     if(!requireNamespace("quantreg", quietly=TRUE)) {
       stop("debiasMethod '", debiasMethod, "' requires the 'quantreg' package (install.packages('quantreg'))")
     }
@@ -1354,7 +1354,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   inputListFile = paste0("savedOutput/simStudy/simParList", adaptScenCap, ".RData")
   load(inputListFile)
 
-  methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int")
+  methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int", width="Width", limits="Limits")
   truthTag = if(useMaxSample) "MaxSamp" else ""
   rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, truthTag, "_", adaptScen, ".RData")
   if(file.exists(rcfFile) && !regenData) {
@@ -1369,7 +1369,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   # load the aggregate quantities saved for one realization's scores file. The standard
   # "rcf" method needs only the truth and central estimate; the regression methods also
   # need the model's own aggregate CI limits.
-  needLimits = debiasMethod %in% c("ls", "intercept")
+  needLimits = debiasMethod %in% c("ls", "intercept", "width", "limits")
   loadAgg = function(f) {
     e = new.env()
     load(f, envir=e)
@@ -1428,6 +1428,69 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     })
   }
 
+  # leave-one-out regression debiasing using both central and width as predictors.
+  # Always includes an intercept: truth ~ central + width. tau=NULL uses OLS; otherwise
+  # quantile regression at level tau. Falls back to truth ~ central if width is constant
+  # (e.g. seismic baseline where lower=upper=central).
+  looCorrectWidth = function(y, central, width, tau=NULL) {
+    m = length(y)
+    widthConstant = (sd(width) < 1e-12 * (abs(mean(width)) + 1))
+    sapply(1:m, function(i) {
+      yo = y[-i]
+      co = central[-i]
+      if(widthConstant) {
+        df = data.frame(yy=yo, cc=co)
+        if(is.null(tau)) {
+          cf = unname(coef(lm(yy ~ cc, data=df)))
+        } else {
+          cf = unname(coef(suppressWarnings(rq(yy ~ cc, tau=tau, data=df))))
+        }
+        cf[1] + cf[2]*central[i]
+      } else {
+        wo = width[-i]
+        df = data.frame(yy=yo, cc=co, ww=wo)
+        if(is.null(tau)) {
+          cf = unname(coef(lm(yy ~ cc + ww, data=df)))
+        } else {
+          cf = unname(coef(suppressWarnings(rq(yy ~ cc + ww, tau=tau, data=df))))
+        }
+        cf[1] + cf[2]*central[i] + cf[3]*width[i]
+      }
+    })
+  }
+
+  # leave-one-out regression debiasing using lower and upper CI limits as predictors.
+  # Always includes an intercept: truth ~ lower + upper. tau=NULL uses OLS; otherwise
+  # quantile regression at level tau. Falls back to truth ~ central (using lower as a
+  # proxy) if lower and upper are identical (e.g. seismic baseline).
+  looCorrectLimits = function(y, lower, upper, tau=NULL) {
+    m = length(y)
+    limitsIdentical = (max(abs(upper - lower)) < 1e-12 * (mean(abs(upper)) + 1))
+    sapply(1:m, function(i) {
+      yo = y[-i]
+      if(limitsIdentical) {
+        co = lower[-i]
+        df = data.frame(yy=yo, cc=co)
+        if(is.null(tau)) {
+          cf = unname(coef(lm(yy ~ cc, data=df)))
+        } else {
+          cf = unname(coef(suppressWarnings(rq(yy ~ cc, tau=tau, data=df))))
+        }
+        cf[1] + cf[2]*lower[i]
+      } else {
+        lo = lower[-i]
+        uo = upper[-i]
+        df = data.frame(yy=yo, ll=lo, uu=uo)
+        if(is.null(tau)) {
+          cf = unname(coef(lm(yy ~ ll + uu, data=df)))
+        } else {
+          cf = unname(coef(suppressWarnings(rq(yy ~ ll + uu, tau=tau, data=df))))
+        }
+        cf[1] + cf[2]*lower[i] + cf[3]*upper[i]
+      }
+    })
+  }
+
   # debias the central prediction and interval limits for one case, in a leave-one-out
   # fashion, returning per-realization vectors of the corrected central estimate and,
   # for each significance level, the corrected lower/upper limits.
@@ -1452,6 +1515,30 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
           lowerArr[i, k] = qs[1] * central[i]
           upperArr[i, k] = qs[2] * central[i]
         }
+      }
+    } else if(debiasMethod == "width") {
+      # regression debiasing using central + CI width as joint predictors: the model's
+      # own interval width carries information about per-realization uncertainty, so
+      # models with better-calibrated CIs (e.g. SeqWatson) may benefit. Uses the first
+      # significance level's width for the central prediction, and each level's own
+      # width for that level's quantile regression bounds.
+      width1 = upperMat[,1] - lowerMat[,1]
+      rcfCentral = looCorrectWidth(yc, central, width1)
+      for(k in 1:nSig) {
+        alpha = 1 - significance[k]
+        widthK = upperMat[,k] - lowerMat[,k]
+        lowerArr[, k] = looCorrectWidth(yc, central, widthK, tau=alpha/2)
+        upperArr[, k] = looCorrectWidth(yc, central, widthK, tau=1 - alpha/2)
+      }
+    } else if(debiasMethod == "limits") {
+      # regression debiasing using lower and upper CI limits directly as predictors:
+      # truth ~ lower + upper. Uses the first significance level's limits for the
+      # central prediction, and each level's own limits for that level's bounds.
+      rcfCentral = looCorrectLimits(yc, lowerMat[,1], upperMat[,1])
+      for(k in 1:nSig) {
+        alpha = 1 - significance[k]
+        lowerArr[, k] = looCorrectLimits(yc, lowerMat[,k], upperMat[,k], tau=alpha/2)
+        upperArr[, k] = looCorrectLimits(yc, lowerMat[,k], upperMat[,k], tau=1 - alpha/2)
       }
     } else {
       # regression debiasing: central by least squares, the model's own CI limits by
@@ -1744,7 +1831,7 @@ showRCFRes = function(adaptScen = "batch",
                       scoreCols = c("Bias", "MSE", "IntervalScore80", "IntervalScore95",
                                     "Width80", "Width95", "Coverage80", "Coverage95"),
                       includeSeismic = TRUE,
-                      debiasMethod = c("rcf", "ls", "intercept"),
+                      debiasMethod = c("rcf", "ls", "intercept", "width", "limits"),
                       truthMethod = c("actual", "maxSample"),
                       maxNDefault = 250L, maxNHighRep = 60L,
                       doViolinN = TRUE, doViolinPhi = TRUE, doViolinRep = TRUE) {
@@ -1755,10 +1842,12 @@ showRCFRes = function(adaptScen = "batch",
 
   # each runRCF debiasMethod writes to its own file and is plotted under its own folder:
   #   rcf -> rcfScoresStd_* / rcfStd/, ls -> rcfScores_* / rcf/, intercept -> rcfScoresInt_* / rcfInt/
+  #   width -> rcfScoresWidth_* / rcfWidth/, limits -> rcfScoresLimits_* / rcfLimits/
   # the maxSample truth variant appends "MaxSamp" to the file name and "Proxy" to the folder
-  methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int")
+  methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int", width="Width", limits="Limits")
   truthTag = if(useMaxSample) "MaxSamp" else ""
-  methodFolder = paste0(switch(debiasMethod, rcf="rcfStd", ls="rcf", intercept="rcfInt"),
+  methodFolder = paste0(switch(debiasMethod, rcf="rcfStd", ls="rcf", intercept="rcfInt",
+                                width="rcfWidth", limits="rcfLimits"),
                         if(useMaxSample) "Proxy" else "")
 
   # load the RCF scores produced by runRCF
