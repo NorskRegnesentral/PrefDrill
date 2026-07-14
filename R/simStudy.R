@@ -1318,8 +1318,15 @@ runSimStudyI = function(i, significance=c(.8, .95),
 # nCores: number of cores to use when doPar is TRUE
 # debiasMethod: "rcf" (standard ratio-distribution RCF), "ls", or "intercept" (see above)
 # centerStat: for debiasMethod "rcf", center the ratio distribution by its "median" or "mean"
+# truthMethod: "actual" (default) uses the true aggregate NTG as the calibration truth.
+#              "maxSample" replaces it with the model's own central estimate at the
+#              maximum sample size (maxNHighRep for the highest repulsion level,
+#              maxNDefault otherwise). Debiasing calibration uses the proxy truth;
+#              scoring still evaluates against the actual aggTruth.
+# maxNDefault: maximum sample size for non-highest repulsion levels (truthMethod="maxSample")
+# maxNHighRep: maximum sample size for the highest repulsion level (truthMethod="maxSample")
 #
-# Output (saved to savedOutput/simStudy/rcfScores{Std,,Int}_<adaptScen>.RData):
+# Output (saved to savedOutput/simStudy/rcfScores{Std,,Int}{MaxSamp,}_<adaptScen>.RData):
 # rcfScores: a data.frame with one row per (model, phi, repelAreaProp, n, repI) giving
 #   the debiased central prediction, debiased CI limits, and the scores Bias, MSE,
 #   IntervalScore/Width/Coverage at each significance level.
@@ -1327,9 +1334,13 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
                   adaptScen = "batch", fitModFunIs = NULL, includeSeismic = TRUE,
                   regenData = FALSE, verbose = TRUE, doPar = FALSE, nCores = 8,
                   debiasMethod = c("rcf", "ls", "intercept"),
-                  centerStat = c("median", "mean")) {
+                  centerStat = c("median", "mean"),
+                  truthMethod = c("actual", "maxSample"),
+                  maxNDefault = 250L, maxNHighRep = 60L) {
   debiasMethod = match.arg(debiasMethod)
   centerStat = match.arg(centerStat)
+  truthMethod = match.arg(truthMethod)
+  useMaxSample = truthMethod == "maxSample"
 
   # only the regression-based methods need quantreg (for the CI-limit quantile regression)
   if(debiasMethod %in% c("ls", "intercept")) {
@@ -1344,7 +1355,8 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   load(inputListFile)
 
   methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int")
-  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, "_", adaptScen, ".RData")
+  truthTag = if(useMaxSample) "MaxSamp" else ""
+  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, truthTag, "_", adaptScen, ".RData")
   if(file.exists(rcfFile) && !regenData) {
     if(verbose) message("Loading existing RCF scores...")
     load(rcfFile)
@@ -1380,6 +1392,16 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     out
   }
 
+  # load just estAgg from a scores file, for use as proxy truth when truthMethod="maxSample"
+  loadEstAgg = function(f) {
+    e = new.env()
+    load(f, envir=e)
+    if(!"estAgg" %in% ls(e)) {
+      stop("scores file ", f, " is missing estAgg field; regenerate with runSimStudyI (regenData=TRUE)")
+    }
+    get("estAgg", e)
+  }
+
   # leave-one-out regression debiasing of each held-out prediction (debiasMethod "ls" or
   # "intercept"). "ls" is multiplicative (through the origin); "intercept" is a
   # with-intercept (scale-and-shift) fit. tau=NULL uses least squares (central
@@ -1409,7 +1431,9 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   # debias the central prediction and interval limits for one case, in a leave-one-out
   # fashion, returning per-realization vectors of the corrected central estimate and,
   # for each significance level, the corrected lower/upper limits.
-  debiasCase = function(y, central, lowerMat, upperMat) {
+  # yCalib: calibration truth for the ratio/regression; if NULL uses y (actual truth)
+  debiasCase = function(y, central, lowerMat, upperMat, yCalib = NULL) {
+    yc = if(!is.null(yCalib)) yCalib else y
     m = length(y)
     lowerArr = matrix(NA_real_, m, nSig)
     upperArr = matrix(NA_real_, m, nSig)
@@ -1420,7 +1444,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       # the point forecast, empirical quantiles for the interval limits)
       rcfCentral = numeric(m)
       for(i in 1:m) {
-        r = y[-i] / central[-i]
+        r = yc[-i] / central[-i]
         rcfCentral[i] = (if(centerStat == "median") median(r) else mean(r)) * central[i]
         for(k in 1:nSig) {
           alpha = 1 - significance[k]
@@ -1432,11 +1456,11 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     } else {
       # regression debiasing: central by least squares, the model's own CI limits by
       # quantile regression (both +/- intercept per debiasMethod)
-      rcfCentral = looCorrect(y, central)
+      rcfCentral = looCorrect(yc, central)
       for(k in 1:nSig) {
         alpha = 1 - significance[k]
-        lowerArr[, k] = looCorrect(y, lowerMat[,k], tau=alpha/2)
-        upperArr[, k] = looCorrect(y, upperMat[,k], tau=1 - alpha/2)
+        lowerArr[, k] = looCorrect(yc, lowerMat[,k], tau=alpha/2)
+        upperArr[, k] = looCorrect(yc, upperMat[,k], tau=1 - alpha/2)
       }
     }
 
@@ -1446,7 +1470,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   # score the debiased central prediction and intervals for one case
   scoreCase = function(collected, idInfo) {
     y = collected$y
-    deb = debiasCase(y, collected$central, collected$lowerMat, collected$upperMat)
+    deb = debiasCase(y, collected$central, collected$lowerMat, collected$upperMat, collected$yCalib)
     rcfCentral = deb$central
 
     Bias = rcfCentral - y
@@ -1488,10 +1512,19 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
 
   # gather the per-realization aggregate quantities for one case (skipping any
   # realizations whose scores file is missing)
-  collectCase = function(scoreFiles, repIs) {
+  # maxSampleFiles: named vector (names=repI) of max-n score file paths used as proxy
+  #                 truth when truthMethod="maxSample". NULL in "actual" mode.
+  collectCase = function(scoreFiles, repIs, maxSampleFiles = NULL) {
     exists = file.exists(scoreFiles)
     scoreFiles = scoreFiles[exists]
     repIs = repIs[exists]
+    if(!is.null(maxSampleFiles)) {
+      availMax = names(maxSampleFiles)[file.exists(maxSampleFiles)]
+      keep = as.character(repIs) %in% availMax
+      scoreFiles = scoreFiles[keep]
+      repIs = repIs[keep]
+      maxSampleFiles = maxSampleFiles[as.character(repIs)]
+    }
     if(length(repIs) < 3) {
       return(NULL)
     }
@@ -1499,6 +1532,9 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     out = list(y = sapply(aggList, function(a) a$y),
                central = sapply(aggList, function(a) a$central),
                repIs = repIs)
+    if(!is.null(maxSampleFiles)) {
+      out$yCalib = sapply(maxSampleFiles, loadEstAgg, USE.NAMES=FALSE)
+    }
     if(needLimits) {
       out$lowerMat = do.call(rbind, lapply(aggList, function(a) a$lower))
       out$upperMat = do.call(rbind, lapply(aggList, function(a) a$upper))
@@ -1543,6 +1579,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
 
   caseKeys = unique(realCombs[, c("fitModFunI", "prefPar", "repelAreaProp", "n")])
   caseKeys = caseKeys[order(caseKeys$fitModFunI, caseKeys$prefPar, caseKeys$repelAreaProp, caseKeys$n),]
+  maxRepelAreaProp = if(useMaxSample) max(caseKeys$repelAreaProp) else NA_real_
 
   # one spec per case: the scores files to read, the realization ids, and identifying info
   caseSpecs = lapply(seq_len(nrow(caseKeys)), function(ck) {
@@ -1552,8 +1589,20 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     caseRows = realCombs[sel,]
     caseRows = caseRows[order(caseRows$repI),]
     modelName = getFitModName(key$fitModFunI)
+    maxSampleFiles = NULL
+    if(useMaxSample) {
+      maxN = if(key$repelAreaProp == maxRepelAreaProp) maxNHighRep else maxNDefault
+      selMax = realCombs$fitModFunI == key$fitModFunI & realCombs$prefPar == key$prefPar &
+        realCombs$repelAreaProp == key$repelAreaProp & realCombs$n == maxN
+      caseRowsMax = realCombs[selMax,]
+      caseRowsMax = caseRowsMax[order(caseRowsMax$repI),]
+      maxSampleFiles = setNames(
+        paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", caseRowsMax$modelFitI, ".RData"),
+        as.character(caseRowsMax$repI))
+    }
     list(scoreFiles = paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", caseRows$modelFitI, ".RData"),
          repIs = caseRows$repI,
+         maxSampleFiles = maxSampleFiles,
          # repelAreaProp reparameterized (/4) to match the manuscript / mergedScores tables
          idInfo = data.frame(Model=modelName, fitModFunI=key$fitModFunI, phi=key$prefPar,
                              repelAreaProp=key$repelAreaProp/4, n=key$n, stringsAsFactors=FALSE),
@@ -1579,7 +1628,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     if(isTRUE(spec$seismic)) {
       collected = collectSeismic(spec$repIs)
     } else {
-      collected = collectCase(spec$scoreFiles, spec$repIs)
+      collected = collectCase(spec$scoreFiles, spec$repIs, spec$maxSampleFiles)
     }
     if(is.null(collected)) {
       return(NULL)
