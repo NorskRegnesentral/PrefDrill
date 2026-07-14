@@ -1549,7 +1549,14 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   # no CI of its own, so for the regression methods the limit matrices are filled with
   # the central estimate (scoreCase then builds the band from it); the "rcf" method uses
   # the central estimate directly and needs no limits.
-  collectSeismic = function(repIs) {
+  # maxSampleFiles: named vector (names=repI) of SPDE max-n score file paths used as
+  #                 proxy truth when truthMethod="maxSample". NULL in "actual" mode.
+  collectSeismic = function(repIs, maxSampleFiles = NULL) {
+    if(!is.null(maxSampleFiles)) {
+      availMax = names(maxSampleFiles)[file.exists(maxSampleFiles)]
+      repIs = repIs[as.character(repIs) %in% availMax]
+    }
+    if(length(repIs) < 3) return(NULL)
     y = numeric(length(repIs))
     central = numeric(length(repIs))
     for(k in seq_along(repIs)) {
@@ -1563,6 +1570,9 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       y[k] = mean(truth[goodCoords, 3])
     }
     out = list(y = y, central = central, repIs = repIs)
+    if(!is.null(maxSampleFiles)) {
+      out$yCalib = sapply(maxSampleFiles[as.character(repIs)], loadEstAgg, USE.NAMES=FALSE)
+    }
     if(needLimits) {
       out$lowerMat = matrix(central, nrow=length(repIs), ncol=nSig)
       out$upperMat = matrix(central, nrow=length(repIs), ncol=nSig)
@@ -1610,15 +1620,42 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
                          modelName, key$prefPar, key$repelAreaProp/4, key$n))
   })
 
-  # seismic baseline (scenario-independent, computed once). It is a point estimate
-  # derived directly from the surfaces, so it reads no saved scores file (seismic="direct")
+  # seismic baseline: in "actual" mode, scenario-independent (phi/repelAreaProp/n all NA),
+  # computed once and broadcast across scenarios when plotting. In "maxSample" mode, one
+  # spec per (phi, repelAreaProp) with SPDE max-n estimates as proxy truth, so it gets
+  # real phi/repelAreaProp values and only broadcasts over n when plotting.
   if(includeSeismic) {
-    caseSpecs = c(caseSpecs, list(list(
-      seismic = TRUE,
-      repIs = 1:maxRepI,
-      idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
-                          repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE),
-      label = "model=Seismic")))
+    if(useMaxSample) {
+      spdeFitModFunI = 1L  # SPDE is index 1 per getFitModName
+      spdeCombs = unique(realCombs[realCombs$fitModFunI == spdeFitModFunI,
+                                   c("prefPar", "repelAreaProp")])
+      seismicSpecs = lapply(seq_len(nrow(spdeCombs)), function(sc) {
+        phi = spdeCombs$prefPar[sc]
+        rep = spdeCombs$repelAreaProp[sc]
+        maxN = if(rep == maxRepelAreaProp) maxNHighRep else maxNDefault
+        selMax = realCombs$fitModFunI == spdeFitModFunI & realCombs$prefPar == phi &
+          realCombs$repelAreaProp == rep & realCombs$n == maxN
+        caseRowsMax = realCombs[selMax,]
+        caseRowsMax = caseRowsMax[order(caseRowsMax$repI),]
+        maxFiles = setNames(
+          paste0("savedOutput/simStudy/scores/scores_", adaptScen, "_", caseRowsMax$modelFitI, ".RData"),
+          as.character(caseRowsMax$repI))
+        list(seismic = TRUE,
+             repIs = 1:maxRepI,
+             maxSampleFiles = maxFiles,
+             idInfo = data.frame(Model="Seismic", fitModFunI=0L, phi=phi,
+                                 repelAreaProp=rep/4, n=NA_real_, stringsAsFactors=FALSE),
+             label = sprintf("model=Seismic, phi=%s, repArea=%s", phi, rep/4))
+      })
+      caseSpecs = c(caseSpecs, seismicSpecs)
+    } else {
+      caseSpecs = c(caseSpecs, list(list(
+        seismic = TRUE,
+        repIs = 1:maxRepI,
+        idInfo = data.frame(Model="Seismic", fitModFunI=0, phi=NA_real_,
+                            repelAreaProp=NA_real_, n=NA_real_, stringsAsFactors=FALSE),
+        label = "model=Seismic")))
+    }
   }
 
   nCases = length(caseSpecs)
@@ -1626,7 +1663,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   # process one case: gather its per-realization aggregates, debias, and score
   processCase = function(spec) {
     if(isTRUE(spec$seismic)) {
-      collected = collectSeismic(spec$repIs)
+      collected = collectSeismic(spec$repIs, spec$maxSampleFiles)
     } else {
       collected = collectCase(spec$scoreFiles, spec$repIs, spec$maxSampleFiles)
     }
@@ -1733,10 +1770,20 @@ showRCFRes = function(adaptScen = "batch",
   modCols = modCols[!(names(modCols) %in% excludeModels)]
   rcfScores = rcfScores[!(rcfScores$Model %in% excludeModels), ]
 
-  # split off the seismic baseline: it is scenario-independent (phi/repelAreaProp/n
-  # are NA), so it is broadcast onto each parameter combination when plotting
+  # split off the seismic baseline. In "actual" mode phi/repelAreaProp/n are NA and
+  # seismic is broadcast onto every parameter combination. In "maxSample" mode, seismic
+  # has real phi/repelAreaProp (scenario-matched SPDE proxy), so it only broadcasts over n.
   tabSeismic = rcfScores[rcfScores$Model == "Seismic", ]
   tab = rcfScores[rcfScores$Model != "Seismic", ]
+
+  if(useMaxSample) {
+    # remove cases where n == the max n for that repelAreaProp: at max n the proxy truth
+    # equals the model's own estimate, so the calibration is trivial and uninformative
+    maxNByRep = tapply(tab$n, tab$repelAreaProp, max)
+    isMaxN = mapply(function(rep, n) isTRUE(n == maxNByRep[[as.character(rep)]]),
+                    tab$repelAreaProp, tab$n)
+    tab = tab[!isMaxN, ]
+  }
 
   mean_se = function(x) {
     x = na.omit(x)
@@ -1751,20 +1798,35 @@ showRCFRes = function(adaptScen = "batch",
   makeViolinPlot = function(thisTab, parName, scoreCol, fixedParNames, fname) {
     scoreColName = scoreCol
 
-    # broadcast the (scenario-independent) seismic rows onto every parameter
-    # combination present, so seismic appears at each x position
+    # broadcast seismic rows onto each x-axis position so it appears alongside models.
+    # In "actual" mode, seismic is scenario-independent (phi/repelAreaProp NA) so it
+    # broadcasts over all (phi, repelAreaProp, n). In "maxSample" mode, seismic has real
+    # phi/repelAreaProp; filter to the fixed parameters in thisTab and broadcast over n.
     if(nrow(tabSeismic) > 0) {
-      parCombs = expand.grid(n = sort(unique(thisTab$n)),
-                             repelAreaProp = sort(unique(thisTab$repelAreaProp)),
-                             phi = sort(unique(thisTab$phi)))
-      tabList = lapply(1:nrow(parCombs), function(i) {
-        s = tabSeismic
-        s$n = parCombs$n[i]
-        s$repelAreaProp = parCombs$repelAreaProp[i]
-        s$phi = parCombs$phi[i]
-        s
-      })
-      thisTab = rbind(thisTab, do.call(rbind, tabList))
+      if(useMaxSample) {
+        seisFilter = tabSeismic
+        for(fixedPar in setdiff(fixedParNames, "n")) {
+          fixedVals = unique(thisTab[[fixedPar]])
+          seisFilter = seisFilter[seisFilter[[fixedPar]] %in% fixedVals, ]
+        }
+        nVals = sort(unique(thisTab$n))
+        tabList = lapply(nVals, function(nv) { s = seisFilter; s$n = nv; s })
+        if(length(tabList) > 0 && nrow(seisFilter) > 0) {
+          thisTab = rbind(thisTab, do.call(rbind, tabList))
+        }
+      } else {
+        parCombs = expand.grid(n = sort(unique(thisTab$n)),
+                               repelAreaProp = sort(unique(thisTab$repelAreaProp)),
+                               phi = sort(unique(thisTab$phi)))
+        tabList = lapply(1:nrow(parCombs), function(i) {
+          s = tabSeismic
+          s$n = parCombs$n[i]
+          s$repelAreaProp = parCombs$repelAreaProp[i]
+          s$phi = parCombs$phi[i]
+          s
+        })
+        thisTab = rbind(thisTab, do.call(rbind, tabList))
+      }
     }
 
     # drop NA scores
