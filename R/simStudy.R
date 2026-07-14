@@ -1601,7 +1601,9 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     modelName = getFitModName(key$fitModFunI)
     maxSampleFiles = NULL
     if(useMaxSample) {
-      maxN = if(key$repelAreaProp == maxRepelAreaProp) maxNHighRep else maxNDefault
+      maxN = max(realCombs$n[realCombs$fitModFunI == key$fitModFunI &
+                              realCombs$prefPar == key$prefPar &
+                              realCombs$repelAreaProp == key$repelAreaProp])
       selMax = realCombs$fitModFunI == key$fitModFunI & realCombs$prefPar == key$prefPar &
         realCombs$repelAreaProp == key$repelAreaProp & realCombs$n == maxN
       caseRowsMax = realCombs[selMax,]
@@ -1632,7 +1634,9 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
       seismicSpecs = lapply(seq_len(nrow(spdeCombs)), function(sc) {
         phi = spdeCombs$prefPar[sc]
         rep = spdeCombs$repelAreaProp[sc]
-        maxN = if(rep == maxRepelAreaProp) maxNHighRep else maxNDefault
+        maxN = max(realCombs$n[realCombs$fitModFunI == spdeFitModFunI &
+                                realCombs$prefPar == phi &
+                                realCombs$repelAreaProp == rep])
         selMax = realCombs$fitModFunI == spdeFitModFunI & realCombs$prefPar == phi &
           realCombs$repelAreaProp == rep & realCombs$n == maxN
         caseRowsMax = realCombs[selMax,]
@@ -1781,15 +1785,17 @@ showRCFRes = function(adaptScen = "batch",
   tab = rcfScores[rcfScores$Model != "Seismic", ]
 
   if(useMaxSample) {
-    # helper: for each row, determine the max n for its repelAreaProp and drop rows at
-    # that max n. Used per-subTab in each plot loop so that only the relevant x-axis level
-    # is excluded, rather than globally removing rows that may be the only data for some
-    # (phi, repelAreaProp) combinations.
-    maxRepelAreaProp = max(tab$repelAreaProp, na.rm=TRUE)
-    getMaxN = function(rep) if(isTRUE(rep == maxRepelAreaProp)) maxNHighRep else maxNDefault
+    # per-(phi, repelAreaProp) max n, derived from the data rather than hardcoded, to
+    # match whatever max was actually available when runRCF built the proxy truths
+    maxNByCombo = aggregate(n ~ phi + repelAreaProp, data=tab, FUN=max, na.rm=TRUE)
+    getMaxN = function(phi_val, rep_val) {
+      row = maxNByCombo[maxNByCombo$phi == phi_val & maxNByCombo$repelAreaProp == rep_val, ]
+      if(nrow(row) == 0) NA_real_ else row$n
+    }
     filterMaxN = function(subTab) {
-      maxN_row = sapply(subTab$repelAreaProp, getMaxN)
-      subTab[is.na(subTab$n) | subTab$n != maxN_row, ]
+      isMaxN = mapply(function(phi_val, rep_val, n_val) isTRUE(n_val == getMaxN(phi_val, rep_val)),
+                      subTab$phi, subTab$repelAreaProp, subTab$n)
+      subTab[!isMaxN, ]
     }
   }
 
