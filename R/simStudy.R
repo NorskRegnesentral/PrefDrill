@@ -1690,6 +1690,10 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
 #            coverage at each significance level)
 # includeSeismic: include the seismic baseline (runRCF gives it a scaled band, so it
 #                 has a genuine interval score and coverage)
+# debiasMethod: which runRCF debiasMethod output to plot ("rcf", "ls", or "intercept")
+# truthMethod: "actual" (default) plots the standard RCF results; "maxSample" plots the
+#              proxy-truth RCF results produced by runRCF(truthMethod="maxSample").
+#              Output goes under a folder with a "Proxy" suffix (e.g. rcfStdProxy).
 # doViolinN/doViolinPhi/doViolinRep: which faceting to produce
 showRCFRes = function(adaptScen = "batch",
                       excludeModels = c("SPDED"),
@@ -1697,19 +1701,26 @@ showRCFRes = function(adaptScen = "batch",
                                     "Coverage80", "Coverage95"),
                       includeSeismic = TRUE,
                       debiasMethod = c("rcf", "ls", "intercept"),
+                      truthMethod = c("actual", "maxSample"),
                       doViolinN = TRUE, doViolinPhi = TRUE, doViolinRep = TRUE) {
   require(ggplot2)
   debiasMethod = match.arg(debiasMethod)
+  truthMethod = match.arg(truthMethod)
+  useMaxSample = truthMethod == "maxSample"
 
   # each runRCF debiasMethod writes to its own file and is plotted under its own folder:
   #   rcf -> rcfScoresStd_* / rcfStd/, ls -> rcfScores_* / rcf/, intercept -> rcfScoresInt_* / rcfInt/
+  # the maxSample truth variant appends "MaxSamp" to the file name and "Proxy" to the folder
   methodTag = switch(debiasMethod, rcf="Std", ls="", intercept="Int")
-  methodFolder = switch(debiasMethod, rcf="rcfStd", ls="rcf", intercept="rcfInt")
+  truthTag = if(useMaxSample) "MaxSamp" else ""
+  methodFolder = paste0(switch(debiasMethod, rcf="rcfStd", ls="rcf", intercept="rcfInt"),
+                        if(useMaxSample) "Proxy" else "")
 
   # load the RCF scores produced by runRCF
-  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, "_", adaptScen, ".RData")
+  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, truthTag, "_", adaptScen, ".RData")
   if(!file.exists(rcfFile)) {
-    stop("RCF scores not found at ", rcfFile, "; run runRCF(debiasMethod=\"", debiasMethod, "\") first")
+    stop("RCF scores not found at ", rcfFile, "; run runRCF(debiasMethod=\"", debiasMethod,
+         "\", truthMethod=\"", truthMethod, "\") first")
   }
   load(rcfFile)
 
