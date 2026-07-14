@@ -1409,85 +1409,55 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
   withIntercept = debiasMethod == "intercept"
   looCorrect = function(y, x, tau=NULL) {
     m = length(y)
-    sapply(1:m, function(i) {
-      yo = y[-i]
-      xo = x[-i]
-      df = data.frame(yy=yo, xx=xo)
-      if(is.null(tau)) {
-        if(withIntercept) {
-          cf = unname(coef(lm(yy ~ xx, data=df)))        # a + b x
-        } else {
-          cf = c(0, sum(xo*yo) / sum(xo^2))              # no-intercept least squares
-        }
+    X = if(withIntercept) cbind(1, x) else cbind(x)
+    if(is.null(tau)) {
+      if(withIntercept) {
+        fit = lm.fit(X, y)
+        h = rowSums(qr.Q(fit$qr)^2)
+        return(y - fit$residuals / (1 - h))
       } else {
-        f = if(withIntercept) (yy ~ xx) else (yy ~ xx - 1)
-        b = suppressWarnings(coef(rq(f, tau=tau, data=df)))
-        cf = if(withIntercept) unname(b) else c(0, unname(b)) # quantile reg, +/- intercept
+        sx = sum(x^2)
+        sxy = sum(x*y)
+        return(sapply(1:m, function(i) {
+          (sxy - x[i]*y[i]) / (sx - x[i]^2) * x[i]
+        }))
       }
-      cf[1] + cf[2] * x[i]
+    }
+    sapply(1:m, function(i) {
+      cf = suppressWarnings(rq.fit.br(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
+      sum(cf * X[i,])
     })
   }
 
-  # leave-one-out regression debiasing using both central and width as predictors.
-  # Always includes an intercept: truth ~ central + width. tau=NULL uses OLS; otherwise
-  # quantile regression at level tau. Falls back to truth ~ central if width is constant
-  # (e.g. seismic baseline where lower=upper=central).
+  # LOO regression using central + width as predictors. OLS uses hat-matrix formula.
   looCorrectWidth = function(y, central, width, tau=NULL) {
-    m = length(y)
     widthConstant = (sd(width) < 1e-12 * (abs(mean(width)) + 1))
+    X = if(widthConstant) cbind(1, central) else cbind(1, central, width)
+    if(is.null(tau)) {
+      fit = lm.fit(X, y)
+      h = rowSums(qr.Q(fit$qr)^2)
+      return(y - fit$residuals / (1 - h))
+    }
+    m = length(y)
     sapply(1:m, function(i) {
-      yo = y[-i]
-      co = central[-i]
-      if(widthConstant) {
-        df = data.frame(yy=yo, cc=co)
-        if(is.null(tau)) {
-          cf = unname(coef(lm(yy ~ cc, data=df)))
-        } else {
-          cf = unname(coef(suppressWarnings(rq(yy ~ cc, tau=tau, data=df))))
-        }
-        cf[1] + cf[2]*central[i]
-      } else {
-        wo = width[-i]
-        df = data.frame(yy=yo, cc=co, ww=wo)
-        if(is.null(tau)) {
-          cf = unname(coef(lm(yy ~ cc + ww, data=df)))
-        } else {
-          cf = unname(coef(suppressWarnings(rq(yy ~ cc + ww, tau=tau, data=df))))
-        }
-        cf[1] + cf[2]*central[i] + cf[3]*width[i]
-      }
+      cf = suppressWarnings(rq.fit.br(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
+      sum(cf * X[i,])
     })
   }
 
-  # leave-one-out regression debiasing using lower and upper CI limits as predictors.
-  # Always includes an intercept: truth ~ lower + upper. tau=NULL uses OLS; otherwise
-  # quantile regression at level tau. Falls back to truth ~ central (using lower as a
-  # proxy) if lower and upper are identical (e.g. seismic baseline).
+  # LOO regression using lower + upper CI limits as predictors. OLS uses hat-matrix formula.
   looCorrectLimits = function(y, lower, upper, tau=NULL) {
-    m = length(y)
     limitsIdentical = (max(abs(upper - lower)) < 1e-12 * (mean(abs(upper)) + 1))
+    X = if(limitsIdentical) cbind(1, lower) else cbind(1, lower, upper)
+    if(is.null(tau)) {
+      fit = lm.fit(X, y)
+      h = rowSums(qr.Q(fit$qr)^2)
+      return(y - fit$residuals / (1 - h))
+    }
+    m = length(y)
     sapply(1:m, function(i) {
-      yo = y[-i]
-      if(limitsIdentical) {
-        co = lower[-i]
-        df = data.frame(yy=yo, cc=co)
-        if(is.null(tau)) {
-          cf = unname(coef(lm(yy ~ cc, data=df)))
-        } else {
-          cf = unname(coef(suppressWarnings(rq(yy ~ cc, tau=tau, data=df))))
-        }
-        cf[1] + cf[2]*lower[i]
-      } else {
-        lo = lower[-i]
-        uo = upper[-i]
-        df = data.frame(yy=yo, ll=lo, uu=uo)
-        if(is.null(tau)) {
-          cf = unname(coef(lm(yy ~ ll + uu, data=df)))
-        } else {
-          cf = unname(coef(suppressWarnings(rq(yy ~ ll + uu, tau=tau, data=df))))
-        }
-        cf[1] + cf[2]*lower[i] + cf[3]*upper[i]
-      }
+      cf = suppressWarnings(rq.fit.br(X[-i,,drop=FALSE], y[-i], tau=tau)$coefficients)
+      sum(cf * X[i,])
     })
   }
 
