@@ -2134,9 +2134,7 @@ showRCFCaseDetail = function(n_val = 20, phi_val = 2, repelAreaProp_val = 0.005,
   require(patchwork)
   combined = (panels[[1]] | panels[[2]] | panels[[3]] | panels[[4]]) +
     plot_layout(guides="collect") &
-    theme(legend.position="bottom")
-  combined = combined +
-    plot_annotation(title=sprintf("n=%s, phi=%s, repelAreaProp=%s", n_val, phi_val, repelAreaProp_val))
+    theme(legend.position="right")
 
   outDir = file.path("figures/simStudy", adaptScen, methodFolder, "caseDetail")
   dir.create(outDir, recursive=TRUE, showWarnings=FALSE)
