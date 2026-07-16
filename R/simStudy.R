@@ -1445,10 +1445,11 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     })
   }
 
-  # LOO regression using lower + upper CI limits as predictors. OLS uses hat-matrix formula.
-  looCorrectLimits = function(y, lower, upper, tau=NULL) {
+  # LOO regression using lower + upper CI limits plus central as predictors.
+  # OLS uses hat-matrix formula.
+  looCorrectLimits = function(y, central, lower, upper, tau=NULL) {
     limitsIdentical = (max(abs(upper - lower)) < 1e-12 * (mean(abs(upper)) + 1))
-    X = if(limitsIdentical) cbind(1, lower) else cbind(1, lower, upper)
+    X = if(limitsIdentical) cbind(1, central) else cbind(1, central, lower, upper)
     if(is.null(tau)) {
       fit = lm.fit(X, y)
       h = rowSums(qr.Q(fit$qr)^2)
@@ -1489,9 +1490,7 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
     } else if(debiasMethod == "width") {
       # regression debiasing using central + CI width as joint predictors: the model's
       # own interval width carries information about per-realization uncertainty, so
-      # models with better-calibrated CIs (e.g. SeqWatson) may benefit. Uses the first
-      # significance level's width for the central prediction, and each level's own
-      # width for that level's quantile regression bounds.
+      # models with better-calibrated CIs (e.g. SeqWatson) may benefit.
       width1 = upperMat[,1] - lowerMat[,1]
       rcfCentral = looCorrectWidth(yc, central, width1)
       for(k in 1:nSig) {
@@ -1501,14 +1500,13 @@ runRCF = function(maxRepI = 100, significance = c(.8, .95),
         upperArr[, k] = looCorrectWidth(yc, central, widthK, tau=1 - alpha/2)
       }
     } else if(debiasMethod == "limits") {
-      # regression debiasing using lower and upper CI limits directly as predictors:
-      # truth ~ lower + upper. Uses the first significance level's limits for the
-      # central prediction, and each level's own limits for that level's bounds.
-      rcfCentral = looCorrectLimits(yc, lowerMat[,1], upperMat[,1])
+      # regression debiasing using central + lower + upper CI limits as predictors:
+      # truth ~ central + lower + upper.
+      rcfCentral = looCorrectLimits(yc, central, lowerMat[,1], upperMat[,1])
       for(k in 1:nSig) {
         alpha = 1 - significance[k]
-        lowerArr[, k] = looCorrectLimits(yc, lowerMat[,k], upperMat[,k], tau=alpha/2)
-        upperArr[, k] = looCorrectLimits(yc, lowerMat[,k], upperMat[,k], tau=1 - alpha/2)
+        lowerArr[, k] = looCorrectLimits(yc, central, lowerMat[,k], upperMat[,k], tau=alpha/2)
+        upperArr[, k] = looCorrectLimits(yc, central, lowerMat[,k], upperMat[,k], tau=1 - alpha/2)
       }
     } else {
       # regression debiasing: central by least squares, the model's own CI limits by
@@ -2015,6 +2013,140 @@ showRCFRes = function(adaptScen = "batch",
   }
 
   invisible(NULL)
+}
+
+# Four-panel violin plot for a single (n, phi, repelAreaProp) combination, showing
+# Bias, MSE, 95% Coverage, and 95% Interval Score. Intended for close inspection of
+# specific scenarios (e.g. the hardest case: phi=2, n=20, repelAreaProp=0.005).
+# Output goes to figures/simStudy/<adaptScen>/<methodFolder>/caseDetail/.
+#
+# Inputs: same debiasMethod/truthMethod arguments as showRCFRes, plus the fixed values
+# of n, phi, repelAreaProp to plot.
+showRCFCaseDetail = function(n_val = 20, phi_val = 2, repelAreaProp_val = 0.005,
+                             adaptScen = "batch",
+                             excludeModels = c("SPDED"),
+                             includeSeismic = TRUE,
+                             debiasMethod = c("rcf", "ls", "intercept", "width", "limits"),
+                             truthMethod = c("actual", "maxSample")) {
+  require(ggplot2)
+  debiasMethod = match.arg(debiasMethod)
+  truthMethod  = match.arg(truthMethod)
+  useMaxSample = truthMethod == "maxSample"
+
+  methodTag    = switch(debiasMethod, rcf="Std", ls="", intercept="Int", width="Width", limits="Limits")
+  truthTag     = if(useMaxSample) "MaxSamp" else ""
+  methodFolder = paste0(switch(debiasMethod, rcf="rcfStd", ls="rcf", intercept="rcfInt",
+                                width="rcfWidth", limits="rcfLimits"),
+                        if(useMaxSample) "Proxy" else "")
+
+  rcfFile = paste0("savedOutput/simStudy/rcfScores", methodTag, truthTag, "_", adaptScen, ".RData")
+  if(!file.exists(rcfFile)) {
+    stop("RCF scores not found at ", rcfFile, "; run runRCF(debiasMethod=\"", debiasMethod,
+         "\", truthMethod=\"", truthMethod, "\") first")
+  }
+  load(rcfFile)
+
+  modCols = c(Seismic="grey", SPDE="turquoise1", SPDEK="blue", Diggle="purple",
+              SeqWatson="maroon2", SPDED="seagreen")
+  if(!includeSeismic) excludeModels = union(excludeModels, "Seismic")
+  modCols   = modCols[!(names(modCols) %in% excludeModels)]
+  rcfScores = rcfScores[!(rcfScores$Model %in% excludeModels), ]
+
+  tabSeismic = rcfScores[rcfScores$Model == "Seismic", ]
+  tab        = rcfScores[rcfScores$Model != "Seismic", ]
+
+  # filter to the requested case
+  subTab = tab[tab$n == n_val & tab$phi == phi_val & tab$repelAreaProp == repelAreaProp_val, ]
+  if(nrow(subTab) == 0) {
+    stop(sprintf("No rows found for n=%s, phi=%s, repelAreaProp=%s", n_val, phi_val, repelAreaProp_val))
+  }
+
+  # add seismic rows with the fixed case values so it appears alongside models
+  if(nrow(tabSeismic) > 0) {
+    if(useMaxSample) {
+      seisRows = tabSeismic[tabSeismic$phi == phi_val & tabSeismic$repelAreaProp == repelAreaProp_val, ]
+    } else {
+      seisRows = tabSeismic
+    }
+    if(nrow(seisRows) > 0) {
+      seisRows$n             = n_val
+      seisRows$phi           = phi_val
+      seisRows$repelAreaProp = repelAreaProp_val
+      subTab = rbind(subTab, seisRows)
+    }
+  }
+
+  # scores and display labels for the four panels
+  scoreCols   = c("Bias", "MSE", "Coverage95", "IntervalScore95")
+  scoreLabels = c("Bias", "MSE", "95% Coverage", "95% Interval Score")
+  names(scoreLabels) = scoreCols
+
+  # keep only columns needed, reshape to long format
+  keepCols = c("Model", "repI", scoreCols)
+  keepCols = keepCols[keepCols %in% names(subTab)]
+  longTab  = reshape(subTab[, keepCols], varying=scoreCols, v.names="value",
+                     timevar="score", times=scoreCols, direction="long")
+  longTab$scoreLabel = factor(scoreLabels[longTab$score], levels=scoreLabels)
+  longTab$value      = as.numeric(longTab$value)
+  longTab            = longTab[!is.na(longTab$value), ]
+
+  presentModels = intersect(names(modCols), as.character(longTab$Model))
+  thisModCols   = modCols[presentModels]
+  longTab$Model = factor(longTab$Model, levels=names(thisModCols))
+
+  mean_se = function(x) {
+    x = na.omit(x)
+    if(length(x) == 0) return(c(y=NA, ymin=NA, ymax=NA))
+    m  = mean(x)
+    se = sd(x) / sqrt(length(x))
+    c(y=m, ymin=m - qnorm(.975)*se, ymax=m + qnorm(.975)*se)
+  }
+
+  makePanel = function(sc, lab) {
+    d = longTab[longTab$score == sc, ]
+    isCoverage = grepl("Coverage", sc)
+    p = ggplot(d, aes(x=Model, y=value, fill=Model))
+    if(!isCoverage) {
+      p = p + geom_violin(trim=TRUE, scale="width", width=0.7)
+    }
+    p = p +
+      stat_summary(fun.data=mean_se, geom="errorbar", width=0.4, color="black") +
+      stat_summary(fun=mean, geom="point", shape=21, size=2, color="black",
+                   aes(fill=Model)) +
+      scale_fill_manual(values=thisModCols) +
+      labs(title=lab, x=NULL, y=NULL, fill="Model") +
+      theme_minimal() +
+      theme(axis.text.x  = element_blank(),
+            axis.ticks.x = element_blank(),
+            legend.position = "none",
+            plot.title = element_text(size=11, hjust=0.5))
+    if(isCoverage) {
+      p = p + geom_hline(yintercept=0.95, color="darkgrey", linetype="dashed")
+    }
+    if(sc %in% c("MSE", "IntervalScore95")) {
+      p = p + scale_y_log10()
+    }
+    p
+  }
+
+  panels = mapply(makePanel, scoreCols, scoreLabels, SIMPLIFY=FALSE)
+
+  require(patchwork)
+  combined = (panels[[1]] | panels[[2]] | panels[[3]] | panels[[4]]) +
+    plot_layout(guides="collect") &
+    theme(legend.position="bottom")
+  combined = combined +
+    plot_annotation(title=sprintf("n=%s, phi=%s, repelAreaProp=%s", n_val, phi_val, repelAreaProp_val))
+
+  outDir = file.path("figures/simStudy", adaptScen, methodFolder, "caseDetail")
+  dir.create(outDir, recursive=TRUE, showWarnings=FALSE)
+  fname = file.path(outDir, sprintf("caseDetail_n%s_phi%s_repA%s.pdf",
+                                    n_val, phi_val, repelAreaProp_val))
+  pdf(fname, width=10, height=5)
+  print(combined)
+  dev.off()
+  message("Saved: ", fname)
+  invisible(combined)
 }
 
 # get scores from seismic data
