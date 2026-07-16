@@ -2118,7 +2118,6 @@ showRCFCaseDetail = function(n_val = 20, phi_val = 2, repelAreaProp_val = 0.005,
       theme_minimal() +
       theme(axis.text.x  = element_blank(),
             axis.ticks.x = element_blank(),
-            legend.position = "none",
             plot.title = element_text(size=11, hjust=0.5))
     if(isCoverage) {
       p = p + geom_hline(yintercept=0.95, color="darkgrey", linetype="dashed")
@@ -2132,8 +2131,7 @@ showRCFCaseDetail = function(n_val = 20, phi_val = 2, repelAreaProp_val = 0.005,
   panels = mapply(makePanel, scoreCols, scoreLabels, SIMPLIFY=FALSE)
 
   require(patchwork)
-  combined = wrap_plots(panels, nrow=1, guides="collect") &
-    theme(legend.position="right")
+  combined = wrap_plots(panels, nrow=1) + plot_layout(guides="collect")
 
   outDir = file.path("figures/simStudy", adaptScen, methodFolder, "caseDetail")
   dir.create(outDir, recursive=TRUE, showWarnings=FALSE)
