@@ -2112,7 +2112,7 @@ showRCFCaseDetail = function(n_val = 20, phi_val = 2, repelAreaProp_val = 0.005,
     p = p +
       stat_summary(fun.data=mean_se, geom="errorbar", width=0.4, color="black") +
       stat_summary(fun=mean, geom="point", shape=21, size=2, color="black",
-                   aes(fill=Model)) +
+                   aes(fill=Model), show.legend=FALSE) +
       scale_fill_manual(values=thisModCols) +
       labs(title=lab, x=NULL, y=NULL, fill="Model") +
       theme_minimal() +
@@ -2132,8 +2132,7 @@ showRCFCaseDetail = function(n_val = 20, phi_val = 2, repelAreaProp_val = 0.005,
   panels = mapply(makePanel, scoreCols, scoreLabels, SIMPLIFY=FALSE)
 
   require(patchwork)
-  combined = (panels[[1]] | panels[[2]] | panels[[3]] | panels[[4]]) +
-    plot_layout(guides="collect") &
+  combined = wrap_plots(panels, nrow=1, guides="collect") &
     theme(legend.position="right")
 
   outDir = file.path("figures/simStudy", adaptScen, methodFolder, "caseDetail")
